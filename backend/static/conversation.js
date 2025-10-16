@@ -1574,49 +1574,93 @@ window.addEventListener('beforeunload', () => {
 
 // End conversation: stop streaming, download transcript, clear session (guard if element missing)
 if (endConversationBtn) endConversationBtn.addEventListener('click', async () => {
-  try {
-    // Stop any active streaming or audio
-    if (isStreamingMode || isStartingStreaming) {
-      try { stopStreamingMode(); } catch (_) {}
-    }
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio = null;
-    }
-
-    const sessionId = currentSessionId || getOrCreateSessionId();
-    updateStatus('Preparing transcript...');
-
-    // Trigger transcript download
-    const url = `/api/v1/conversation/transcript/download/${encodeURIComponent(sessionId)}`;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `medical_transcript_${sessionId}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-
-    // Clear session on server and close DB session (best-effort)
+  if (confirm('Are you sure you want to end the conversation? You will be redirected to a thank you page where you can download your transcript.')) {
     try {
-      const formData = new FormData();
-      formData.append('session_id', sessionId);
-      if (window.consultationId) formData.append('consultation_id', window.consultationId);
-      if (typeof currentSessionDbId !== 'undefined' && currentSessionDbId !== null) {
-        formData.append('session_db_id', String(currentSessionDbId));
+      // Stop any active streaming or audio
+      if (isStreamingMode || isStartingStreaming) {
+        try { stopStreamingMode(); } catch (_) {}
       }
-      const resp = await fetch('/api/v1/conversation/clear-session', { method: 'POST', body: formData });
-      console.log('Clear-session response status:', resp.status);
-    } catch (e) {
-      console.warn('Failed to clear session on server', e);
-    }
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+      }
 
-    // Clear local session
-    clearCurrentSession();
-    addMessage('system', 'Conversation ended. Transcript downloaded. Start a new session when ready.');
-    updateStatus('✅ Session ended');
-  } catch (error) {
-    console.error('End conversation error:', error);
-    addMessage('system', 'Failed to end conversation: ' + (error?.message || error));
-    updateStatus('❌ Failed to end');
+      const sessionId = currentSessionId || getOrCreateSessionId();
+      updateStatus('Preparing transcript...');
+
+      // End the session in the database first
+      try {
+        const token = localStorage.getItem('access_token');
+        const headers = {
+          'Content-Type': 'application/json',
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch('/api/v1/conversation/end-session', {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({
+            session_db_id: currentSessionDbId,
+            consultation_id: window.consultationId
+          })
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log('Session ended successfully:', result);
+        }
+      } catch (e) {
+        console.warn('Failed to end session in database:', e);
+      }
+
+      // Note: Transcript download is now handled on the thank you page
+      console.log('Transcript will be available for download on the thank you page');
+
+      // Clear session on server and close DB session (best-effort)
+      try {
+        const formData = new FormData();
+        formData.append('session_id', sessionId);
+        if (window.consultationId) formData.append('consultation_id', window.consultationId);
+        if (typeof currentSessionDbId !== 'undefined' && currentSessionDbId !== null) {
+          formData.append('session_db_id', String(currentSessionDbId));
+        }
+        const resp = await fetch('/api/v1/conversation/clear-session', { method: 'POST', body: formData });
+        console.log('Clear-session response status:', resp.status);
+      } catch (e) {
+        console.warn('Failed to clear session on server', e);
+      }
+
+      // Clear local session
+      clearCurrentSession();
+      addMessage('system', 'Conversation ended. Redirecting to thank you page...');
+      updateStatus('✅ Session ended');
+
+      // Calculate session duration
+      const sessionStartTime = window.sessionStartTime || Date.now() - 60000; // Fallback to 1 minute if not tracked
+      const duration = Math.floor((Date.now() - sessionStartTime) / 1000);
+      const minutes = Math.floor(duration / 60);
+      const seconds = duration % 60;
+      const durationText = `${minutes}m ${seconds}s`;
+
+      // Redirect to thank you page with session details
+      const thankYouUrl = new URL('/api/v1/thank-you', window.location.origin);
+      thankYouUrl.searchParams.set('consultation_id', window.consultationId || '');
+      thankYouUrl.searchParams.set('session_id', sessionId || '');
+      thankYouUrl.searchParams.set('duration', durationText);
+      
+      console.log('Redirecting to:', thankYouUrl.toString());
+
+      // Small delay to show the success message
+      setTimeout(() => {
+        window.location.href = thankYouUrl.toString();
+      }, 2000);
+
+    } catch (error) {
+      console.error('End conversation error:', error);
+      addMessage('system', 'Failed to end conversation: ' + (error?.message || error));
+      updateStatus('❌ Failed to end');
+    }
   }
 });

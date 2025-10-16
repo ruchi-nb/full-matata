@@ -342,7 +342,7 @@ Session Information:
     }
     
     async endConversation() {
-        if (confirm('Are you sure you want to end the conversation and download the transcript?')) {
+        if (confirm('Are you sure you want to end the conversation? You will be redirected to a thank you page where you can download your transcript.')) {
             try {
                 // Stop all recording
                 if (this.isRecording) {
@@ -353,10 +353,10 @@ Session Information:
                 }
                 
                 // End the session in the database
-                await this.endSessionInDatabase();
+                const sessionResult = await this.endSessionInDatabase();
                 
-                // Download transcript
-                this.downloadTranscript();
+                // Note: Transcript download is now handled on the thank you page
+                console.log('Transcript will be available for download on the thank you page');
                 
                 // Log final analytics
                 this.logAnalytics('conversation_end', {
@@ -367,7 +367,26 @@ Session Information:
                     errors: this.analytics.errors
                 });
                 
-                this.updateStatus('Session ended successfully');
+                this.updateStatus('Session ended successfully. Redirecting to thank you page...');
+                
+                // Redirect to thank you page with session details
+                const duration = Math.floor((Date.now() - this.analytics.startTime) / 1000);
+                const minutes = Math.floor(duration / 60);
+                const seconds = duration % 60;
+                const durationText = `${minutes}m ${seconds}s`;
+                
+                const thankYouUrl = new URL('/api/v1/thank-you', window.location.origin);
+                thankYouUrl.searchParams.set('consultation_id', this.consultationId || '');
+                thankYouUrl.searchParams.set('session_id', sessionResult?.session_id || window.currentSessionId || '');
+                thankYouUrl.searchParams.set('duration', durationText);
+                
+                console.log('Enhanced conversation redirecting to:', thankYouUrl.toString());
+                
+                // Small delay to show the success message
+                setTimeout(() => {
+                    window.location.href = thankYouUrl.toString();
+                }, 1000);
+                
             } catch (error) {
                 console.error('Error ending conversation:', error);
                 alert('Error ending session: ' + error.message);
@@ -408,30 +427,67 @@ Session Information:
         }
     }
     
-    downloadTranscript() {
-        const chatMessages = document.getElementById('chatMessages');
-        if (!chatMessages) return;
-        
-        const messages = chatMessages.querySelectorAll('.message');
-        let transcript = `Consultation Transcript - ${new Date().toLocaleString()}\n\n`;
-        
-        messages.forEach(message => {
-            const sender = message.classList.contains('user') ? 'Patient' : 'Doctor';
-            const content = message.querySelector('p').textContent;
-            const time = message.querySelector('small').textContent;
-            transcript += `[${time}] ${sender}: ${content}\n\n`;
-        });
-        
-        // Create and download file
-        const blob = new Blob([transcript], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `consultation_${this.consultationId || 'session'}_${Date.now()}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    async downloadTranscript() {
+        try {
+            // First try to download from server if we have a session ID
+            const sessionId = window.currentSessionId || window.currentSessionDbId;
+            if (sessionId) {
+                const token = localStorage.getItem('access_token');
+                if (token) {
+                    try {
+                        const response = await fetch(`/api/v1/conversation/transcript/download/${sessionId}`, {
+                            method: 'GET',
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `consultation_transcript_${this.consultationId || 'session'}_${new Date().toISOString().split('T')[0]}.txt`;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                            return; // Success, exit early
+                        }
+                    } catch (error) {
+                        console.warn('Server transcript download failed, falling back to local:', error);
+                    }
+                }
+            }
+            
+            // Fallback to local transcript generation
+            const chatMessages = document.getElementById('chatMessages');
+            if (!chatMessages) return;
+            
+            const messages = chatMessages.querySelectorAll('.message');
+            let transcript = `Consultation Transcript - ${new Date().toLocaleString()}\n\n`;
+            
+            messages.forEach(message => {
+                const sender = message.classList.contains('user') ? 'Patient' : 'Doctor';
+                const content = message.querySelector('p').textContent;
+                const time = message.querySelector('small').textContent;
+                transcript += `[${time}] ${sender}: ${content}\n\n`;
+            });
+            
+            // Create and download file
+            const blob = new Blob([transcript], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `consultation_${this.consultationId || 'session'}_${Date.now()}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error downloading transcript:', error);
+            throw error;
+        }
     }
     
     updateStatus(message) {

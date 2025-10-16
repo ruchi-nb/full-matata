@@ -4,7 +4,8 @@ import "./globals.css";
 import "./landing.css";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { UserProvider } from "@/data/UserContext";
-import ErrorBoundary from "@/components/common/ErrorBoundary"; 
+import ErrorBoundary from "@/components/common/ErrorBoundary";
+import EnvDebug from "@/components/EnvDebug"; 
 
 const comfortaa = Comfortaa({
   variable: "--font-comfortaa",
@@ -38,6 +39,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   
+  // Debug environment variable
+  console.log('🔍 NEXT_PUBLIC_GOOGLE_CLIENT_ID:', googleClientId);
+  
   // Always render with GoogleOAuthProvider, but use a dummy client ID if not configured
   const clientId = googleClientId && googleClientId !== 'your_google_client_id_here' 
     ? googleClientId 
@@ -55,6 +59,7 @@ export default function RootLayout({ children }) {
             </UserProvider>
           </ErrorBoundary>
         </GoogleOAuthProvider>
+        <EnvDebug />
       </body>
     </html>
   );

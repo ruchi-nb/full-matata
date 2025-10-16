@@ -4,6 +4,7 @@ import sys
 import io
 
 from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 import time
 import logging
@@ -157,6 +158,17 @@ app.include_router(rag_router, prefix="/api/v1", tags=["RAG"])
 app.include_router(patients_router.router)
 app.include_router(auth_router.router)
 app.include_router(hospital_router.router)
+
+# Add direct thank you route for testing
+@app.get("/thank-you", response_class=HTMLResponse)
+async def thank_you_page_direct():
+    """Direct thank you page route"""
+    try:
+        with open("templates/thank_you.html", "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    except Exception as e:
+        logger.error(f"Error serving thank you page: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 app.include_router(doctors_router.router)
 app.include_router(search_router.router)
 app.include_router(superadmin_router.router)

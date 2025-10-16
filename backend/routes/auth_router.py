@@ -3,14 +3,19 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.database import get_db
 from dependencies.dependencies import AccessTokenBearer, RefreshTokenBearer, get_current_user
-from service.auth_service import revoke_jti, refresh_token_pair, authenticate_user
+from service.auth_service import revoke_jti, refresh_token_pair, authenticate_user, authenticate_google_user
 from utils.utils import decode_token
 from centralisedErrorHandling.ErrorHandling import AuthenticationError, DatabaseError
 from schema.schema import LoginIn, TokenOut
+from pydantic import BaseModel
 import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["auth"])
+
+
+class GoogleAuthIn(BaseModel):
+    credential: str
 
 
 @router.post("/auth/login", response_model=TokenOut, status_code=status.HTTP_200_OK)
@@ -104,3 +109,23 @@ async def get_current_user_info(token_data: dict = Depends(AccessTokenBearer()),
     except Exception as e:
         logger.exception("Get user info failed")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get user info")
+
+
+@router.post("/auth/google", response_model=TokenOut, status_code=status.HTTP_200_OK)
+async def google_auth(payload: GoogleAuthIn, db: AsyncSession = Depends(get_db)):
+    """
+    Authenticate user with Google OAuth credential, return access and refresh tokens.
+    """
+    try:
+        access_token, refresh_token, expires_in = await authenticate_google_user(
+            db=db, google_token=payload.credential
+        )
+        return TokenOut(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_in=expires_in
+        )
+    except AuthenticationError as ae:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(ae))
+    except DatabaseError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Google authentication failed")

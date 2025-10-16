@@ -868,14 +868,55 @@ async def end_session(
         session_db_id = request.get("session_db_id")
         consultation_id = request.get("consultation_id")
         
-        if not session_db_id:
-            raise HTTPException(status_code=400, detail="session_db_id is required")
+        # If session_db_id is not provided, try to find the active session for this consultation
+        if not session_db_id and consultation_id:
+            try:
+                from models.models import ConsultationSession
+                from sqlalchemy import select
+                
+                # Find the active session for this consultation
+                query = select(ConsultationSession).where(
+                    ConsultationSession.consultation_id == int(consultation_id),
+                    ConsultationSession.status == "active"
+                )
+                result = await db.execute(query)
+                active_session = result.scalar_one_or_none()
+                
+                if active_session:
+                    session_db_id = active_session.session_id
+                    logger.info(f"Found active session {session_db_id} for consultation {consultation_id}")
+                else:
+                    logger.warning(f"No active session found for consultation {consultation_id}")
+                    return {
+                        "status": "success", 
+                        "message": "No active session to end",
+                        "session_id": None,
+                        "consultation_id": consultation_id
+                    }
+            except Exception as e:
+                logger.error(f"Error finding active session for consultation {consultation_id}: {e}")
+                return {
+                    "status": "success", 
+                    "message": "Session ended (no active session found)",
+                    "session_id": None,
+                    "consultation_id": consultation_id
+                }
+        elif not session_db_id:
+            logger.warning("No session_db_id provided and no consultation_id to search")
+            return {
+                "status": "success", 
+                "message": "Session ended (no session to close)",
+                "session_id": None,
+                "consultation_id": consultation_id
+            }
         
         # Close the session using the existing service function
-        from service.consultation_service import close_session
-        await close_session(db, session_id=int(session_db_id), status="completed")
-        
-        logger.info(f"Successfully ended session {session_db_id} for consultation {consultation_id}")
+        if session_db_id:
+            from service.consultation_service import close_session
+            await close_session(db, session_id=int(session_db_id), status="completed")
+            logger.info(f"Successfully ended session {session_db_id} for consultation {consultation_id}")
+        else:
+            logger.info(f"Session ended for consultation {consultation_id} (no session to close)")
         
         return {
             "status": "success", 
@@ -967,6 +1008,43 @@ async def conversation_page():
             return HTMLResponse(content=f.read())
     except Exception as e:
         logger.error(f"Error serving conversation page: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/thank-you-test")
+async def thank_you_test():
+    """Test route to verify the router is working"""
+    return {"message": "Thank you route is working", "status": "success"}
+
+@router.get("/thank-you-debug")
+async def thank_you_debug():
+    """Debug route to check what's happening"""
+    import os
+    file_path = os.path.join(os.getcwd(), "templates", "thank_you.html")
+    return {
+        "message": "Debug info",
+        "current_dir": os.getcwd(),
+        "file_path": file_path,
+        "file_exists": os.path.exists(file_path),
+        "templates_dir": os.path.exists("templates"),
+        "thank_you_exists": os.path.exists("templates/thank_you.html")
+    }
+
+@router.get("/thank-you", response_class=HTMLResponse)
+async def thank_you_page():
+    """Serve the thank you page after consultation completion"""
+    try:
+        import os
+        file_path = os.path.join(os.getcwd(), "templates", "thank_you.html")
+        logger.info(f"Looking for thank you page at: {file_path}")
+        logger.info(f"File exists: {os.path.exists(file_path)}")
+        
+        with open("templates/thank_you.html", "r", encoding="utf-8") as f:
+            content = f.read()
+            logger.info(f"Successfully read thank you page, content length: {len(content)}")
+            return HTMLResponse(content=content)
+    except Exception as e:
+        logger.error(f"Error serving thank you page: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
