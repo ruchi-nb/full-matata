@@ -36,12 +36,19 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  
+  // Always render with GoogleOAuthProvider, but use a dummy client ID if not configured
+  const clientId = googleClientId && googleClientId !== 'your_google_client_id_here' 
+    ? googleClientId 
+    : 'dummy-client-id-for-development';
+  
   return (
     <html lang="en">
       <body
         className={`${comfortaa.variable} ${playfair.variable} ${jetbrainsMono.variable} ${poppins.variable} antialiased`}
       >
-        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
+        <GoogleOAuthProvider clientId={clientId}>
           <ErrorBoundary>
             <UserProvider>
               {children}

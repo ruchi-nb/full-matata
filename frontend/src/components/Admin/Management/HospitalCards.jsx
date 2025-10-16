@@ -17,7 +17,7 @@ export default function HospitalCards() {
   // Search and pagination state
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(6); // Default to 6 items per page
+  const [pageSize, setPageSize] = useState(3); // Default to 3 items per page
 
   // Load hospitals on component mount
   useEffect(() => {

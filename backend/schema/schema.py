@@ -6,7 +6,8 @@ from enum import Enum
 import re 
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9._-]{3,50}$")
-INDIA_PHONE_RE = re.compile(r"^(?:\+91|91)?[6-9]\d{9}$")
+# Updated regex to be more lenient - accepts any 10-digit number starting with 6-9
+INDIA_PHONE_RE = re.compile(r"^[6-9]\d{9}$")
 
 #----------------Enum----------------#
 class service_type_enum(str, Enum):
@@ -608,23 +609,39 @@ class UserLoginModel(BaseModel):
 def normalised_indian_mobile_number(raw: str) -> str:
     """Normalize Indian mobile number to +91 format.
     
+    Automatically adds +91 prefix to any valid 10-digit Indian mobile number.
+    
     Args:
         raw: Raw phone number string
         
     Returns:
         Normalized phone number with +91 prefix
     """
+    if not raw:
+        return raw
+    
     # Remove all non-digit characters
-    digits = re.sub(r"\D", "", raw or "")
+    digits = re.sub(r"\D", "", str(raw).strip())
+    
     # Remove leading zero if present
     if digits.startswith("0"):
         digits = digits[1:]
-    # Add +91 prefix for 10-digit numbers
-    if len(digits) == 10:
+    
+    # Handle different formats
+    if len(digits) == 10 and digits[0] in "6789":
+        # Valid 10-digit number - add +91 prefix
         return "+91" + digits
-    # Format 12-digit numbers starting with 91
-    if len(digits) == 12 and digits.startswith("91"):
+    elif len(digits) == 12 and digits.startswith("91") and digits[2] in "6789":
+        # 12-digit number starting with 91 - add + prefix
         return "+" + digits
+    elif len(digits) == 13 and digits.startswith("91") and digits[2] in "6789":
+        # 13-digit number starting with 91 - add + prefix
+        return "+" + digits
+    elif len(digits) == 11 and digits.startswith("91") and digits[2] in "6789":
+        # 11-digit number starting with 91 - add + prefix
+        return "+" + digits
+    
+    # If we can't normalize, return the original (validation will catch invalid ones)
     return raw
 
 
@@ -644,11 +661,26 @@ class UserDetailsBase(BaseSchema):
             return v
         if not isinstance(v, str):
             raise ValueError("phone must be a string")
-        if not INDIA_PHONE_RE.match(v):
+        
+        # Normalize the phone number first (remove spaces, etc.)
+        normalized = normalised_indian_mobile_number(v)
+        
+        # Extract just the 10 digits for validation (remove +91 prefix)
+        if normalized.startswith("+91"):
+            digits_only = normalized[3:]  # Remove +91
+        elif normalized.startswith("91"):
+            digits_only = normalized[2:]  # Remove 91
+        else:
+            digits_only = normalized
+        
+        # Validate the 10-digit number
+        if not INDIA_PHONE_RE.match(digits_only):
             raise ValueError(
-                "Invalid Indian phone number. Accepts 10 digits starting 6-9, or prefixed with 91 or +91."
+                "Invalid Indian phone number. Must be 10 digits starting with 6, 7, 8, or 9."
             )
-        return normalised_indian_mobile_number(v)
+        
+        # Always return with +91 prefix
+        return "+91" + digits_only
 
 
 class UserDetailsCreate(UserDetailsBase):

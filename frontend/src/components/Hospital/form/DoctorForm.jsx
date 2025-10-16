@@ -1,10 +1,4 @@
-'use client';
-import React, { useMemo, useState, useContext, useEffect } from "react";
-import { User, FileText, Save, Key, X, RefreshCw } from "lucide-react";
-import { createHospitalUser, getHospitalRoles } from '@/data/api-hospital-admin';
-import { createUserForHospital } from '@/data/api-superadmin';
-import { useUser } from '@/data/UserContext';
-import { LifeLine } from 'react-loading-indicators';
+import { normalizePhoneNumber } from "@/utils/phoneUtils";
 
 // Mock context for hospital ID (you might have this in your app)
 const HospitalContext = React.createContext();
@@ -258,7 +252,7 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
         first_name: form.firstName,
         last_name: form.lastName,
         email: form.email,
-        phone: form.phone || undefined,
+        phone: normalizePhoneNumber(form.phone) || undefined,
         role_name: form.role,
         username: username,
         password: form.password,
@@ -434,7 +428,7 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
             </label>
             <input
               type="tel"
-              placeholder="+91 98765 43210"
+              placeholder="Enter 10-digit mobile number (e.g., 9876543210)"
               value={form.phone}
               onChange={onChange("phone")}
               disabled={loading}

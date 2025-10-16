@@ -6,6 +6,7 @@ import { useUser } from "@/data/UserContext";
 import { useRouter } from "next/navigation";
 import LoginPopup from "@/components/Landing/LoginPopUp";
 import { Eye, EyeOff, User, Mail, Lock, Phone, AlertCircle, CheckCircle } from "lucide-react";
+import { normalizePhoneNumber } from "@/utils/phoneUtils";
 
 export default function RegisterModal({ open, onClose, onLogin }) {
   const router = useRouter();
@@ -168,7 +169,7 @@ export default function RegisterModal({ open, onClose, onLogin }) {
         password: formData.password,
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
-        phone: formData.phone.trim() || null,
+        phone: normalizePhoneNumber(formData.phone.trim()) || null,
         hospital_id: formData.hospital_id || null
       };
 
@@ -378,7 +379,7 @@ export default function RegisterModal({ open, onClose, onLogin }) {
                   className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     validationErrors.phone ? 'border-red-300' : 'border-gray-300'
                   }`}
-                  placeholder="+1 (555) 123-4567"
+                  placeholder="Enter 10-digit mobile number (e.g., 9876543210)"
                   disabled={loading}
                 />
               </div>
