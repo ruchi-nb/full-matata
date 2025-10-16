@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Analytics Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-top: 15px;
+        }
+
+        select, button {
+            padding: 10px 20px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: white;
+            color: #667eea;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+        }
+
+        button:hover {
+            background: #5568d3;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .metric-label {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+
+        .chart-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .chart-card h3 {
+            margin-bottom: 20px;
+            color: #1f2937;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            background: white;
+            border-radius: 12px;
+            color: #6b7280;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 API Analytics Dashboard</h1>
+            <p>Real-time monitoring of OpenAI, Deepgram, and Sarvam APIs</p>
+            
+            <div class="controls">
+                <select id="timeRange">
+                    <option value="1">Last Hour</option>
+                    <option value="6">Last 6 Hours</option>
+                    <option value="24" selected>Last 24 Hours</option>
+                    <option value="168">Last 7 Days</option>
+                </select>
+                <button onclick="loadData()">🔄 Refresh</button>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">
+            <h3>Loading analytics...</h3>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="content" style="display: none;">
+            <div class="metrics-grid" id="metrics"></div>
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>💰 Cost by Service</h3>
+                    <div class="chart-container">
+                        <canvas id="costChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>⚡ Latency by Service</h3>
+                    <div class="chart-container">
+                        <canvas id="latencyChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>📊 Request Count</h3>
+                    <div class="chart-container">
+                        <canvas id="requestChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>✅ Success Rate</h3>
+                    <div class="chart-container">
+                        <canvas id="successChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let charts = {};
+
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Page loaded');
+            console.log('Chart.js available:', typeof Chart !== 'undefined');
+            if (typeof Chart !== 'undefined') {
+                console.log('Chart.js version:', Chart.version);
+            }
+            loadData();
+        });
+
+        async function loadData() {
+            const hours = document.getElementById('timeRange').value;
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const content = document.getElementById('content');
+
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            content.style.display = 'none';
+
+            try {
+                const response = await fetch(`/api/v1/analytics/comprehensive?hours=${hours}`);
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('Data received:', data);
+
+                if (data.status === 'success') {
+                    displayData(data.data);
+                    loading.style.display = 'none';
+                    content.style.display = 'block';
+                } else {
+                    throw new Error(data.detail || 'Unknown error');
+                }
+            } catch (err) {
+                console.error('Error:', err);
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.innerHTML = `<strong>Error loading analytics:</strong><br>${err.message}<br><br>Check console (F12) for details.`;
+            }
+        }
+
+        function displayData(data) {
+            console.log('=== DISPLAYING DATA ===');
+            console.log('Full data object:', data);
+            
+            try {
+                // Display metrics
+                console.log('Summary data:', data.summary);
+                displayMetrics(data.summary || {});
+                
+                // Create charts
+                const apiData = data.api_breakdown || [];
+                console.log('API breakdown array:', apiData);
+                console.log('API breakdown length:', apiData.length);
+                
+                if (apiData.length === 0) {
+                    console.warn('⚠️ No API data available - using placeholder');
+                    apiData.push({
+                        api_type: 'No Data',
+                        cost_usd: 0,
+                        request_count: 0,
+                        avg_latency_ms: 0,
+                        avg_accuracy: 0
+                    });
+                } else {
+                    console.log('✅ Found API data:', apiData.length, 'items');
+                }
+
+                console.log('\n--- Creating Charts ---');
+                createCostChart(apiData);
+                createLatencyChart(apiData);
+                createRequestChart(apiData);
+                createSuccessChart(apiData);
+                console.log('=== ALL CHARTS CREATED ===');
+                
+            } catch (err) {
+                console.error('❌ Error in displayData:', err);
+                console.error('Stack trace:', err.stack);
+            }
+        }
+
+        function displayMetrics(summary) {
+            console.log('Displaying metrics with summary:', summary);
+            const container = document.getElementById('metrics');
+            
+            if (!container) {
+                console.error('Metrics container not found!');
+                return;
+            }
+
+            try {
+                const totalRequests = summary.total_requests || 0;
+                const totalCost = summary.total_cost_usd || 0;
+                const avgLatency = summary.avg_latency_ms || 0;
+                const accuracy = summary.avg_accuracy || 0;
+                
+                console.log('Metrics values:', { totalRequests, totalCost, avgLatency, accuracy });
+
+                container.innerHTML = `
+                    <div class="metric-card">
+                        <div class="metric-label">Total Requests</div>
+                        <div class="metric-value">${totalRequests.toLocaleString()}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Total Cost (USD)</div>
+                        <div class="metric-value">$${totalCost.toFixed(2)}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Avg Latency</div>
+                        <div class="metric-value">${Math.round(avgLatency)}ms</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Success Rate</div>
+                        <div class="metric-value">${accuracy.toFixed(1)}%</div>
+                    </div>
+                `;
+                console.log('✅ Metrics displayed successfully');
+            } catch (err) {
+                console.error('Error displaying metrics:', err);
+            }
+        }
+
+        function createCostChart(data) {
+            console.log('Creating cost chart with data:', data);
+            const canvas = document.getElementById('costChart');
+            if (!canvas) {
+                console.error('Cost chart canvas not found!');
+                return;
+            }
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error('Could not get 2d context!');
+                return;
+            }
+
+            if (charts.cost) {
+                console.log('Destroying old cost chart');
+                charts.cost.destroy();
+            }
+
+            try {
+                const labels = data.map(d => d.api_type || 'Unknown');
+                const values = data.map(d => d.cost_usd || 0);
+                
+                console.log('Cost chart labels:', labels);
+                console.log('Cost chart values:', values);
+
+                charts.cost = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: values,
+                            backgroundColor: [
+                                '#667eea',
+                                '#764ba2',
+                                '#f093fb',
+                                '#4facfe',
+                                '#43e97b',
+                                '#fa709a',
+                                '#fee140'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+                console.log('Cost chart created successfully');
+            } catch (err) {
+                console.error('Error creating cost chart:', err);
+            }
+        }
+
+        function createLatencyChart(data) {
+            console.log('Creating latency chart with data:', data);
+            const canvas = document.getElementById('latencyChart');
+            if (!canvas) {
+                console.error('Latency chart canvas not found!');
+                return;
+            }
+
+            const ctx = canvas.getContext('2d');
+            if (charts.latency) charts.latency.destroy();
+
+            try {
+                const labels = data.map(d => d.api_type || 'Unknown');
+                const values = data.map(d => d.avg_latency_ms || d.avg_response_time || 0);
+                
+                console.log('Latency labels:', labels);
+                console.log('Latency values:', values);
+
+                charts.latency = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Latency (ms)',
+                            data: values,
+                            backgroundColor: '#667eea'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+                console.log('Latency chart created successfully');
+            } catch (err) {
+                console.error('Error creating latency chart:', err);
+            }
+        }
+
+        function createRequestChart(data) {
+            console.log('Creating request chart with data:', data);
+            const canvas = document.getElementById('requestChart');
+            if (!canvas) {
+                console.error('Request chart canvas not found!');
+                return;
+            }
+
+            const ctx = canvas.getContext('2d');
+            if (charts.request) charts.request.destroy();
+
+            try {
+                const labels = data.map(d => d.api_type || 'Unknown');
+                const values = data.map(d => d.request_count || d.call_count || 0);
+                
+                console.log('Request labels:', labels);
+                console.log('Request values:', values);
+
+                charts.request = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Requests',
+                            data: values,
+                            backgroundColor: '#764ba2'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+                console.log('Request chart created successfully');
+            } catch (err) {
+                console.error('Error creating request chart:', err);
+            }
+        }
+
+        function createSuccessChart(data) {
+            console.log('Creating success chart with data:', data);
+            const canvas = document.getElementById('successChart');
+            if (!canvas) {
+                console.error('Success chart canvas not found!');
+                return;
+            }
+
+            const ctx = canvas.getContext('2d');
+            if (charts.success) charts.success.destroy();
+
+            try {
+                const labels = data.map(d => d.api_type || 'Unknown');
+                const values = data.map(d => d.avg_accuracy || 0);
+                
+                console.log('Success labels:', labels);
+                console.log('Success values:', values);
+
+                charts.success = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Success Rate (%)',
+                            data: values,
+                            backgroundColor: '#43e97b'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+                console.log('Success chart created successfully');
+            } catch (err) {
+                console.error('Error creating success chart:', err);
+            }
+        }
+    </script>
+</body>
+</html>
+

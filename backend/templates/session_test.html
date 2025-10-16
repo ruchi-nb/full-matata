@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Memory Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .response {
+            background: #f8f9fa;
+            padding: 10px;
+            border-left: 4px solid #007bff;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+        .success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        .error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 5px 0;
+        }
+        .session-info {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Session Memory Test</h1>
+        <p>This page helps you test if the AI remembers patient information across multiple messages.</p>
+        
+        <div class="test-section">
+            <h3>1. Test Messages</h3>
+            <p>Send these messages in order to test session memory:</p>
+            
+            <div>
+                <input type="text" id="messageInput" placeholder="Type your message here..." />
+                <button onclick="sendMessage()">Send Message</button>
+                <button onclick="clearSession()">Clear Session</button>
+            </div>
+            
+            <div id="responses"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>2. Session Information</h3>
+            <button onclick="getSessionInfo()">Get Session Info</button>
+            <button onclick="getConversationHistory()">Get Conversation History</button>
+            <div id="sessionInfo"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>3. Quick Test</h3>
+            <p>Click the button below to run a quick automated test:</p>
+            <button onclick="runQuickTest()">Run Quick Test</button>
+            <div id="quickTestResults"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentSessionId = `test-session-${Date.now()}`;
+        
+        function addResponse(message, isSuccess = true) {
+            const responsesDiv = document.getElementById('responses');
+            const responseDiv = document.createElement('div');
+            responseDiv.className = `response ${isSuccess ? 'success' : 'error'}`;
+            responseDiv.textContent = message;
+            responsesDiv.appendChild(responseDiv);
+            responsesDiv.scrollTop = responsesDiv.scrollHeight;
+        }
+        
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            addResponse(`You: ${message}`);
+            input.value = '';
+            
+            try {
+                const formData = new FormData();
+                formData.append('text', message);
+                formData.append('session_id', currentSessionId);
+                
+                const response = await fetch('/api/v1/conversation/text', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResponse(`Doctor: ${data.final_response}`);
+                } else {
+                    addResponse(`Error: ${response.status} - ${response.statusText}`, false);
+                }
+            } catch (error) {
+                addResponse(`Error: ${error.message}`, false);
+            }
+        }
+        
+        async function clearSession() {
+            try {
+                const formData = new FormData();
+                formData.append('session_id', currentSessionId);
+                
+                const response = await fetch('/api/v1/conversation/clear-session', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    addResponse('Session cleared successfully!');
+                    currentSessionId = `test-session-${Date.now()}`;
+                } else {
+                    addResponse('Failed to clear session', false);
+                }
+            } catch (error) {
+                addResponse(`Error clearing session: ${error.message}`, false);
+            }
+        }
+        
+        async function getSessionInfo() {
+            try {
+                const response = await fetch('/api/v1/conversation/session-info');
+                const data = await response.json();
+                
+                const sessionInfoDiv = document.getElementById('sessionInfo');
+                sessionInfoDiv.innerHTML = `
+                    <div class="session-info">
+                        <strong>Total Sessions:</strong> ${data.data.total_sessions}<br>
+                        <strong>Current Session:</strong> ${currentSessionId}<br>
+                        <strong>Active Sessions:</strong><br>
+                        ${data.data.sessions.map(s => 
+                            `- ${s.session_id}: ${s.message_count} messages, ${s.age_seconds}s old`
+                        ).join('<br>')}
+                    </div>
+                `;
+            } catch (error) {
+                addResponse(`Error getting session info: ${error.message}`, false);
+            }
+        }
+        
+        async function getConversationHistory() {
+            try {
+                const response = await fetch(`/api/v1/conversation/session-conversation/${currentSessionId}`);
+                const data = await response.json();
+                
+                const sessionInfoDiv = document.getElementById('sessionInfo');
+                sessionInfoDiv.innerHTML = `
+                    <div class="session-info">
+                        <strong>Conversation History for ${currentSessionId}:</strong><br>
+                        ${data.data.conversation.map((msg, i) => 
+                            `${i+1}. ${msg.role}: ${msg.content.substring(0, 100)}...`
+                        ).join('<br>')}
+                    </div>
+                `;
+            } catch (error) {
+                addResponse(`Error getting conversation history: ${error.message}`, false);
+            }
+        }
+        
+        async function runQuickTest() {
+            const resultsDiv = document.getElementById('quickTestResults');
+            resultsDiv.innerHTML = '<div class="response">Running quick test...</div>';
+            
+            const testMessages = [
+                "Hello doctor. My name is Devangi Barwalia and I am a 21 years old female.",
+                "I am experiencing heavy fever and light headache.",
+                "The fever started yesterday and the headache is mild."
+            ];
+            
+            let allResponses = [];
+            
+            for (let i = 0; i < testMessages.length; i++) {
+                try {
+                    const formData = new FormData();
+                    formData.append('text', testMessages[i]);
+                    formData.append('session_id', currentSessionId);
+                    
+                    const response = await fetch('/api/v1/conversation/text', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        allResponses.push(`Message ${i+1}: ${data.final_response}`);
+                    } else {
+                        allResponses.push(`Message ${i+1}: Error ${response.status}`);
+                    }
+                } catch (error) {
+                    allResponses.push(`Message ${i+1}: Error ${error.message}`);
+                }
+                
+                // Wait 1 second between messages
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            resultsDiv.innerHTML = `
+                <div class="response">
+                    <strong>Quick Test Results:</strong><br>
+                    ${allResponses.join('<br>')}
+                </div>
+            `;
+        }
+        
+        // Allow Enter key to send message
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Initialize
+        addResponse('Session Memory Test initialized. Current session: ' + currentSessionId);
+    </script>
+</body>
+</html>

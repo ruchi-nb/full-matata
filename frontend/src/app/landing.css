@@ -1,0 +1,32 @@
+.cards {
+  padding: 0;
+  margin: 0;
+  display: grid;
+}
+.cards > * {
+  grid-area: 1 / 1 / 2 / 2; /* stack all cards in same grid cell */
+}
+.card {
+  height: 70vh;
+  list-style: none;
+  clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+}
+
+@keyframes blob {
+  0%, 100% {
+    border-radius: 40% 60% 55% 45% / 60% 50% 50% 40%;
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    border-radius: 50% 50% 60% 40% / 50% 60% 40% 50%;
+    transform: translate(20px, -10px) scale(1.1);
+  }
+  66% {
+    border-radius: 60% 40% 50% 50% / 40% 50% 60% 50%;
+    transform: translate(-20px, 10px) scale(0.9);
+  }
+}
+
+.animate-blob path {
+  animation: blob 8s infinite;
+}

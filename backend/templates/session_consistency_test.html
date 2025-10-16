@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Consistency Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .response {
+            background: #f8f9fa;
+            padding: 10px;
+            border-left: 4px solid #007bff;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+        .success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        .error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        .session-info {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .log {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Session Consistency Test</h1>
+        <p>This page tests if the same session ID is used across multiple API calls.</p>
+        
+        <div class="test-section">
+            <h3>1. Session ID Management</h3>
+            <button onclick="showCurrentSession()">Show Current Session ID</button>
+            <button onclick="createNewSession()">Create New Session</button>
+            <button onclick="clearSession()">Clear Session</button>
+            <div id="sessionDisplay" class="session-info"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>2. Test Messages</h3>
+            <p>Send these messages in order to test session consistency:</p>
+            <button onclick="sendTestMessage(1)">1. Patient Introduction</button>
+            <button onclick="sendTestMessage(2)">2. Symptoms</button>
+            <button onclick="sendTestMessage(3)">3. Ask for Advice</button>
+            <button onclick="sendTestMessage(4)">4. Age-specific Question</button>
+            <div id="responses"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>3. Session Information</h3>
+            <button onclick="getSessionInfo()">Get Session Info</button>
+            <button onclick="getConversationHistory()">Get Conversation History</button>
+            <div id="sessionInfo"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>4. Console Log</h3>
+            <button onclick="clearLog()">Clear Log</button>
+            <div id="consoleLog" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentSessionId = null;
+        let messageCount = 0;
+        
+        // Test messages
+        const testMessages = [
+            "Hello doctor. My name is Devangi Barwalia and I am a 21 years old female.",
+            "I am experiencing heavy fever and light headache.",
+            "What should I do about my fever?",
+            "Is this serious for someone my age?"
+        ];
+        
+        function log(message) {
+            const logDiv = document.getElementById('consoleLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLog() {
+            document.getElementById('consoleLog').innerHTML = '';
+        }
+        
+        function getOrCreateSessionId() {
+            if (!currentSessionId) {
+                currentSessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                log(`Created new session: ${currentSessionId}`);
+            }
+            return currentSessionId;
+        }
+        
+        function showCurrentSession() {
+            const sessionId = getOrCreateSessionId();
+            document.getElementById('sessionDisplay').innerHTML = `Current Session ID: ${sessionId}`;
+            log(`Current session ID: ${sessionId}`);
+        }
+        
+        function createNewSession() {
+            currentSessionId = null;
+            const sessionId = getOrCreateSessionId();
+            document.getElementById('sessionDisplay').innerHTML = `New Session ID: ${sessionId}`;
+            log(`Created new session: ${sessionId}`);
+        }
+        
+        function clearSession() {
+            if (currentSessionId) {
+                // Clear on server
+                fetch('/api/v1/conversation/clear-session', {
+                    method: 'POST',
+                    body: new FormData().append('session_id', currentSessionId)
+                }).then(response => {
+                    if (response.ok) {
+                        log(`Cleared session on server: ${currentSessionId}`);
+                    } else {
+                        log(`Failed to clear session on server: ${response.status}`);
+                    }
+                }).catch(error => {
+                    log(`Error clearing session: ${error.message}`);
+                });
+            }
+            
+            currentSessionId = null;
+            document.getElementById('sessionDisplay').innerHTML = 'No active session';
+            log('Session cleared locally');
+        }
+        
+        async function sendTestMessage(messageIndex) {
+            const message = testMessages[messageIndex - 1];
+            const sessionId = getOrCreateSessionId();
+            
+            log(`Sending message ${messageIndex}: ${message}`);
+            log(`Using session ID: ${sessionId}`);
+            
+            try {
+                const formData = new FormData();
+                formData.append('text', message);
+                formData.append('session_id', sessionId);
+                
+                const response = await fetch('/api/v1/conversation/text', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const responseText = data.final_response;
+                    
+                    // Check if AI is using patient information
+                    const hasName = responseText.toLowerCase().includes('devangi');
+                    const hasAge = responseText.includes('21') || responseText.toLowerCase().includes('twenty-one');
+                    const hasGender = responseText.toLowerCase().includes('female');
+                    const hasSymptoms = responseText.toLowerCase().includes('fever') && responseText.toLowerCase().includes('headache');
+                    
+                    const responseDiv = document.createElement('div');
+                    responseDiv.className = 'response success';
+                    responseDiv.innerHTML = `
+                        <strong>Message ${messageIndex}:</strong> ${message}<br>
+                        <strong>Response:</strong> ${responseText}<br>
+                        <strong>Memory Check:</strong> Name: ${hasName}, Age: ${hasAge}, Gender: ${hasGender}, Symptoms: ${hasSymptoms}
+                    `;
+                    document.getElementById('responses').appendChild(responseDiv);
+                    
+                    log(`Response received: ${responseText.substring(0, 100)}...`);
+                    log(`Memory check - Name: ${hasName}, Age: ${hasAge}, Gender: ${hasGender}, Symptoms: ${hasSymptoms}`);
+                } else {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'response error';
+                    errorDiv.textContent = `Error ${response.status}: ${response.statusText}`;
+                    document.getElementById('responses').appendChild(errorDiv);
+                    
+                    log(`Error: ${response.status} - ${response.statusText}`);
+                }
+            } catch (error) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'response error';
+                errorDiv.textContent = `Error: ${error.message}`;
+                document.getElementById('responses').appendChild(errorDiv);
+                
+                log(`Error: ${error.message}`);
+            }
+        }
+        
+        async function getSessionInfo() {
+            try {
+                const response = await fetch('/api/v1/conversation/session-info');
+                const data = await response.json();
+                
+                const sessionInfoDiv = document.getElementById('sessionInfo');
+                sessionInfoDiv.innerHTML = `
+                    <div class="session-info">
+                        <strong>Total Sessions:</strong> ${data.data.total_sessions}<br>
+                        <strong>Current Session:</strong> ${currentSessionId || 'None'}<br>
+                        <strong>Active Sessions:</strong><br>
+                        ${data.data.sessions.map(s => 
+                            `- ${s.session_id}: ${s.message_count} messages, ${s.age_seconds}s old`
+                        ).join('<br>')}
+                    </div>
+                `;
+                
+                log(`Session info retrieved: ${data.data.total_sessions} total sessions`);
+            } catch (error) {
+                log(`Error getting session info: ${error.message}`);
+            }
+        }
+        
+        async function getConversationHistory() {
+            if (!currentSessionId) {
+                log('No current session to get history for');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/v1/conversation/session-conversation/${currentSessionId}`);
+                const data = await response.json();
+                
+                const sessionInfoDiv = document.getElementById('sessionInfo');
+                sessionInfoDiv.innerHTML = `
+                    <div class="session-info">
+                        <strong>Conversation History for ${currentSessionId}:</strong><br>
+                        ${data.data.conversation.map((msg, i) => 
+                            `${i+1}. ${msg.role}: ${msg.content.substring(0, 100)}...`
+                        ).join('<br>')}
+                    </div>
+                `;
+                
+                log(`Conversation history retrieved: ${data.data.conversation.length} messages`);
+            } catch (error) {
+                log(`Error getting conversation history: ${error.message}`);
+            }
+        }
+        
+        // Initialize
+        log('Session Consistency Test initialized');
+        showCurrentSession();
+    </script>
+</body>
+</html>
