@@ -142,7 +142,7 @@
         this.analyser.getByteFrequencyData(dataArray);
         const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
         
-        if (average > this.speechThreshold && !this.speechDetected && !this.isProcessing) {
+        if (average > this.speechThreshold && !this.speechDetected && !this.isProcessing && !this.isTTSPlaying) {
           console.log('[VAD] Speech detected, average:', average.toFixed(2), 'Threshold:', this.speechThreshold);
           this.speechDetected = true;
           this.silenceCount = 0;
@@ -151,12 +151,12 @@
         this.startRecording();
           this.onSpeechStart();
           
-        } else if (average < this.silenceThreshold && this.speechDetected && !this.isProcessing) {
+        } else if (average < this.silenceThreshold && this.speechDetected && !this.isProcessing && !this.isTTSPlaying) {
           // Start silence timer if not already started
           if (!this.silenceTimer) {
             console.log('[VAD] Silence detected, starting 3-second timer...');
             this.silenceTimer = setTimeout(() => {
-              if (this.speechDetected && !this.isProcessing) {
+              if (this.speechDetected && !this.isProcessing && !this.isTTSPlaying) {
                 console.log('[VAD] 3 seconds of silence - finalizing speech');
                 this.speechDetected = false;
                 this.silenceCount = 0;
@@ -176,7 +176,7 @@
               }
             }, this.silenceTimeout);
           }
-        } else if (this.speechDetected && !this.isProcessing) {
+        } else if (this.speechDetected && !this.isProcessing && !this.isTTSPlaying) {
           // Speech detected again, clear silence timer
           if (this.silenceTimer) {
             console.log('[VAD] Speech resumed, clearing silence timer');
@@ -218,8 +218,21 @@
     async connectWebSocket() {
       return new Promise((resolve, reject) => {
         try {
-          console.log('[WebSocket] Connecting to:', this.wsEndpoint);
-          this.websocket = new WebSocket(this.wsEndpoint);
+          // Get JWT token for WebSocket authentication
+          const token = localStorage.getItem('access_token');
+          let wsUrl = this.wsEndpoint;
+          
+          if (token) {
+            // Add token as query parameter for WebSocket authentication
+            const separator = wsUrl.includes('?') ? '&' : '?';
+            wsUrl = `${wsUrl}${separator}token=${encodeURIComponent(token)}`;
+            console.log('[WebSocket] Connecting with JWT token');
+          } else {
+            console.warn('[WebSocket] No JWT token found in localStorage');
+          }
+          
+          console.log('[WebSocket] Connecting to:', wsUrl);
+          this.websocket = new WebSocket(wsUrl);
           
           this.websocket.onopen = () => {
             console.log('[WebSocket] Connected to streaming conversation');
@@ -567,6 +580,12 @@
         }
         this.isTTSPlaying = true;
         
+        // Clear any pending silence timers to prevent unwanted recording stops
+        if (this.silenceTimer) {
+          clearTimeout(this.silenceTimer);
+          this.silenceTimer = null;
+        }
+        
         // Clear any buffered audio chunks to prevent echo
         this.audioChunks = [];
         this.chunkBuffer = [];
@@ -682,6 +701,7 @@
                     this.speechDetected = false;
                     this.silenceCount = 0;
                     console.log('🎙️ [Voice Agent] Listening for user speech...');
+                    this.onStatusUpdate('🎙️ Listening enabled - Ready for user speech');
                   }
                 }, 300);
               }
@@ -715,6 +735,7 @@
                     this.speechDetected = false;
                     this.silenceCount = 0;
                     console.log('🎙️ [Voice Agent] Listening for user speech...');
+                    this.onStatusUpdate('🎙️ Listening enabled - Ready for user speech');
                   }
                 }, 300);
               }
@@ -1026,6 +1047,7 @@
       if (this.isTTSPlaying) {
         console.log('🔇 [Voice Agent] Cannot start recording - AI is speaking');
         this.shouldResumeRecordingAfterTTS = true; // Resume when TTS finishes
+        this.onStatusUpdate('🔇 Listening disabled - AI is speaking');
         return;
       }
       

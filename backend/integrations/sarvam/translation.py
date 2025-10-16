@@ -132,6 +132,16 @@ class SarvamTranslationService:
         try:
             print(f"TRANSLATE REQUEST: '{text}' from {source_lang} to {target_lang}")
             
+            # Check if event loop is still running
+            try:
+                loop = asyncio.get_running_loop()
+                if loop.is_closed():
+                    logger.warning("Event loop is closed, falling back to sync translation")
+                    return self._fallback_sync_translate(text, source_lang, target_lang)
+            except RuntimeError:
+                logger.warning("No event loop running, falling back to sync translation")
+                return self._fallback_sync_translate(text, source_lang, target_lang)
+            
             source_lang_converted = self._convert_lang_code(source_lang)
             target_lang_converted = self._convert_lang_code(target_lang)
             
@@ -226,6 +236,15 @@ class SarvamTranslationService:
 
         except Exception as e:
             logger.error(f"Text translation error: {str(e)}")
+            
+            # Handle specific "Event loop is closed" error
+            if "Event loop is closed" in str(e):
+                logger.warning("Event loop closed during translation, falling back to sync method")
+                try:
+                    return self._fallback_sync_translate(text, source_lang, target_lang)
+                except Exception as fallback_error:
+                    logger.error(f"Fallback sync translation also failed: {fallback_error}")
+                    return text
             
             # Log error metrics
             try:

@@ -91,13 +91,10 @@ class UnifiedDeepgramService:
                            high_vad_sensitivity: bool = True, vad_signals: bool = True, 
                            encoding: str = "audio/wav", sample_rate: int = 16000, 
                            flush: bool = False, silence_timeout: float = 3.0, 
-                           request_id: str = None, session_id: str = None,
-                           diarize: bool = False, return_utterances: bool = False,
-                           expected_speakers: int = None, diarize_version: str = "2", multilingual: bool = False):
+                           request_id: str = None, session_id: str = None, multilingual: bool = False):
         return await self.stt_service.stt_streaming(
             audio_bytes, language_code, model, high_vad_sensitivity, vad_signals, 
-            encoding, sample_rate, flush, silence_timeout, request_id, session_id,
-            diarize, return_utterances, expected_speakers, diarize_version, multilingual
+            encoding, sample_rate, flush, silence_timeout, request_id, session_id, multilingual
         )
     
     def stt_diarize(self, wav_bytes: bytes, language: str = "en", request_id: str = None, session_id: str = None, expected_speakers: int = None, diarize_version: str = "2", multilingual: bool = False):
