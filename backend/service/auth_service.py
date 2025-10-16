@@ -18,6 +18,8 @@ from centralisedErrorHandling.ErrorHandling import (
 from models.models import Users, RoleMaster
 from config import settings
 import logging
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 logger = logging.getLogger(__name__)
 
@@ -162,3 +164,84 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> Tupl
     refresh_token = create_access_token(user_payload, expiry=timedelta(seconds=refresh_exp), refresh=True)
     
     return access_token, refresh_token, access_exp
+
+
+async def authenticate_google_user(db: AsyncSession, google_token: str) -> Tuple[str, str, int]:
+    """
+    Authenticate user with Google OAuth token and return JWT tokens.
+    """
+    try:
+        # Verify the Google token
+        idinfo = id_token.verify_oauth2_token(
+            google_token, 
+            requests.Request(), 
+            settings.GOOGLE_CLIENT_ID
+        )
+        
+        # Extract user information from Google token
+        google_email = idinfo.get('email')
+        google_name = idinfo.get('name', '')
+        google_picture = idinfo.get('picture', '')
+        
+        if not google_email:
+            raise AuthenticationError("No email found in Google token")
+        
+        # Check if user exists in database
+        q = select(Users).where(Users.email == google_email)
+        result = await db.execute(q)
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            # Create new user if doesn't exist
+            user = Users(
+                email=google_email,
+                username=google_name or google_email.split('@')[0],
+                password_hash="",  # No password for OAuth users
+                global_role_id=1,  # Default to patient role
+                is_active=True
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+        
+        # Build user payload
+        user_payload = await build_token_user_payload(db, user)
+        
+        access_exp = int(getattr(settings, "ACCESS_TOKEN_EXPIRY_SECONDS", ACCESS_EXPIRE))
+        refresh_exp = int(getattr(settings, "JTI_EXPIRY_SECONDS", REFRESH_EXPIRE))
+        
+        access_token = create_access_token(user_payload, expiry=timedelta(seconds=access_exp), refresh=False)
+        refresh_token = create_access_token(user_payload, expiry=timedelta(seconds=refresh_exp), refresh=True)
+        
+        return access_token, refresh_token, access_exp
+        
+    except ValueError as e:
+        logger.error(f"Invalid Google token: {e}")
+        raise AuthenticationError("Invalid Google token")
+    except Exception as e:
+        logger.error(f"Google authentication error: {e}")
+        raise AuthenticationError("Google authentication failed")
+
+
+async def build_token_user_payload(db: AsyncSession, user: Users) -> Dict[str, Any]:
+    """
+    Build comprehensive user payload for JWT tokens with hospital roles and permissions.
+    """
+    user_payload = {
+        "user_id": user.user_id,
+        "username": user.username,
+        "email": user.email
+    }
+    
+    # Add global role information
+    if user.global_role_id:
+        role_q = select(RoleMaster).where(RoleMaster.role_id == user.global_role_id)
+        role_result = await db.execute(role_q)
+        role = role_result.scalar_one_or_none()
+        if role:
+            user_payload["global_role"] = {
+                "role_id": role.role_id,
+                "role_name": role.role_name
+            }
+    
+    return user_payload

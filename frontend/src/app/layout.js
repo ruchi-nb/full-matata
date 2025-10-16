@@ -4,7 +4,8 @@ import "./globals.css";
 import "./landing.css";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { UserProvider } from "@/data/UserContext";
-import ErrorBoundary from "@/components/common/ErrorBoundary"; 
+import ErrorBoundary from "@/components/common/ErrorBoundary";
+import EnvDebug from "@/components/EnvDebug"; 
 
 const comfortaa = Comfortaa({
   variable: "--font-comfortaa",
@@ -36,18 +37,23 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
+  // Debug environment variable
+  console.log('🔍 NEXT_PUBLIC_GOOGLE_CLIENT_ID:', process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
+  console.log('🔍 All env vars:', process.env);
+  
   return (
     <html lang="en">
       <body
         className={`${comfortaa.variable} ${playfair.variable} ${jetbrainsMono.variable} ${poppins.variable} antialiased`}
       >
-        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
+        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "1068912069395-pjjgo5vkfm478a42l292uhlj5u5t23ro.apps.googleusercontent.com"}>
           <ErrorBoundary>
             <UserProvider>
               {children}
             </UserProvider>
           </ErrorBoundary>
         </GoogleOAuthProvider>
+        <EnvDebug />
       </body>
     </html>
   );

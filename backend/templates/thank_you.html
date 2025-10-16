@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thank You - Consultation Complete</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 60px 40px;
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #4CAF50, #2196F3, #FF9800);
+        }
+        
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: #4CAF50;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            animation: bounce 2s infinite;
+        }
+        
+        .success-icon::after {
+            content: '✓';
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            font-weight: 300;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.2em;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+        
+        .session-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 30px 0;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .session-info h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        .session-info p {
+            color: #666;
+            margin: 5px 0;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 40px;
+        }
+        
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+            min-width: 200px;
+            justify-content: center;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+            color: white;
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #4CAF50, #388E3C);
+            color: white;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: #666;
+            border: 2px solid #ddd;
+        }
+        
+        .btn-outline:hover {
+            background: #f8f9fa;
+            border-color: #bbb;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+        
+        .feature {
+            text-align: center;
+            padding: 20px;
+            border-radius: 10px;
+            background: #f8f9fa;
+        }
+        
+        .feature-icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .feature h4 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .feature p {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .loading {
+            display: none;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2196F3;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 40px 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .button-group {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon"></div>
+        
+        <h1>Thank You!</h1>
+        <p class="subtitle">
+            Your consultation has been completed successfully. We hope this session was helpful for you.
+        </p>
+        
+        <div class="session-info" id="sessionInfo">
+            <h3>Session Details</h3>
+            <p><strong>Consultation ID:</strong> <span id="consultationId">Loading...</span></p>
+            <p><strong>Session ID:</strong> <span id="sessionId">Loading...</span></p>
+            <p><strong>Duration:</strong> <span id="sessionDuration">Loading...</span></p>
+            <p><strong>Completed:</strong> <span id="completionTime">Loading...</span></p>
+        </div>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">📄</div>
+                <h4>Transcript</h4>
+                <p>Download your complete conversation transcript</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔒</div>
+                <h4>Secure</h4>
+                <p>Your data is encrypted and secure</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📊</div>
+                <h4>Analytics</h4>
+                <p>View session statistics and insights</p>
+            </div>
+        </div>
+        
+        <div class="button-group">
+            <button class="btn btn-primary" id="downloadTranscript">
+                📥 Download Transcript
+            </button>
+            <button class="btn btn-secondary" id="viewAnalytics">
+                📊 View Analytics
+            </button>
+            <a href="/" class="btn btn-outline">
+                🏠 Back to Home
+            </a>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Preparing your transcript...</p>
+        </div>
+    </div>
+
+    <script>
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const consultationId = urlParams.get('consultation_id');
+        const sessionId = urlParams.get('session_id');
+        const duration = urlParams.get('duration');
+        
+        // Update session info
+        document.getElementById('consultationId').textContent = consultationId || 'N/A';
+        document.getElementById('sessionId').textContent = sessionId || 'N/A';
+        document.getElementById('sessionDuration').textContent = duration || 'N/A';
+        document.getElementById('completionTime').textContent = new Date().toLocaleString();
+        
+        // Download transcript functionality
+        document.getElementById('downloadTranscript').addEventListener('click', async function() {
+            const button = this;
+            const loading = document.getElementById('loading');
+            
+            // Show loading state
+            button.disabled = true;
+            button.innerHTML = '⏳ Preparing...';
+            loading.style.display = 'block';
+            
+            try {
+                // Get authentication token
+                const token = localStorage.getItem('access_token');
+                if (!token) {
+                    throw new Error('Authentication required. Please login again.');
+                }
+                
+                // Get session ID from URL or use the one from the page
+                const sessionIdToUse = sessionId || window.currentSessionId || window.currentSessionDbId;
+                if (!sessionIdToUse) {
+                    throw new Error('Session ID not found. Cannot download transcript.');
+                }
+                
+                // Make request to download transcript
+                const response = await fetch(`/api/v1/conversation/transcript/download/${sessionIdToUse}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to download transcript: ${response.status}`);
+                }
+                
+                // Get the blob and create download link
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `consultation_transcript_${consultationId || 'session'}_${new Date().toISOString().split('T')[0]}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                // Success feedback
+                button.innerHTML = '✅ Downloaded!';
+                button.style.background = 'linear-gradient(135deg, #4CAF50, #388E3C)';
+                
+            } catch (error) {
+                console.error('Error downloading transcript:', error);
+                
+                // Try fallback: create a simple transcript from any available data
+                try {
+                    const fallbackTranscript = `Consultation Transcript\n\n` +
+                        `Consultation ID: ${consultationId || 'N/A'}\n` +
+                        `Session ID: ${sessionIdToUse || 'N/A'}\n` +
+                        `Duration: ${duration || 'N/A'}\n` +
+                        `Completed: ${new Date().toLocaleString()}\n\n` +
+                        `Note: This is a basic transcript. The full conversation transcript may not be available.`;
+                    
+                    const blob = new Blob([fallbackTranscript], { type: 'text/plain' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `consultation_transcript_${consultationId || 'session'}_${new Date().toISOString().split('T')[0]}.txt`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    button.innerHTML = '✅ Downloaded (Basic)';
+                    button.style.background = 'linear-gradient(135deg, #FF9800, #F57C00)';
+                } catch (fallbackError) {
+                    alert('Error downloading transcript: ' + error.message);
+                    button.innerHTML = '📥 Download Transcript';
+                    button.disabled = false;
+                }
+            } finally {
+                loading.style.display = 'none';
+            }
+        });
+        
+        // View analytics functionality
+        document.getElementById('viewAnalytics').addEventListener('click', function() {
+            // Redirect to analytics page or show analytics modal
+            if (consultationId) {
+                window.open(`/analytics?consultation_id=${consultationId}`, '_blank');
+            } else {
+                alert('Analytics not available for this session.');
+            }
+        });
+        
+        // Check authentication on page load
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                alert('Authentication required. Redirecting to login...');
+                window.location.href = '/login';
+                return;
+            }
+        });
+    </script>
+</body>
+</html>

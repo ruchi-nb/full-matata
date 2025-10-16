@@ -125,7 +125,7 @@
       <button id="clearSession">🔄 New Session</button>
       <button id="sessionInfo">ℹ️ Session Info</button>
       <!-- <button id="forceReady">✅ Force Ready</button> -->
-      <button id="endConversation" style="background:#b71c1c;color:#fff">🛑 End & Download Transcript</button>
+      <button id="endConversation" style="background:#b71c1c;color:#fff">🛑 End Session</button>
     </div>
   </div>
 
@@ -195,6 +195,9 @@
       console.log('Consultation ID:', consultationId);
     }
     
+    // Track session start time for duration calculation
+    window.sessionStartTime = Date.now();
+    
     // Set initial provider and language from URL parameters
     if (provider) {
       const providerSelect = document.getElementById('providerSelect');
@@ -212,10 +215,10 @@
   </script>
   
   <!-- Load enhanced conversation interface -->
-  <script src="/static/enhanced-conversation.js"></script>
+  <script src="/static/enhanced-conversation.js?v=2"></script>
   
   <!-- Load original conversation.js for backward compatibility -->
-  <script src="/static/conversation.js"></script>
+  <script src="/static/conversation.js?v=2"></script>
   <script src="/static/websocket-streaming-conversation.js"></script>
   
   <script>
