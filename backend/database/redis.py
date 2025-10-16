@@ -287,4 +287,3 @@ class SessionManager:
     def get_session_conversation(self, session_id: str) -> List[Dict[str, str]]:
         """Get the full conversation history for a specific session from Redis"""
         return self._get_or_create_session(session_id)
-

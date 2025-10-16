@@ -24,7 +24,7 @@ from models.models import (
 import asyncio
 from redis.exceptions import ConnectionError, TimeoutError
 
-CACHE_TTL = 120 
+CACHE_TTL = 60  # Reduced from 120 to 60 seconds for better performance 
 
 logger = logging.getLogger(__name__)
 
@@ -54,14 +54,6 @@ def _get_hospital_id_from_request(request: Request, hospital_id_param: str) -> O
 def is_super_admin(user: Dict[str, Any]) -> bool:
     if not user or not isinstance(user, dict):
         return False
-    
-    # Check for frontend-detected role first (fallback)
-    detected_role = user.get("_detectedRole")
-    if isinstance(detected_role, str) and detected_role.strip().lower() == "superadmin":
-        logger.info(f"Superadmin detected via _detectedRole for user {user.get('user_id')}")
-        return True
-    
-    # Check for proper global_role structure
     global_role = user.get("global_role")
     if not isinstance(global_role, dict):
         return False
@@ -207,80 +199,45 @@ def require_hospital_roles(*, role_names: Iterable[str], hospital_id_param: str 
     return dependency
 
 
-async def safe_redis_get(key: str) -> Optional[str]:
-    """Safely get value from Redis with timeout handling"""
-    try:
-        return await asyncio.wait_for(_redis_client.get(key), timeout=2.0)
-    except (TimeoutError, ConnectionError, asyncio.TimeoutError) as e:
-        logger.warning(f"Redis connection failed for get operation on key {key}: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"Unexpected Redis error for get operation on key {key}: {e}")
-        return None
-
-async def safe_redis_set(key: str, value: str, ex: int) -> bool:
-    """Safely set value in Redis with timeout handling"""
-    try:
-        await asyncio.wait_for(_redis_client.set(key, value, ex=ex), timeout=2.0)
-        return True
-    except (TimeoutError, ConnectionError, asyncio.TimeoutError) as e:
-        logger.warning(f"Redis connection failed for set operation on key {key}: {e}")
-        return False
-    except Exception as e:
-        logger.error(f"Unexpected Redis error for set operation on key {key}: {e}")
-        return False
-
-async def safe_redis_delete(key: str) -> bool:
-    """Safely delete key from Redis with timeout handling"""
-    try:
-        await asyncio.wait_for(_redis_client.delete(key), timeout=2.0)
-        return True
-    except (TimeoutError, ConnectionError, asyncio.TimeoutError) as e:
-        logger.warning(f"Redis connection failed for delete operation on key {key}: {e}")
-        return False
-    except Exception as e:
-        logger.error(f"Unexpected Redis error for delete operation on key {key}: {e}")
-        return False
 
 async def get_user_permissions(
         user_id: int, 
         db: AsyncSession, 
         hospital_id: Optional[int] = None) -> Set[str]:
-    cache_key = f"user:{user_id}:hospital:{hospital_id or 'global'}:perms"  
+    cache_chabbhi = f"user:{user_id}:hospital:{hospital_id or 'global'}:perms"  
 
-    # Safe Redis get with timeout handling
-    cached = await safe_redis_get(cache_key)
-    if cached:
-        try:
+    # Try to get from Redis cache, but don't fail if Redis is unavailable
+    try:
+        cached = await _redis_client.get(cache_chabbhi)
+        if cached:
             return set(json.loads(cached))
-        except json.JSONDecodeError:
-            logger.warning(f"Invalid JSON in cache for key {cache_key}")
+    except Exception as e:
+        logger.debug(f"Redis cache read failed for user {user_id}: {e}")
     
-    # Database query if cache miss or Redis unavailable
     direct_q = (
         select(UserPermissions.permission_name).where(UserPermissions.user_id == user_id)
     )
-    global_q = (select(PermissionMaster.permission_name)
-                .join(RolePermission, RolePermission.permission_id == PermissionMaster.permission_id)
-                .join(RoleMaster, RoleMaster.role_id == RolePermission.role_id)
-                .join(Users, Users.global_role_id == RoleMaster.role_id)
-                .where(Users.user_id == user_id))
+    global_q = (select(PermissionMaster.permission_name).join(RolePermission, RolePermission.permission_id == PermissionMaster.permission_id)
+        .join(RoleMaster, RoleMaster.role_id == RolePermission.role_id)
+        .where(RoleMaster.role_id == Users.global_role_id))
     
-    hospital_q = (select(PermissionMaster.permission_name)
-                  .join(HospitalRolePermission, HospitalRolePermission.permission_id == PermissionMaster.permission_id)
-                  .join(HospitalUserRoles, HospitalUserRoles.hospital_role_id == HospitalRolePermission.hospital_role_id)
-                  .where(HospitalUserRoles.user_id == user_id))
+    hospital_q = (select(PermissionMaster.permission_name).join(HospitalRolePermission, HospitalRolePermission.permission_id == PermissionMaster.permission_id)
+     .join(HospitalUserRoles, HospitalUserRoles.hospital_role_id == HospitalRolePermission.hospital_role_id)
+     .where(HospitalUserRoles.user_id == user_id))
     
     if hospital_id:
         hospital_q = hospital_q.where(HospitalUserRoles.hospital_id == hospital_id)
-    
     final_q = union_all(direct_q, global_q, hospital_q)
 
     execution = await db.execute(final_q)
     perms = set(p.strip().lower() for p in execution.scalars().all() if p)
 
-    # Safe Redis set - if it fails, we just continue without caching
-    await safe_redis_set(cache_key, json.dumps(list(perms)), CACHE_TTL)
+    # Try to cache in Redis, but don't fail if Redis is unavailable
+    try:
+        await _redis_client.set(cache_chabbhi, json.dumps(list(perms)), ex=CACHE_TTL)
+    except Exception as e:
+        logger.debug(f"Redis cache write failed for user {user_id}: {e}")
+    
     return perms
 
 def require_permissions(permissions: Sequence[str], scope: Optional[str] = None, hospital_id_param: str = "hospital_id", allow_super_admin: bool = True) -> Callable:
@@ -296,34 +253,38 @@ def require_permissions(permissions: Sequence[str], scope: Optional[str] = None,
 
         hospital_id = _get_hospital_id_from_request(request, hospital_id_param)
 
-        # Safe cache check with Redis error handling
         cache_key = f"permcheck:user:{user_id}:hospital:{hospital_id or 'global'}:{','.join(sorted(required))}"
-        cached = await safe_redis_get(cache_key)
-        if cached:
-            try:
+        
+        # Try to get from Redis cache, but don't fail if Redis is unavailable
+        try:
+            cached = await _redis_client.get(cache_key)
+            if cached:
                 result = json.loads(cached)
                 if result["allowed"]:
                     return user
                 raise HTTPException(status_code=403, detail=f"Missing permissions: {sorted(result['missing'])}")
-            except (json.JSONDecodeError, KeyError):
-                logger.warning(f"Invalid cache data for key {cache_key}")
+        except Exception as e:
+            logger.debug(f"Redis permission cache read failed for user {user_id}: {e}")
 
-        # Get permissions from database if cache miss
+        
         found = await get_user_permissions(user_id, db, hospital_id=hospital_id)
+
         
         missing = required - found
-        
         if missing:
-            # Cache the negative result safely
-            await safe_redis_set(
-                cache_key, 
-                json.dumps({"allowed": False, "missing": list(missing)}), 
-                CACHE_TTL
-            )
+            # Try to cache the failure, but don't fail if Redis is unavailable
+            try:
+                await _redis_client.set(cache_key, json.dumps({"allowed": False, "missing": list(missing)}), ex=CACHE_TTL)
+            except Exception as e:
+                logger.debug(f"Redis permission cache write failed for user {user_id}: {e}")
             raise HTTPException(status_code=403, detail=f"Missing permissions: {sorted(missing)}")
         
-        # Cache the positive result safely
-        await safe_redis_set(cache_key, json.dumps({"allowed": True}), CACHE_TTL)
+        # Try to cache the success, but don't fail if Redis is unavailable
+        try:
+            await _redis_client.set(cache_key, json.dumps({"allowed": True}), ex=CACHE_TTL)
+        except Exception as e:
+            logger.debug(f"Redis permission cache write failed for user {user_id}: {e}")
+        
         logger.info(f"Permission check passed for user {user_id}")
         return user
     return dependency
@@ -331,23 +292,14 @@ def require_permissions(permissions: Sequence[str], scope: Optional[str] = None,
 """
 STALE PERMISSION INVALIDATION
 """
-async def invalidate_user_permission_from_cache(user_id: int, hospital_id: Optional[int] = None):
+async def invalidate_user_permission_from_cache(user_id: int, hospital_id: Optional[int]= None):
     hospital_key = hospital_id or "global"
     perms_key = f"user:{user_id}:hospital:{hospital_key}:perms"
-    
-    # Safe deletion
-    await safe_redis_delete(perms_key)
+    await _redis_client.delete(perms_key)
     logger.info(f"Permission cache invalidated for user {user_id} and hospital {hospital_id}")
-    
-    # Pattern deletion with safe handling
     pattern_for_permcheck = f"permcheck:user:{user_id}:hospital:{hospital_key}:*"
-    try:
-        async for key in _redis_client.scan_iter(match=pattern_for_permcheck):
-            await safe_redis_delete(key)
-    except (TimeoutError, ConnectionError, asyncio.TimeoutError) as e:
-        logger.warning(f"Redis connection failed during pattern deletion: {e}")
-    except Exception as e:
-        logger.error(f"Unexpected error during pattern deletion: {e}")
+    async for key in _redis_client.scan_iter(match=pattern_for_permcheck):
+        await _redis_client.delete(key)
 
 """
 bulk wala invalidation agar saarey invalidate hojaye toh 
