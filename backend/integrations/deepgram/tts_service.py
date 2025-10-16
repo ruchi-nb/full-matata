@@ -46,10 +46,11 @@ class DeepgramTTSService:
             sock_read=15  # Reduced socket read timeout for streaming
         )
         
-        # Audio buffering for smooth playback - immediate first chunk delivery
+        # Audio buffering for smooth playback - optimized to reduce pauses between chunks
         self._audio_buffer = bytearray()
-        self._min_chunk_size = 1024  # Small minimum chunk size for immediate first delivery
-        self._max_buffer_time = 0.03  # Max 30ms buffer time before yielding (immediate)
+        self._min_chunk_size = 512  # Smaller minimum chunk size for smoother streaming
+        self._max_buffer_time = 0.01  # Max 10ms buffer time before yielding (very fast)
+        self._first_chunk_sent = False  # Track if first chunk was sent
     
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session with connection pooling"""
@@ -115,6 +116,9 @@ class DeepgramTTSService:
         start_time = time.time()
         request_id = request_id or f"dg-tts-{int(time.time()*1000)}"
         
+        # Reset first chunk flag for this streaming session
+        self._first_chunk_sent = False
+        
         try:
             # Use environment variable voice if not provided
             voice = voice or settings.DEEPGRAM_TTS_STREAMING_VOICE or "aura-asteria-en"
@@ -178,46 +182,81 @@ class DeepgramTTSService:
                                 continue
                             return
                         
-                        # Track first byte latency and implement smart buffering
+                        # Track first byte latency and implement smart buffering with dynamic timeout
                         first_byte_time = None
                         chunk_count = 0
                         total_bytes = 0
                         buffer_start_time = None
+                        last_chunk_time = time.time()
+                        stream_start_time = time.time()
                         
-                        # Stream with optimized chunk size for immediate first chunk
-                        # 3KB chunks = ~18ms of MP3 @ 128kbps = good balance
-                        async for chunk in resp.content.iter_chunked(3072):
-                            if chunk:
-                                total_bytes += len(chunk)
-                                
-                                # Log first byte latency
-                                if first_byte_time is None:
-                                    first_byte_time = time.time()
-                                    ttfb_ms = int((first_byte_time - start_time) * 1000)
-                                    logger.info(f"⚡ Deepgram TTS TTFB: {ttfb_ms}ms")
-                                
-                                # Smart buffering for smooth playback
-                                self._audio_buffer.extend(chunk)
-                                
-                                # Initialize buffer timing
-                                if buffer_start_time is None:
-                                    buffer_start_time = time.time()
-                                
-                                # Yield when buffer reaches minimum size or max time
-                                current_time = time.time()
-                                buffer_duration = current_time - buffer_start_time
-                                
-                                if (len(self._audio_buffer) >= self._min_chunk_size or 
-                                    buffer_duration >= self._max_buffer_time):
+                        # Stream with optimized chunk size for smooth, continuous playback
+                        # Smaller chunks (2KB) for more frequent, smoother delivery
+                        try:
+                            async for chunk in resp.content.iter_chunked(2048):
+                                if chunk:
+                                    total_bytes += len(chunk)
+                                    last_chunk_time = time.time()
                                     
-                                    # Yield buffered audio
-                                    if self._audio_buffer:
+                                    # Log first byte latency
+                                    if first_byte_time is None:
+                                        first_byte_time = time.time()
+                                        ttfb_ms = int((first_byte_time - start_time) * 1000)
+                                        logger.info(f"⚡ Deepgram TTS TTFB: {ttfb_ms}ms")
+                                    
+                                    # Add chunk to buffer
+                                    self._audio_buffer.extend(chunk)
+                                    
+                                    # Initialize buffer timing
+                                    if buffer_start_time is None:
+                                        buffer_start_time = time.time()
+                                    
+                                    # Yield logic optimized for continuous playback
+                                    current_time = time.time()
+                                    buffer_duration = current_time - buffer_start_time
+                                    
+                                    should_yield = False
+                                    
+                                    # Always yield first chunk immediately (no buffering)
+                                    if not self._first_chunk_sent and len(self._audio_buffer) > 0:
+                                        should_yield = True
+                                        self._first_chunk_sent = True
+                                        logger.info(f"🚀 Deepgram TTS: IMMEDIATE first chunk: {len(self._audio_buffer)} bytes")
+                                    
+                                    # For subsequent chunks, yield more frequently to reduce pauses
+                                    elif (len(self._audio_buffer) >= self._min_chunk_size or 
+                                          buffer_duration >= self._max_buffer_time):
+                                        should_yield = True
+                                    
+                                    # Yield the buffered audio
+                                    if should_yield and self._audio_buffer:
                                         chunk_count += 1
                                         audio_to_yield = bytes(self._audio_buffer)
-                                        logger.debug(f"🎵 Deepgram TTS: Buffered chunk {chunk_count}: {len(audio_to_yield)} bytes")
+                                        logger.debug(f"🎵 Deepgram TTS: Chunk {chunk_count}: {len(audio_to_yield)} bytes")
                                         yield audio_to_yield
                                         self._audio_buffer.clear()
                                         buffer_start_time = None
+                                
+                                # Log progress for debugging
+                                if chunk_count > 0 and chunk_count % 10 == 0:
+                                    logger.debug(f"🔄 Deepgram TTS: Processed {chunk_count} chunks, {total_bytes} bytes so far")
+                                
+                            # Stream completed naturally
+                            logger.info("📡 Deepgram TTS: Stream ended naturally")
+                            
+                        except Exception as stream_error:
+                            logger.warning(f"⚠️ Deepgram TTS: Stream error: {stream_error}")
+                            
+                            # Check for inactivity timeout
+                            current_time = time.time()
+                            time_since_last_chunk = current_time - last_chunk_time
+                            
+                            if time_since_last_chunk > 5.0 and chunk_count > 0:
+                                logger.info(f"⏱️ Deepgram TTS: Stream complete after {time_since_last_chunk:.1f}s inactivity ({chunk_count} chunks total)")
+                            elif time_since_last_chunk > 10.0 and chunk_count == 0:
+                                logger.warning(f"⚠️ Deepgram TTS: No chunks received for {time_since_last_chunk:.1f}s - aborting")
+                            else:
+                                logger.info(f"📡 Deepgram TTS: Stream ended with {chunk_count} chunks")
                         
                         # Final flush of any remaining buffered audio
                         if self._audio_buffer:
