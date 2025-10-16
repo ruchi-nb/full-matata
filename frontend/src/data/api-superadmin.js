@@ -192,6 +192,14 @@ export function validateUserPayload(payload) {
 }
 
 /**
+ * Get all available specialties
+ * @returns {Promise} API response with specialties list
+ */
+export function getAllSpecialties() {
+  return request("/superadmin/specialties", { method: "GET" });
+}
+
+/**
  * Check if hospital has required tenant roles
  * @param {number} hospitalId - The hospital ID
  * @returns {Promise<boolean>} True if roles exist, false otherwise

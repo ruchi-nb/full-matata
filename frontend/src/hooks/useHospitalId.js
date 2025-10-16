@@ -11,4 +11,4 @@ export function useHospitalId() {
     hasHospitalAccess: !!hospitalId,
     user
   };
-}
+} 

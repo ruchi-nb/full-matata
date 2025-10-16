@@ -5,7 +5,6 @@ import { doctors as rawDoctors } from "@/data/doctors";
 import HosSidebar from "@/components/Hospital/Sidebar";
 import DoctorsManagementHeader from "@/components/Hospital/Doctor/ManagementHeader";
 import DoctorStats from "@/components/Hospital/Doctor/DoctorStats";
-import DoctorFilters from "@/components/Hospital/Doctor/DoctorFilters";
 import DoctorTable from "@/components/Hospital/Doctor/DoctorTable";
 
 // Normalize languages field to always be an array
@@ -47,16 +46,6 @@ export default function Page1() {
           <div className="p-6 max-w-7xl mx-auto">
             <DoctorsManagementHeader />
             <DoctorStats />
-
-            {/* Filters */}
-            <DoctorFilters
-              search={search}
-              onSearchChange={setSearch}
-              specialty={specialtyFilter}
-              onSpecialtyChange={setSpecialtyFilter}
-              filteredCount={filteredDoctors.length}
-              totalCount={doctorData.length}
-            />
 
             {/* Table */}
             <DoctorTable

@@ -226,6 +226,7 @@ class OnboardHospitalAdminIn(BaseModel):
     admin_last_name: Optional[str] = None
     admin_phone: Optional[str] = None
     auto_login: Optional[bool] = True
+    specialties: Optional[List[int]] = None
 
 class OnboardHospitalAdminOut(BaseModel):
     hospital_id: int

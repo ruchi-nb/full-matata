@@ -28,6 +28,7 @@ class HospitalMaster(Base):
     hospital_user_roles: Mapped[list['HospitalUserRoles']] = relationship('HospitalUserRoles', back_populates='hospital')
     patient_hospitals: Mapped[list['PatientHospitals']] = relationship('PatientHospitals', back_populates='hospital')
     api_usage_logs: Mapped[list['ApiUsageLogs']] = relationship('ApiUsageLogs', back_populates='hospital')
+    hospital_specialties: Mapped[list['HospitalSpecialties']] = relationship('HospitalSpecialties', back_populates='hospital')
 
 
 class PermissionMaster(Base):
@@ -86,6 +87,7 @@ class Specialties(Base):
 
     consultation: Mapped[list['Consultation']] = relationship('Consultation', back_populates='specialty')
     doctor_specialties: Mapped[list['DoctorSpecialties']] = relationship('DoctorSpecialties', back_populates='specialty')
+    hospital_specialties: Mapped[list['HospitalSpecialties']] = relationship('HospitalSpecialties', back_populates='specialty')
 
 
 class HospitalRole(Base):
@@ -276,6 +278,24 @@ class DoctorSpecialties(Base):
 
     specialty: Mapped['Specialties'] = relationship('Specialties', back_populates='doctor_specialties')
     user: Mapped['Users'] = relationship('Users', back_populates='doctor_specialties')
+
+
+class HospitalSpecialties(Base):
+    __tablename__ = 'hospital_specialties'
+    __table_args__ = (
+        ForeignKeyConstraint(['hospital_id'], ['hospital_master.hospital_id'], ondelete='CASCADE', name='hospital_specialties_ibfk_1'),
+        ForeignKeyConstraint(['specialty_id'], ['specialties.specialty_id'], ondelete='CASCADE', name='hospital_specialties_ibfk_2'),
+        Index('idx_hs_spec', 'specialty_id'),
+        Index('uq_hs_hosp_spec', 'hospital_id', 'specialty_id', unique=True)
+    )
+
+    hospital_specialty_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    hospital_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    specialty_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+
+    hospital: Mapped['HospitalMaster'] = relationship('HospitalMaster', back_populates='hospital_specialties')
+    specialty: Mapped['Specialties'] = relationship('Specialties', back_populates='hospital_specialties')
 
 
 class FileUploads(Base):

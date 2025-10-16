@@ -218,8 +218,20 @@
     async connectWebSocket() {
       return new Promise((resolve, reject) => {
         try {
-          console.log('[WebSocket] Connecting to:', this.wsEndpoint);
-          this.websocket = new WebSocket(this.wsEndpoint);
+          // Get authentication token
+          const token = localStorage.getItem('access_token');
+          if (!token) {
+            reject(new Error('No authentication token available. Please log in again.'));
+            return;
+          }
+          
+          // Add token to WebSocket URL
+          const wsUrlWithToken = this.wsEndpoint.includes('?') 
+            ? `${this.wsEndpoint}&token=${encodeURIComponent(token)}`
+            : `${this.wsEndpoint}?token=${encodeURIComponent(token)}`;
+          
+          console.log('[WebSocket] Connecting to:', wsUrlWithToken);
+          this.websocket = new WebSocket(wsUrlWithToken);
           
           this.websocket.onopen = () => {
             console.log('[WebSocket] Connected to streaming conversation');

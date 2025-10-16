@@ -19,6 +19,7 @@ from models.models import (
     PatientHospitals,
 )
 from schema.schema import OnboardHospitalAdminIn, OnboardHospitalAdminOut
+from service.hospitals_service import add_hospital_specialties
 from utils.validators import validate_email, validate_password
 from utils.utils import generate_passwd_hash
 from centralisedErrorHandling.ErrorHandling import ValidationError
@@ -236,10 +237,23 @@ async def create_hospital_with_admin(
         db.add(hur)
         await db.flush()
 
-        # 6) commit all changes
+        # 6) Add hospital specialties if provided
+        if payload.specialties:
+            try:
+                await add_hospital_specialties(
+                    db,
+                    hospital_id=int(hospital.hospital_id),
+                    specialty_ids=payload.specialties
+                )
+            except Exception as e:
+                logger.error(f"Failed to add hospital specialties: {e}")
+                # Don't fail the entire operation for specialties, just log the error
+                # The hospital and admin are more critical than specialties
+
+        # 7) commit all changes
         await db.commit()
 
-        # 7) Build response
+        # 8) Build response
         return OnboardHospitalAdminOut(
             hospital_id=int(hospital.hospital_id),
             hospital_name=hospital.hospital_name,

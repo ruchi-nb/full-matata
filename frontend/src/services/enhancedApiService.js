@@ -8,6 +8,14 @@ class EnhancedApiService {
     this.requestTimeouts = new Map(); // Track timeouts for cleanup
   }
 
+  getAuthToken() {
+    // Try to get token from localStorage
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('access_token');
+    }
+    return null;
+  }
+
   async requestWithRetry(endpoint, options = {}, retries = this.maxRetries) {
     const url = `${this.baseURL}${endpoint}`;
     const timeout = options.timeout || 30000; // Default 30 second timeout
@@ -237,13 +245,29 @@ class EnhancedApiService {
   // Analytics integration
   async logEvent(eventType, data = {}) {
     try {
-      await fetch(`${this.baseURL}/analytics/event`, {
+      // Get authentication token
+      const token = this.getAuthToken();
+      
+      // Choose endpoint based on authentication status
+      const endpoint = token ? '/api/v1/analytics/event' : '/api/v1/analytics/event/public';
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Add authorization header only if token exists
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      await fetch(`${this.baseURL}${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
-          event_type: eventType,
-          timestamp: Date.now(),
-          ...data
+          event: eventType,
+          data: {
+            timestamp: Date.now(),
+            ...data
+          }
         }),
         timeout: 5000 // Short timeout for analytics
       });

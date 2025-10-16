@@ -17,7 +17,7 @@ const getHospitalCustomRoles = async (hospitalId) => {
     const response = await getHospitalRoles(hospitalId);
     return response || [];
   } catch (error) {
-    console.log("⚠️ Custom roles endpoint not available:", error.message);
+    console.error("Failed to fetch custom roles:", error);
     return [];
   }
 };

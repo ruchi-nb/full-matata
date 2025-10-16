@@ -12,13 +12,11 @@ from schema.schema import (
 )
 from fastapi import Path, Body
 from dependencies.dependencies import require_global_roles
-from service.superadmin_service import (
-    create_hospital_with_admin,
-    create_user_for_hospital_by_superadmin,
-    assign_permissions_to_all_doctors,
-    get_doctor_permissions_status
-)
+from service.superadmin_service import create_hospital_with_admin  
+from service.superadmin_service import create_user_for_hospital_by_superadmin
+from service.hospitals_service import list_specialities
 from models.models import Users  # ✅ Only need Users model now
+from schema.schema import SpecialityOut
 
 logger = logging.getLogger(__name__)
 
@@ -153,66 +151,18 @@ async def get_superadmin_profile(
         raise HTTPException(status_code=500, detail="Failed to fetch profile")
 
 
-@router.post("/assign-doctor-permissions")
-async def assign_permissions_to_all_doctors_endpoint(
-    current_user: dict = Depends(require_global_roles(role_names=["superadmin"], allow_super_admin=True)),
+@router.get("/specialties", response_model=list[SpecialityOut])
+async def get_all_specialties(
     db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(require_global_roles(role_names=["superadmin"], allow_super_admin=True)),
 ):
     """
-    Assign required permissions to all doctors in the system.
-    This endpoint can be called by superadmins to fix permission issues.
+    Get all available specialties
+    Super Admin Only
     """
     try:
-        logger.info(
-            "SuperAdmin %s assigning permissions to all doctors",
-            current_user.get("user_id", "unknown"),
-        )
-
-        results = await assign_permissions_to_all_doctors(db)
-
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "message": "Doctor permissions assignment completed",
-                "results": results,
-                "success": results['failed'] == 0
-            },
-        )
-
-    except HTTPException as http_ex:
-        raise http_ex
+        specialties = await list_specialities(db)
+        return [SpecialityOut(specialty_id=int(s.specialty_id), name=s.name, description=s.description, status=s.status) for s in specialties]
     except Exception as e:
-        logger.exception("Unexpected error during permission assignment: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred during permission assignment.",
-        )
-
-
-@router.get("/doctor-permissions-status")
-async def get_doctor_permissions_status_endpoint(
-    current_user: dict = Depends(require_global_roles(role_names=["superadmin"], allow_super_admin=True)),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Get the current status of doctor permissions across the system.
-    """
-    try:
-        status_data = await get_doctor_permissions_status(db)
-
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "message": "Doctor permissions status retrieved successfully",
-                "data": status_data
-            },
-        )
-
-    except HTTPException as http_ex:
-        raise http_ex
-    except Exception as e:
-        logger.exception("Unexpected error getting permissions status: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred while getting permissions status.",
-        )
+        logger.exception("Failed to fetch specialties: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch specialties")

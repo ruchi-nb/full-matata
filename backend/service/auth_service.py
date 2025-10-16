@@ -171,11 +171,12 @@ async def authenticate_google_user(db: AsyncSession, google_token: str) -> Tuple
     Authenticate user with Google OAuth token and return JWT tokens.
     """
     try:
-        # Verify the Google token
+        # Verify the Google token with clock skew tolerance
         idinfo = id_token.verify_oauth2_token(
             google_token, 
             requests.Request(), 
-            settings.GOOGLE_CLIENT_ID
+            settings.GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=60  # Allow 60 seconds of clock skew
         )
         
         # Extract user information from Google token
@@ -216,8 +217,16 @@ async def authenticate_google_user(db: AsyncSession, google_token: str) -> Tuple
         return access_token, refresh_token, access_exp
         
     except ValueError as e:
-        logger.error(f"Invalid Google token: {e}")
-        raise AuthenticationError("Invalid Google token")
+        error_msg = str(e)
+        logger.error(f"Invalid Google token: {error_msg}")
+        
+        # Provide more specific error messages for common issues
+        if "Token used too early" in error_msg:
+            raise AuthenticationError("Token timing issue - please check your system clock synchronization")
+        elif "Token used too late" in error_msg:
+            raise AuthenticationError("Token has expired - please try logging in again")
+        else:
+            raise AuthenticationError(f"Invalid Google token: {error_msg}")
     except Exception as e:
         logger.error(f"Google authentication error: {e}")
         raise AuthenticationError("Google authentication failed")

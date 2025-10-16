@@ -13,6 +13,14 @@ class WebSocketStreamingService {
     this.reconnectTimeout = null;
   }
 
+  getAuthToken() {
+    // Try to get token from localStorage
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('access_token');
+    }
+    return null;
+  }
+
   connect(sessionId, language, provider, consultationId = null) {
     return new Promise((resolve, reject) => {
       try {
@@ -22,7 +30,15 @@ class WebSocketStreamingService {
         // Store connection parameters for reconnection
         this.connectionParams = { sessionId, language, provider, consultationId };
         
-        const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'}/conversation/stream`;
+        // Get JWT token for authentication
+        const token = this.getAuthToken();
+        if (!token) {
+          reject(new Error('No authentication token available. Please log in again.'));
+          return;
+        }
+        
+        // Include token in WebSocket URL
+        const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'}/conversation/stream?token=${encodeURIComponent(token)}`;
         this.ws = new WebSocket(wsUrl);
         
         this.ws.onopen = () => {

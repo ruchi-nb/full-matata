@@ -501,12 +501,20 @@ Session Information:
     logAnalytics(event, data = {}) {
         console.log('Analytics Event:', event, data);
         
-        // Send to backend analytics
-        fetch('/api/v1/analytics/event', {
+        // Send to backend analytics (try authenticated first, fallback to public)
+        const token = localStorage.getItem('access_token');
+        const endpoint = token ? '/api/v1/analytics/event' : '/api/v1/analytics/event/public';
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        fetch(endpoint, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: headers,
             body: JSON.stringify({
                 event: event,
                 data: data,

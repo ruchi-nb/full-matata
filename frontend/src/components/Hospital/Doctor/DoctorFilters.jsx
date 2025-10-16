@@ -16,9 +16,7 @@ const DoctorFilters = ({
   const getRoleDisplayName = (roleValue) => {
     switch (roleValue) {
       case 'doctor': return 'Doctors';
-      case 'nurse': return 'Nurses';
       case 'patient': return 'Patients';
-      case 'lab_technician': return 'Lab Technicians';
       case 'all': return 'Roles';
       default: return 'Roles';
     }
@@ -49,9 +47,7 @@ const DoctorFilters = ({
           >
             <option value="all">All Roles</option>
             <option value="doctor">Doctors</option>
-            <option value="nurse">Nurses</option>
             <option value="patient">Patients</option>
-            <option value="lab_technician">Lab Technicians</option>
           </select>
 
             <select

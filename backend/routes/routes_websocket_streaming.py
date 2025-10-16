@@ -39,8 +39,8 @@ async def authenticate_websocket(websocket: WebSocket, token: Optional[str] = No
         await websocket.close(code=1008, reason="Token has been revoked")
         raise HTTPException(status_code=401, detail="Token has been revoked")
     
-    # Verify it's an access token
-    if not token_data.get("is_refresh", False):
+    # Verify it's an access token (reject if refresh: true, which means it's a refresh token)
+    if token_data.get("refresh", False):
         await websocket.close(code=1008, reason="Access token required")
         raise HTTPException(status_code=401, detail="Access token required")
     

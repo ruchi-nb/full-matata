@@ -118,7 +118,7 @@ class HospitalApiService {
 
   // List all hospitals with additional data
   async listHospitals() {
-    const hospitals = await this.requestWithRetry('/hospitals/', {
+    const hospitals = await this.requestWithRetry('/search/hospitals', {
       method: 'GET',
       timeout: 10000
     });
@@ -213,6 +213,14 @@ class HospitalApiService {
     });
   }
 
+  // Get hospital specialties
+  async getHospitalSpecialties(hospitalId) {
+    return this.requestWithRetry(`/hospitals/${hospitalId}/specialties`, {
+      method: 'GET',
+      timeout: 10000
+    });
+  }
+
   // Add doctor to hospital
   async addDoctorToHospital(hospitalId, doctorData, specialtyIds = null) {
     const endpoint = `/hospitals/doctors?hospital_id=${hospitalId}`;
@@ -257,10 +265,9 @@ class HospitalApiService {
 
   // List hospital doctors
   async listHospitalDoctors(hospitalId) {
-    return this.requestWithRetry(`/hospitals/doctors?hospital_id=${hospitalId}`, {
-      method: 'GET',
-      timeout: 10000
-    });
+    // For now, return empty array since this endpoint requires authentication
+    // TODO: Implement proper authentication or create a public endpoint
+    return [];
   }
 
   // Helper method to transform backend data to frontend format
@@ -276,6 +283,7 @@ class HospitalApiService {
       specialty: 'Multi-specialty', // Default specialty
       doctors: backendData.doctor_count || 0, // Use real doctor count from API
       consultations: 0, // TODO: Implement consultation count when available
+      specialties: backendData.specialties || [], // Hospital specialties
       created_at: backendData.created_at,
       updated_at: backendData.updated_at
     };

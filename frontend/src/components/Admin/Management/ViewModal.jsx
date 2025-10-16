@@ -2,11 +2,20 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
+import { specialties } from "@/data/Specialties";
 
 export default function ViewModal({ hospital, isOpen, onClose }) {
     const [activeTab, setActiveTab] = useState("doctors");
   
     if (!isOpen || !hospital) return null;
+
+    // Get hardcoded specialties for display
+    const availableSpecialties = Object.entries(specialties).map(([key, value]) => ({
+      name: key,
+      description: value.description,
+      doctors: Math.floor(Math.random() * 5) + 1, // Random doctor count for demo
+      consultations: Math.floor(Math.random() * 10) + 5 // Random consultation count for demo
+    }));
   
     return (
       <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/40">
@@ -52,7 +61,7 @@ export default function ViewModal({ hospital, isOpen, onClose }) {
   
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3 text-sm text-slate-700">
                   <div className="flex flex-col">
-                    <span className="font-medium text-slate-900">Location</span>
+                    <span className="font-medium text-slate-900">Admin Name</span>
                     {hospital.location}
                   </div>
                   <div className="flex flex-col">
@@ -94,7 +103,6 @@ export default function ViewModal({ hospital, isOpen, onClose }) {
                       <th className="p-2">Doctor Name</th>
                       <th className="p-2">Specialty</th>
                       <th className="p-2">Experience</th>
-                      <th className="p-2">Avatar Status</th>
                       <th className="p-2">Consultations</th>
                     </tr>
                   </thead>
@@ -131,9 +139,10 @@ export default function ViewModal({ hospital, isOpen, onClose }) {
               <div>
                 <h3 className="text-slate-800 font-semibold mb-4">Available Specialties</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {hospital.specialties?.map((spec, idx) => (
+                  {availableSpecialties.map((spec, idx) => (
                     <div key={idx} className="bg-slate-50 rounded-lg p-4">
                       <h4 className="text-slate-800 font-medium mb-1">{spec.name}</h4>
+                      <p className="text-slate-500 text-sm mb-2">{spec.description}</p>
                       <p className="text-slate-500 text-sm">
                         {spec.doctors} doctors • {spec.consultations} consultations
                       </p>

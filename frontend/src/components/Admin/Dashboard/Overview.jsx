@@ -3,18 +3,19 @@
 import { useState, useEffect } from "react";
 import { 
   Building2, 
-  CheckCircle2, 
   UserCog, 
-  Bot
+  Bot,
+  Users,
+  Calendar
 } from "lucide-react";
 import { getAllHospitals, getAllDoctors } from "@/data/api";
 
 const Overview = () => {
   const [stats, setStats] = useState({
     totalHospitals: 0,
-    activeHospitals: 0,
     totalDoctors: 0,
-    activeAvatars: 0
+    totalPatients: 0,
+    totalConsultations: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -31,15 +32,17 @@ const Overview = () => {
 
         // Calculate stats
         const totalHospitals = hospitalsData?.length || 0;
-        const activeHospitals = totalHospitals; // Assuming all hospitals are active for now
         const totalDoctors = doctorsData?.length || 0;
-        const activeAvatars = totalDoctors; // Assuming all doctors have avatars
+        
+        // Hardcoded stats for patients and consultations
+        const totalPatients = 1247;
+        const totalConsultations = 3842;
 
         setStats({
           totalHospitals,
-          activeHospitals,
           totalDoctors,
-          activeAvatars
+          totalPatients,
+          totalConsultations,
         });
       } catch (error) {
         console.error("Failed to fetch dashboard stats:", error);
@@ -92,20 +95,6 @@ const Overview = () => {
           </div>
         </div>
 
-        {/* Active Hospitals */}
-        <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <p className="text-sm font-medium text-slate-600 mb-1">Active Hospitals</p>
-              <p className="text-3xl font-bold text-slate-900 mb-2">{stats.activeHospitals}</p>
-              <p className="text-sm font-medium text-slate-600"># hospitals active</p>
-            </div>
-            <div className="p-3 rounded-lg bg-green-50 text-green-600">
-              <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
-            </div>
-          </div>
-        </div>
-
         {/* Total Doctors */}
         <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-6 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
@@ -120,16 +109,30 @@ const Overview = () => {
           </div>
         </div>
 
-        {/* Active Avatars */}
+        {/* Total Patients */}
         <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-6 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium text-slate-600 mb-1">Active Avatars</p>
-              <p className="text-3xl font-bold text-slate-900 mb-2">{stats.activeAvatars}</p>
-              <p className="text-sm font-medium text-slate-600"># avatars live</p>
+              <p className="text-sm font-medium text-slate-600 mb-1">Total Patients</p>
+              <p className="text-3xl font-bold text-slate-900 mb-2">{stats.totalPatients}</p>
+              <p className="text-sm font-medium text-slate-600"># patients registered</p>
+            </div>
+            <div className="p-3 rounded-lg bg-emerald-50 text-emerald-600">
+              <Users className="h-6 w-6" aria-hidden="true" />
+            </div>
+          </div>
+        </div>
+
+        {/* Total Consultations */}
+        <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-6 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className="text-sm font-medium text-slate-600 mb-1">Total Consultations</p>
+              <p className="text-3xl font-bold text-slate-900 mb-2">{stats.totalConsultations}</p>
+              <p className="text-sm font-medium text-slate-600"># consultations completed</p>
             </div>
             <div className="p-3 rounded-lg bg-purple-50 text-purple-600">
-              <Bot className="h-6 w-6" aria-hidden="true" />
+              <Calendar className="h-6 w-6" aria-hidden="true" />
             </div>
           </div>
         </div>

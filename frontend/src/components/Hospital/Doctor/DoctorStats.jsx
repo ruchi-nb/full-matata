@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { User, Users, Stethoscope, Microscope } from "lucide-react";
-import { listHospitalDoctors, listHospitalNurses, listHospitalPatients, listHospitalLabTechnicians } from "@/data/api-hospital-admin.js";
+import { User, Stethoscope } from "lucide-react";
+import { getHospitalUsers } from "@/data/api-hospital-admin.js";
 import { useUser } from "@/data/UserContext";
 
 const StatsCard = ({ icon: Icon, bgColor, iconColor, label, value }) => (
@@ -20,10 +20,7 @@ const StatsCard = ({ icon: Icon, bgColor, iconColor, label, value }) => (
 );
 
 const DoctorStats = () => {
-  const [doctors, setDoctors] = useState([]);
-  const [nurses, setNurses] = useState([]);
-  const [patients, setPatients] = useState([]);
-  const [labTechnicians, setLabTechnicians] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useUser();
 
@@ -39,25 +36,13 @@ const DoctorStats = () => {
           return;
         }
 
-        // Load all data in parallel
-        const [doctorsList, nursesList, patientsList, labTechniciansList] = await Promise.all([
-          listHospitalDoctors(hospitalId),
-          listHospitalNurses(hospitalId),
-          listHospitalPatients(hospitalId),
-          listHospitalLabTechnicians(hospitalId)
-        ]);
-
-        setDoctors(doctorsList || []);
-        setNurses(nursesList || []);
-        setPatients(patientsList || []);
-        setLabTechnicians(labTechniciansList || []);
+        // Load hospital users data
+        const usersList = await getHospitalUsers(hospitalId);
+        setUsers(usersList || []);
       } catch (error) {
         console.error("Failed to load hospital data:", error);
-        // Set empty arrays for all data on error
-        setDoctors([]);
-        setNurses([]);
-        setPatients([]);
-        setLabTechnicians([]);
+        // Set empty array on error
+        setUsers([]);
       } finally {
         setLoading(false);
       }
@@ -71,8 +56,8 @@ const DoctorStats = () => {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {[1, 2].map((i) => (
           <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="opacity-50">
               <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
@@ -84,9 +69,9 @@ const DoctorStats = () => {
     );
   }
 
-  // For now, we'll use mock data for consultations since we don't have that data from the API yet
-  const totalConsultations = doctors.length * 15; // Mock calculation
-  const uniqueLanguages = 3; // Mock data
+  // Filter users by role
+  const doctors = users.filter(user => user.global_role?.role_name === 'doctor');
+  const patients = users.filter(user => user.global_role?.role_name === 'patient');
 
   const statsData = [
     {
@@ -97,30 +82,36 @@ const DoctorStats = () => {
       value: doctors.length,
     },
     {
-      icon: Users,
-      bgColor: "bg-purple-50",
-      iconColor: "text-purple-600",
-      label: "Total Nurses",
-      value: nurses.length,
-    },
-    {
       icon: Stethoscope,
       bgColor: "bg-green-50",
       iconColor: "text-green-600",
       label: "Total Patients",
       value: patients.length,
     },
-    {
-      icon: Microscope,
-      bgColor: "bg-orange-50",
-      iconColor: "text-orange-600",
-      label: "Lab Technicians",
-      value: labTechnicians.length,
-    },
   ];
 
+  // Dynamic grid classes based on number of cards
+  const getGridClasses = (cardCount) => {
+    switch (cardCount) {
+      case 1:
+        return "grid-cols-1";
+      case 2:
+        return "grid-cols-1 md:grid-cols-2";
+      case 3:
+        return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3";
+      case 4:
+        return "grid-cols-1 md:grid-cols-2 lg:grid-cols-4";
+      case 5:
+        return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5";
+      case 6:
+        return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6";
+      default:
+        return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+    <div className={`grid ${getGridClasses(statsData.length)} gap-6 mb-8`}>
       {statsData.map((stat, index) => (
         <StatsCard
           key={index}

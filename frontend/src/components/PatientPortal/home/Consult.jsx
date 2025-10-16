@@ -620,7 +620,7 @@ const Consult = ({ doctor, onBack }) => {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       {/* Enhanced status bar */}
-      <div className="bg-gray-800 px-4 py-2 flex justify-between items-center text-xs border-b border-gray-700">
+      {/* <div className="bg-gray-800 px-4 py-2 flex justify-between items-center text-xs border-b border-gray-700">
         <ConnectionStatus />
         <VolumeIndicator />
         <div className="text-gray-300 flex items-center gap-2">
@@ -634,7 +634,7 @@ const Consult = ({ doctor, onBack }) => {
             </>
           )}
         </div>
-      </div>
+      </div> */}
 
       {/* Header */}
       <div className="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center">
@@ -666,7 +666,7 @@ const Consult = ({ doctor, onBack }) => {
         <div className="lg:w-2/3 bg-black relative flex flex-col">
           <div className="flex-1 relative bg-gray-900">
             {/* AI Doctor Video Placeholder */}
-            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-900 to-purple-900">
+            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-900">
               <img 
                 src={doctor?.image} 
                 alt={doctor?.name}

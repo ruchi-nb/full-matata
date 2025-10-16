@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { onboardHospitalAdmin } from "@/data/api-superadmin";
+import { onboardHospitalAdmin, getAllSpecialties } from "@/data/api-superadmin";
+import { listSpecialities } from "@/data/api-hospital-admin";
 
 // Utility function for random string generation
 function randFrom(chars, n) {
@@ -19,6 +20,7 @@ export default function AddHospitalPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [specialties, setSpecialties] = useState([]);
   const [form, setForm] = useState({
     hospital_name: "",
     hospital_email: "",
@@ -29,11 +31,29 @@ export default function AddHospitalPage() {
     admin_last_name: "",
     admin_phone: "",
     auto_login: false,
-    genMode: "pattern" // 'pattern' | 'random'
+    genMode: "pattern", // 'pattern' | 'random'
+    selectedSpecialties: [] // Array of specialty IDs
   });
 
   // Auto-fill username from email
   const username = useMemo(() => form.admin_email.trim(), [form.admin_email]);
+
+  // Hardcoded specialties based on seeded data
+  const hardcodedSpecialties = [
+    { specialty_id: 1, name: "Cardiology", description: "Heart and cardiovascular health" },
+    { specialty_id: 2, name: "Dermatology", description: "Skin, hair, and nail care" },
+    { specialty_id: 3, name: "General Medicine", description: "Primary healthcare and wellness" },
+    { specialty_id: 4, name: "Pediatrics", description: "Healthcare for children and adolescents" },
+    { specialty_id: 5, name: "Orthopedics", description: "Bone, joint, and muscle care" },
+    { specialty_id: 6, name: "Neurology", description: "Brain and nervous system care" },
+    { specialty_id: 7, name: "Oncology", description: "Cancer diagnosis and treatment" },
+    { specialty_id: 8, name: "Psychiatry", description: "Mental health and behavioral disorders" },
+  ];
+
+  // Set specialties on component mount
+  useEffect(() => {
+    setSpecialties(hardcodedSpecialties);
+  }, []);
 
   const generatePassword = () => {
     if (form.genMode === "random") {
@@ -91,7 +111,8 @@ export default function AddHospitalPage() {
         admin_first_name: form.admin_first_name.trim() || null,
         admin_last_name: form.admin_last_name.trim() || null,
         admin_phone: form.admin_phone.trim() || null,
-        auto_login: form.auto_login
+        auto_login: form.auto_login,
+        specialties: form.selectedSpecialties.length > 0 ? form.selectedSpecialties : null
       };
 
       // Call the API to create hospital and admin
@@ -112,7 +133,8 @@ export default function AddHospitalPage() {
         admin_last_name: "",
         admin_phone: "",
         auto_login: false,
-        genMode: "pattern"
+        genMode: "pattern",
+        selectedSpecialties: []
       });
 
       // Redirect back to hospitals list after a delay
@@ -310,6 +332,71 @@ export default function AddHospitalPage() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Hospital Specialties */}
+          <div className="border-b border-gray-200 pb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Hospital Specialties</h3>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Select the medical specialties that this hospital will offer. You can add or remove specialties later.
+              </p>
+              
+              {specialties.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {specialties.map((specialty) => (
+                    <label key={specialty.specialty_id} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.selectedSpecialties.includes(specialty.specialty_id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setForm(prev => ({
+                              ...prev,
+                              selectedSpecialties: [...prev.selectedSpecialties, specialty.specialty_id]
+                            }));
+                          } else {
+                            setForm(prev => ({
+                              ...prev,
+                              selectedSpecialties: prev.selectedSpecialties.filter(id => id !== specialty.specialty_id)
+                            }));
+                          }
+                        }}
+                        className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900">{specialty.name}</div>
+                        {specialty.description && (
+                          <div className="text-xs text-gray-500">{specialty.description}</div>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-sm">Loading specialties...</div>
+                </div>
+              )}
+              
+              {form.selectedSpecialties.length > 0 && (
+                <div className="mt-4 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                  <div className="text-sm font-medium text-teal-800 mb-2">
+                    Selected Specialties ({form.selectedSpecialties.length}):
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {form.selectedSpecialties.map(specialtyId => {
+                      const specialty = specialties.find(s => s.specialty_id === specialtyId);
+                      return specialty ? (
+                        <span key={specialtyId} className="px-2 py-1 bg-teal-100 text-teal-800 text-xs rounded-full">
+                          {specialty.name}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

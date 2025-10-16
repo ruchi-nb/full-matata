@@ -20,6 +20,13 @@ function withQuery(path, params = {}) {
 }
 
 /**
+ * Get the hospital ID for the current hospital admin user
+ */
+export async function getMyHospitalId() {
+  return request("/hospitals/my-hospital-id", { method: "GET" });
+}
+
+/**
  * Get hospital profile
  */
 export function getHospitalProfile(hospitalId) {
@@ -82,7 +89,7 @@ export function deleteSpeciality(hospitalId, id) {
  * Get all doctors (for admin purposes)
  */
 export async function getAllDoctors() {
-  return request('/doctors', { method: "GET" });
+  return request('/search/doctors', { method: "GET" });
 }
 
 /**
@@ -140,10 +147,24 @@ export async function getHospitalById(hospitalId) {
 }
 
 /**
- * Get hospital users
+ * Debug function to check what's in the database
+ */
+export async function getHospitalUsersDebug(hospitalId) {
+  return request(`/hospitals/${hospitalId}/users/debug`, { method: "GET" });
+}
+
+/**
+ * Get all users associated with a hospital from different association tables
  */
 export async function getHospitalUsers(hospitalId) {
   return request(`/hospitals/${hospitalId}/users`, { method: "GET" });
+}
+
+/**
+ * Get hospital specialties
+ */
+export async function getHospitalSpecialties(hospitalId) {
+  return request(`/hospitals/${hospitalId}/specialties`, { method: "GET" });
 }
 
 /**

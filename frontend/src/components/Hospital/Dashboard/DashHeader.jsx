@@ -15,10 +15,17 @@ export default function DashboardHeader() {
     async function loadHospitalProfile() {
       try {
         // Get hospital_id from user context
+        console.log("DashHeader component - User object:", user);
+        console.log("DashHeader component - User hospital_id:", user?.hospital_id);
+        console.log("DashHeader component - User hospital_roles:", user?.hospital_roles);
+        
         const hospitalId = user?.hospital_id || user?.hospital_roles?.[0]?.hospital_id;
+        
+        console.log("DashHeader component - Extracted hospitalId:", hospitalId);
         
         if (!hospitalId) {
           console.error("No hospital ID found for user");
+          console.error("User object structure:", JSON.stringify(user, null, 2));
           setLoading(false);
           return;
         }

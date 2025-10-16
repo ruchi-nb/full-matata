@@ -105,14 +105,21 @@ class ConsultationService {
   async logAnalyticsEvent(event, data) {
     try {
       const token = this.getAuthToken();
-      if (!token) return;
+      
+      // Choose endpoint based on authentication status
+      const endpoint = token ? '/api/v1/analytics/event' : '/api/v1/analytics/event/public';
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Add authorization header only if token exists
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
 
-      await fetch(`${this.baseURL}/api/v1/analytics/event`, {
+      await fetch(`${this.baseURL}${endpoint}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers,
         body: JSON.stringify({
           event,
           data,

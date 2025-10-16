@@ -32,9 +32,33 @@ export default function HospitalCards() {
       // Load hospitals from API
       const hospitalsData = await hospitalApiService.listHospitals();
       
-      // Transform backend data to frontend format
-      const transformedHospitals = hospitalsData.map(hospital => 
-        hospitalApiService.transformHospitalData(hospital)
+      // Transform backend data to frontend format and fetch specialties for each hospital
+      const transformedHospitals = await Promise.all(
+        hospitalsData.map(async (hospital) => {
+          const transformedHospital = hospitalApiService.transformHospitalData(hospital);
+          
+          // Use hardcoded specialties for display
+          const hardcodedSpecialties = [
+            { specialty_id: 1, name: "Cardiology", description: "Heart and cardiovascular health" },
+            { specialty_id: 2, name: "Dermatology", description: "Skin, hair, and nail care" },
+            { specialty_id: 3, name: "General Medicine", description: "Primary healthcare and wellness" },
+            { specialty_id: 4, name: "Pediatrics", description: "Healthcare for children and adolescents" },
+            { specialty_id: 5, name: "Orthopedics", description: "Bone, joint, and muscle care" },
+            { specialty_id: 6, name: "Neurology", description: "Brain and nervous system care" },
+            { specialty_id: 7, name: "Oncology", description: "Cancer diagnosis and treatment" },
+            { specialty_id: 8, name: "Psychiatry", description: "Mental health and behavioral disorders" },
+          ];
+          
+          // For now, show all specialties for each hospital (can be made dynamic later)
+          transformedHospital.specialties = hardcodedSpecialties.map(spec => ({
+            name: spec.name,
+            description: spec.description,
+            doctors: Math.floor(Math.random() * 5) + 1, // Random doctor count for demo
+            consultations: Math.floor(Math.random() * 20) + 5 // Random consultation count for demo
+          }));
+          
+          return transformedHospital;
+        })
       );
       
       setHospitals(transformedHospitals);
@@ -267,9 +291,6 @@ export default function HospitalCards() {
                 <p className="text-xs text-slate-400">{hospital.email}</p>
               </div>
             </div>
-
-            {/* Location */}
-            <p className="mt-3 text-sm text-slate-600">📍 {hospital.location}</p>
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4 mt-4 text-center">

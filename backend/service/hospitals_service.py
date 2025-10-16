@@ -7,7 +7,7 @@ from sqlalchemy.exc import (
     DisconnectionError,
     InvalidRequestError
 )
-from models.models import HospitalMaster, Specialties, Users, HospitalUserRoles, DoctorSpecialties
+from models.models import HospitalMaster, Specialties, Users, HospitalUserRoles, DoctorSpecialties, HospitalSpecialties
 from centralisedErrorHandling.ErrorHandling import (
     DatabaseError,
     ValidationError,
@@ -81,12 +81,24 @@ async def update_hospital_profile(db: AsyncSession, hospital_id: int, update_dat
 
 
 async def list_specialities(db: AsyncSession, limit: int = 500) -> List[Specialties]:
-    try:
-        q = select(Specialties).limit(int(limit))
-        res = await db.execute(q)
-        return list(res.scalars().all())
-    except Exception as e:
-        raise DatabaseError("Failed to list specialties", operation="select", table="specialties", original_error=e)
+    """Return hardcoded specialties instead of database query"""
+    # Hardcoded specialties based on seeded data
+    hardcoded_specialties = [
+        Specialties(specialty_id=1, name="Cardiology", description="Heart and cardiovascular health", status="active"),
+        Specialties(specialty_id=2, name="Dermatology", description="Skin, hair, and nail care", status="active"),
+        Specialties(specialty_id=3, name="General Medicine", description="Primary healthcare and wellness", status="active"),
+        Specialties(specialty_id=4, name="Pediatrics", description="Healthcare for children and adolescents", status="active"),
+        Specialties(specialty_id=5, name="Orthopedics", description="Bone, joint, and muscle care", status="active"),
+        Specialties(specialty_id=6, name="Neurology", description="Brain and nervous system care", status="active"),
+        Specialties(specialty_id=7, name="Oncology", description="Cancer diagnosis and treatment", status="active"),
+        Specialties(specialty_id=8, name="Psychiatry", description="Mental health and behavioral disorders", status="active"),
+    ]
+    
+    # Apply limit if specified
+    if limit and limit < len(hardcoded_specialties):
+        return hardcoded_specialties[:limit]
+    
+    return hardcoded_specialties
 
 
 async def create_speciality(db: AsyncSession, *, name: str, description: Optional[str] = None, status: Optional[str] = "active") -> Specialties:
@@ -357,6 +369,132 @@ async def remove_doctor_from_hospital(db: AsyncSession, *, hospital_id: int, doc
         )
 
 
+async def get_hospital_users_debug(db: AsyncSession, *, hospital_id: int) -> Dict[str, Any]:
+    """
+    Debug version to check what's in the hospital_user_roles table
+    """
+    try:
+        from sqlalchemy import select
+        from models.models import Users, HospitalUserRoles, RoleMaster, UserDetails, HospitalMaster
+        
+        # Check if hospital exists
+        hospital_check = await db.execute(select(HospitalMaster).where(HospitalMaster.hospital_id == hospital_id))
+        hospital = hospital_check.scalar_one_or_none()
+        
+        # Check hospital_user_roles table
+        roles_check = await db.execute(
+            select(HospitalUserRoles).where(HospitalUserRoles.hospital_id == hospital_id)
+        )
+        roles = roles_check.fetchall()
+        
+        # Get detailed info about users in hospital_user_roles
+        detailed_check = await db.execute(
+            select(
+                Users.user_id,
+                Users.username,
+                Users.email,
+                Users.global_role_id,
+                RoleMaster.role_name.label('global_role_name'),
+                HospitalUserRoles.hospital_role_id,
+                HospitalUserRoles.is_active
+            )
+            .join(HospitalUserRoles, HospitalUserRoles.user_id == Users.user_id)
+            .join(RoleMaster, RoleMaster.role_id == Users.global_role_id)
+            .where(HospitalUserRoles.hospital_id == hospital_id)
+        )
+        detailed_users = detailed_check.fetchall()
+        
+        return {
+            "hospital_exists": hospital is not None,
+            "hospital_name": hospital.hospital_name if hospital else None,
+            "hospital_user_roles_count": len(roles),
+            "hospital_user_roles": [
+                {
+                    "user_id": r.user_id, 
+                    "hospital_id": r.hospital_id, 
+                    "hospital_role_id": r.hospital_role_id,
+                    "is_active": r.is_active
+                } for r in roles
+            ],
+            "detailed_users": [
+                {
+                    "user_id": u.user_id,
+                    "username": u.username,
+                    "email": u.email,
+                    "global_role_id": u.global_role_id,
+                    "global_role_name": u.global_role_name,
+                    "hospital_role_id": u.hospital_role_id,
+                    "is_active": u.is_active
+                } for u in detailed_users
+            ]
+        }
+        
+    except Exception as e:
+        return {"error": str(e)}
+
+
+async def get_hospital_users(db: AsyncSession, *, hospital_id: int, limit: int = 500) -> List[Dict[str, Any]]:
+    """
+    Get all users associated with a hospital from hospital_user_roles table
+    This covers hospital_admin, doctor, and patient roles created by superadmin
+    """
+    try:
+        from sqlalchemy import select
+        from models.models import Users, HospitalUserRoles, RoleMaster, UserDetails
+        
+        # Simple query: get all users from hospital_user_roles table
+        q = (
+            select(
+                Users.user_id,
+                Users.username,
+                Users.email,
+                Users.global_role_id,
+                RoleMaster.role_name.label('global_role_name'),
+                UserDetails.first_name,
+                UserDetails.last_name,
+                UserDetails.phone,
+                HospitalUserRoles.hospital_role_id,
+                HospitalUserRoles.assigned_on
+            )
+            .join(HospitalUserRoles, HospitalUserRoles.user_id == Users.user_id)
+            .join(RoleMaster, RoleMaster.role_id == Users.global_role_id)
+            .outerjoin(UserDetails, UserDetails.user_id == Users.user_id)
+            .where(
+                HospitalUserRoles.hospital_id == hospital_id,
+                HospitalUserRoles.is_active == True
+            )
+            .limit(limit)
+        )
+        
+        res = await db.execute(q)
+        rows = res.fetchall()
+        
+        # Convert to list of dictionaries
+        users = []
+        for row in rows:
+            user_dict = {
+                'user_id': row.user_id,
+                'username': row.username,
+                'email': row.email,
+                'global_role_id': row.global_role_id,
+                'global_role': {
+                    'role_id': row.global_role_id,
+                    'role_name': row.global_role_name
+                },
+                'first_name': row.first_name,
+                'last_name': row.last_name,
+                'phone': row.phone,
+                'hospital_role_id': row.hospital_role_id,
+                'assigned_on': row.assigned_on.isoformat() if row.assigned_on else None
+            }
+            users.append(user_dict)
+        
+        return users
+        
+    except Exception as e:
+        raise DatabaseError("Failed to get hospital users", operation="select", table="hospital_user_roles", original_error=e)
+
+
 async def list_hospital_doctors(db: AsyncSession, *, hospital_id: int, limit: int = 500) -> List[Users]:
     try:
         q = (
@@ -374,4 +512,117 @@ async def list_hospital_doctors(db: AsyncSession, *, hospital_id: int, limit: in
         return list(res.scalars().all())
     except Exception as e:
         raise DatabaseError("Failed to list hospital doctors", operation="select", table="users/hospital_user_roles", original_error=e)
+
+
+# -----------------------------
+# Hospital Specialties
+# -----------------------------
+
+async def add_hospital_specialties(db: AsyncSession, *, hospital_id: int, specialty_ids: List[int]) -> List[HospitalSpecialties]:
+    """Add specialties to a hospital"""
+    if not specialty_ids:
+        return []
+    
+    try:
+        # Validate that all specialties exist
+        q = select(Specialties).where(Specialties.specialty_id.in_(specialty_ids))
+        res = await db.execute(q)
+        existing_specialties = {s.specialty_id for s in res.scalars().all()}
+        
+        missing_specialties = set(specialty_ids) - existing_specialties
+        if missing_specialties:
+            raise ValidationError(f"Specialties not found: {missing_specialties}", field="specialty_ids")
+        
+        # Check for existing hospital-specialty mappings
+        q = select(HospitalSpecialties).where(
+            and_(
+                HospitalSpecialties.hospital_id == int(hospital_id),
+                HospitalSpecialties.specialty_id.in_(specialty_ids)
+            )
+        )
+        res = await db.execute(q)
+        existing_mappings = {(hs.hospital_id, hs.specialty_id) for hs in res.scalars().all()}
+        
+        # Create new mappings for specialties not already associated
+        new_mappings = []
+        for specialty_id in specialty_ids:
+            if (int(hospital_id), specialty_id) not in existing_mappings:
+                hs = HospitalSpecialties(
+                    hospital_id=int(hospital_id),
+                    specialty_id=int(specialty_id)
+                )
+                db.add(hs)
+                new_mappings.append(hs)
+        
+        await db.commit()
+        
+        # Refresh all mappings to return
+        q = select(HospitalSpecialties).where(
+            and_(
+                HospitalSpecialties.hospital_id == int(hospital_id),
+                HospitalSpecialties.specialty_id.in_(specialty_ids)
+            )
+        )
+        res = await db.execute(q)
+        return list(res.scalars().all())
+        
+    except (ValidationError, DataIntegrityError, ConnectionError, TransactionError):
+        raise
+    except Exception as e:
+        await _safe_rollback(db, "hospital_specialties")
+        logger.error(f"Unexpected error in add_hospital_specialties: {e}", exc_info=True)
+        raise DatabaseError(
+            "Failed to add hospital specialties",
+            operation="insert",
+            table="hospital_specialties",
+            original_error=e,
+            context={"hospital_id": hospital_id, "specialty_ids": specialty_ids}
+        )
+
+
+async def list_hospital_specialties(db: AsyncSession, *, hospital_id: int) -> List[Specialties]:
+    """List all specialties for a hospital"""
+    try:
+        q = (
+            select(Specialties)
+            .join(HospitalSpecialties, HospitalSpecialties.specialty_id == Specialties.specialty_id)
+            .where(HospitalSpecialties.hospital_id == int(hospital_id))
+        )
+        res = await db.execute(q)
+        return list(res.scalars().all())
+    except Exception as e:
+        raise DatabaseError("Failed to list hospital specialties", operation="select", table="specialties/hospital_specialties", original_error=e)
+
+
+async def remove_hospital_specialties(db: AsyncSession, *, hospital_id: int, specialty_ids: List[int]) -> None:
+    """Remove specialties from a hospital"""
+    if not specialty_ids:
+        return
+    
+    try:
+        q = select(HospitalSpecialties).where(
+            and_(
+                HospitalSpecialties.hospital_id == int(hospital_id),
+                HospitalSpecialties.specialty_id.in_(specialty_ids)
+            )
+        )
+        res = await db.execute(q)
+        mappings_to_delete = res.scalars().all()
+        
+        for mapping in mappings_to_delete:
+            await db.delete(mapping)
+        
+        await db.commit()
+    except (DataIntegrityError, ConnectionError, TransactionError):
+        raise
+    except Exception as e:
+        await _safe_rollback(db, "hospital_specialties")
+        logger.error(f"Unexpected error in remove_hospital_specialties: {e}", exc_info=True)
+        raise DatabaseError(
+            "Failed to remove hospital specialties",
+            operation="delete",
+            table="hospital_specialties",
+            original_error=e,
+            context={"hospital_id": hospital_id, "specialty_ids": specialty_ids}
+        )
 

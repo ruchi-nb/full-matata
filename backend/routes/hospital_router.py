@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Path
 from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.database import get_db
@@ -11,7 +11,8 @@ from schema.schema import (
 from service.hospitals_service import (
     get_hospital_profile, update_hospital_profile,
     list_specialities, create_speciality, update_speciality, delete_speciality,
-    add_doctor_to_hospital, update_doctor_in_hospital, remove_doctor_from_hospital, list_hospital_doctors
+    add_doctor_to_hospital, update_doctor_in_hospital, remove_doctor_from_hospital, list_hospital_doctors,
+    list_hospital_specialties
 )
 from centralisedErrorHandling.ErrorHandling import DatabaseError, ValidationError
 from service.audit_service import create_audit_log
@@ -91,6 +92,75 @@ async def create_hospital(
         raise HTTPException(status_code=400, detail=str(ve)) from ve
     except DatabaseError as de:
         raise HTTPException(status_code=500, detail="Failed to create hospital") from de
+
+
+@router.get("/{hospital_id}/users/debug")
+async def get_hospital_users_debug(
+    hospital_id: int = Path(..., description="Hospital ID"),
+    caller: Dict[str, Any] = Depends(require_permissions(["hospital.profile.view"], hospital_id_param="hospital_id")),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Debug endpoint to check what's in the database
+    """
+    try:
+        from service.hospitals_service import get_hospital_users_debug
+        
+        debug_info = await get_hospital_users_debug(db, hospital_id=hospital_id)
+        return debug_info
+    except DatabaseError as de:
+        raise HTTPException(status_code=500, detail="Failed to get debug info") from de
+
+
+@router.get("/{hospital_id}/users")
+async def get_hospital_users(
+    hospital_id: int = Path(..., description="Hospital ID"),
+    caller: Dict[str, Any] = Depends(require_permissions(["hospital.profile.view"], hospital_id_param="hospital_id")),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get all users associated with a hospital from different association tables
+    """
+    try:
+        from service.hospitals_service import get_hospital_users
+        
+        users = await get_hospital_users(db, hospital_id=hospital_id)
+        return users
+    except DatabaseError as de:
+        raise HTTPException(status_code=500, detail="Failed to get hospital users") from de
+
+
+@router.get("/my-hospital-id")
+async def get_my_hospital_id(
+    caller: Dict[str, Any] = Depends(require_permissions(["hospital.profile.view"])),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get the hospital ID for the current hospital admin user
+    """
+    try:
+        from sqlalchemy import select
+        from models.models import HospitalUserRoles
+        
+        user_id = caller.get("user_id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid user")
+        
+        # Get the hospital ID for this user
+        q = select(HospitalUserRoles.hospital_id).where(
+            HospitalUserRoles.user_id == user_id,
+            HospitalUserRoles.is_active == True
+        ).limit(1)
+        
+        res = await db.execute(q)
+        hospital_id = res.scalar_one_or_none()
+        
+        if not hospital_id:
+            raise HTTPException(status_code=404, detail="No hospital found for this user")
+        
+        return {"hospital_id": int(hospital_id)}
+    except DatabaseError as de:
+        raise HTTPException(status_code=500, detail="Failed to fetch hospital ID") from de
 
 
 @router.get("/profile", response_model=HospitalProfileOut)
@@ -247,6 +317,22 @@ async def delete_department(
         return {"status": "deleted"}
     except DatabaseError as de:
         raise HTTPException(status_code=500, detail="Failed to delete specialty") from de
+
+
+@router.get("/{hospital_id}/specialties", response_model=list[SpecialityOut])
+async def get_hospital_specialties(
+    hospital_id: int,
+    caller: Dict[str, Any] = Depends(require_permissions(["hospital.specialities.list"], hospital_id_param="hospital_id")),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get all specialties for a specific hospital
+    """
+    try:
+        specialties = await list_hospital_specialties(db, hospital_id=hospital_id)
+        return [SpecialityOut(specialty_id=int(s.specialty_id), name=s.name, description=s.description, status=s.status) for s in specialties]
+    except DatabaseError as de:
+        raise HTTPException(status_code=500, detail="Failed to list hospital specialties") from de
 
 
 # -----------------------------

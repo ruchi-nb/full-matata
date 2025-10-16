@@ -414,3 +414,23 @@ async def log_analytics_event(
     except Exception as e:
         logger.error(f"Error logging analytics event: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/analytics/event/public")
+async def log_analytics_event_public(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """Log analytics event from frontend without authentication (for patients)"""
+    try:
+        data = await request.json()
+        
+        # Log the event (without sensitive data)
+        logger.info(f"Public analytics event: {data.get('event')} - {data.get('data')}")
+        
+        # For public events, we don't store sensitive information
+        # Just acknowledge receipt
+        
+        return {"status": "success", "message": "Event logged"}
+    except Exception as e:
+        logger.error(f"Error logging public analytics event: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

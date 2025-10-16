@@ -59,7 +59,6 @@ export default function RootLayout({ children }) {
             </UserProvider>
           </ErrorBoundary>
         </GoogleOAuthProvider>
-        <EnvDebug />
       </body>
     </html>
   );
