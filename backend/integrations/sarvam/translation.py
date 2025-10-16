@@ -1,15 +1,14 @@
 """
-Sarvam Translation Service (UNUSED)
-Handles text translation functionality - Currently not used in any routes
+Sarvam Translation Service - ULTRA-OPTIMIZED
+Handles text translation functionality with async requests and connection pooling
 """
 
 import logging
 import time
-import requests
+import asyncio
+import aiohttp
 from typing import Optional
-# Analytics integration removed - logging handled at service layer
 from config import settings
-# Analytics logging handled at service layer
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +21,52 @@ class SarvamTranslationService:
             "Content-Type": "application/json",
             "api-subscription-key": self.api_key
         }
+        
+        # Connection pooling for better performance
+        self._session: Optional[aiohttp.ClientSession] = None
+        self._session_lock = asyncio.Lock()
+        
+        # ULTRA-FAST timeout configuration - optimized for minimal latency
+        self._timeout_config = aiohttp.ClientTimeout(
+            total=3,  # 3 second total timeout (ultra-fast)
+            connect=1,  # 1 second connection timeout (ultra-fast)
+            sock_read=2  # 2 second socket read timeout (ultra-fast)
+        )
+        
+        # Connection pool configuration
+        self._connector_config = {
+            'limit': 50,  # Max concurrent connections
+            'limit_per_host': 10,  # Max per host
+            'ttl_dns_cache': 300,  # DNS cache TTL
+            'enable_cleanup_closed': True,
+            'keepalive_timeout': 30,  # Keep connections alive
+            'force_close': False
+        }
+        
+        # Translation cache for frequently translated text
+        self._translation_cache = {}
+        self._cache_max_size = 1000
+        self._cache_ttl = 3600  # 1 hour cache TTL
+    
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create aiohttp session with connection pooling"""
+        if self._session is None or self._session.closed:
+            async with self._session_lock:
+                if self._session is None or self._session.closed:
+                    connector = aiohttp.TCPConnector(**self._connector_config)
+                    self._session = aiohttp.ClientSession(
+                        connector=connector,
+                        timeout=self._timeout_config,
+                        headers=self.headers
+                    )
+                    logger.info("✅ Sarvam Translation session created with connection pooling")
+        return self._session
+    
+    async def close(self):
+        """Close the aiohttp session gracefully"""
+        if self._session and not self._session.closed:
+            await self._session.close()
+            logger.info("🔒 Sarvam Translation session closed")
 
     def _convert_lang_code(self, lang_code: str) -> str:
         """Convert simple language codes to Sarvam format"""
@@ -59,11 +104,10 @@ class SarvamTranslationService:
                     'language_code': self._convert_lang_code(source_lang)
                 }
                 headers = {"api-subscription-key": self.api_key}
-                response = requests.post(url, files=files, data=data, headers=headers)
-            response.raise_for_status()
-
-            result = response.json()
-            transcribed_text = result.get('transcript', '')
+                # Note: This method is unused and should be removed or updated to use async
+                # For now, returning None to avoid errors
+                logger.warning("Speech translation method is deprecated and unused")
+                return None
 
             if target_lang != source_lang and transcribed_text:
                 return self.text_translate(transcribed_text, source_lang, target_lang)
@@ -79,9 +123,9 @@ class SarvamTranslationService:
                 pass
             return None
 
-    def text_translate(self, text: str, source_lang: str = "en", target_lang: str = "hi", 
-                      request_id: str = None, session_id: str = None) -> Optional[str]:
-        """Translate text from source to target language"""
+    async def text_translate_async(self, text: str, source_lang: str = "en", target_lang: str = "hi", 
+                                  request_id: str = None, session_id: str = None) -> Optional[str]:
+        """Translate text from source to target language with async requests and ultra-fast timeouts"""
         start_time = time.time()
         request_id = request_id or f"trans-{int(time.time()*1000)}"
         
@@ -93,6 +137,17 @@ class SarvamTranslationService:
             
             if source_lang_converted == target_lang_converted:
                 return text
+            
+            # Check translation cache first for ultra-fast response
+            cache_key = f"{source_lang_converted}:{target_lang_converted}:{hash(text)}"
+            if cache_key in self._translation_cache:
+                cached_result, cache_time = self._translation_cache[cache_key]
+                if time.time() - cache_time < self._cache_ttl:
+                    logger.debug(f"🚀 Translation cache HIT: {cache_key}")
+                    return cached_result
+                else:
+                    # Remove expired cache entry
+                    del self._translation_cache[cache_key]
 
             url = f"{self.base_url}/translate"
             payload = {
@@ -106,60 +161,170 @@ class SarvamTranslationService:
                 "instruction": "Translate strictly and literally. Do not summarize, expand, or add content."
             }
 
-            response = requests.post(url, json=payload, headers=self.headers)
-            if response.status_code != 200:
-                logger.error(f"Sarvam API error: {response.status_code} - {response.text}")
-                return text
+            session = await self._get_session()
+            
+            # Retry logic with exponential backoff
+            max_retries = 2
+            for attempt in range(max_retries + 1):
+                try:
+                    async with session.post(url, json=payload) as response:
+                        if response.status == 200:
+                            result = await response.json()
+                            translated = result.get('translated_text', text)
+                            print(f"TRANSLATE RESULT: '{translated}'")
+                            
+                            # Validate translation length
+                            if len(text) > 0 and len(translated) > max(512, 3 * len(text)):
+                                logger.warning("Translation length anomaly detected")
+                                # Return original if translation is too long
+                                translated = text
+                            
+                            if not translated or translated.strip() == "":
+                                logger.warning("Empty translation received, returning original text")
+                                translated = text
 
-            result = response.json()
-            translated = result.get('translated_text', text)
-            print(f"TRANSLATE RESULT: '{translated}'")
-            # Heuristic: if translation unexpectedly balloons (possible paraphrase), retry once with ultra-strict options
-            try:
-                if source_lang != target_lang:
-                    if len(text) > 0 and len(translated) > max(512, 3 * len(text)):
-                        logger.warning("Translation length anomaly detected; retrying with stricter options")
-                        strict_payload = {
-                            "input": text,
-                            "source_language_code": source_lang_converted,
-                            "target_language_code": target_lang_converted,
-                            "mode": "formal",
-                            "model": settings.SARVAM_TRANSLATE_MODEL,
-                            "enable_preprocessing": False
-                        }
-                        strict_resp = requests.post(url, json=strict_payload, headers=self.headers)
-                        if strict_resp.status_code == 200:
-                            strict_result = strict_resp.json()
-                            strict_translated = strict_result.get('translated_text') or translated
-                            if len(strict_translated) <= len(translated):
-                                translated = strict_translated
-            except Exception:
-                # Non-fatal; keep first translation
-                pass
-            if not translated or translated.strip() == "":
-                logger.warning("Empty translation received, returning original text")
-                translated = text
-
-            try:
-                latency_ms = int((time.time() - start_time) * 1000)
-                logger.info(f"Sarvam Translation - Input: {len(text)} chars, Output: {len(translated)} chars, Latency: {latency_ms}ms, {source_lang_converted}->{target_lang_converted}")
-                
-                # Note: Translation logging would need database session
-                # Simplified logging for now
-                logger.info(f"Translation completed: {source_lang_converted} -> {target_lang_converted}")
-            except Exception as log_error:
-                logger.warning(f"Translation logging failed: {log_error}")
-
-            return translated
+                            # Cache the translation result for future use
+                            if len(self._translation_cache) >= self._cache_max_size:
+                                # Remove oldest entry if cache is full
+                                oldest_key = min(self._translation_cache.keys(), 
+                                               key=lambda k: self._translation_cache[k][1])
+                                del self._translation_cache[oldest_key]
+                            
+                            self._translation_cache[cache_key] = (translated, time.time())
+                            
+                            # Log success metrics
+                            latency_ms = int((time.time() - start_time) * 1000)
+                            logger.info(f"Sarvam Translation - Input: {len(text)} chars, Output: {len(translated)} chars, Latency: {latency_ms}ms, {source_lang_converted}->{target_lang_converted}")
+                            logger.info(f"Translation completed: {source_lang_converted} -> {target_lang_converted}")
+                            
+                            return translated
+                        else:
+                            error_text = await response.text()
+                            logger.error(f"Sarvam API error: {response.status} - {error_text}")
+                            if attempt < max_retries:
+                                await asyncio.sleep(0.5 * (attempt + 1))  # Exponential backoff
+                                continue
+                            return text
+                            
+                except asyncio.TimeoutError:
+                    if attempt < max_retries:
+                        logger.warning(f"Translation timeout, retrying (attempt {attempt + 1}/{max_retries + 1})")
+                        await asyncio.sleep(0.5 * (attempt + 1))
+                        continue
+                    else:
+                        logger.error("Translation timeout after all retries")
+                        return text
+                except Exception as e:
+                    if attempt < max_retries:
+                        logger.warning(f"Translation error, retrying: {e} (attempt {attempt + 1}/{max_retries + 1})")
+                        await asyncio.sleep(0.5 * (attempt + 1))
+                        continue
+                    else:
+                        raise e
+            
+            return text
 
         except Exception as e:
             logger.error(f"Text translation error: {str(e)}")
             
-            # Log error metrics (simplified logging without database)
+            # Log error metrics
             try:
                 latency_ms = int((time.time() - start_time) * 1000)
                 logger.error(f"Sarvam Translation Error - Input: {len(text)} chars, Latency: {latency_ms}ms, Error: {str(e)}")
             except Exception as log_error:
                 logger.warning(f"Analytics logging failed: {log_error}")
             
+            return text
+    
+    def text_translate(self, text: str, source_lang: str = "en", target_lang: str = "hi", 
+                      request_id: str = None, session_id: str = None) -> Optional[str]:
+        """ULTRA-FAST synchronous wrapper for async translation"""
+        try:
+            # Check cache first for instant response
+            source_lang_converted = self._convert_lang_code(source_lang)
+            target_lang_converted = self._convert_lang_code(target_lang)
+            
+            if source_lang_converted == target_lang_converted:
+                return text
+            
+            cache_key = f"{source_lang_converted}:{target_lang_converted}:{hash(text)}"
+            if cache_key in self._translation_cache:
+                cached_result, cache_time = self._translation_cache[cache_key]
+                if time.time() - cache_time < self._cache_ttl:
+                    logger.debug(f"🚀 Translation cache HIT (sync): {cache_key}")
+                    return cached_result
+            
+            # Try to get the current event loop
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If we're in an async context, create a new event loop in a thread
+                import concurrent.futures
+                import threading
+                
+                def run_in_thread():
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+                    try:
+                        return new_loop.run_until_complete(
+                            self.text_translate_async(text, source_lang, target_lang, request_id, session_id)
+                        )
+                    finally:
+                        new_loop.close()
+                
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(run_in_thread)
+                    return future.result(timeout=5)  # Reduced timeout to 5 seconds
+            else:
+                # If no loop is running, we can use asyncio.run
+                return asyncio.run(self.text_translate_async(text, source_lang, target_lang, request_id, session_id))
+        except Exception as e:
+            logger.error(f"Sync translation wrapper error: {e}")
+            # Fallback to simple synchronous translation for critical cases
+            return self._fallback_sync_translate(text, source_lang, target_lang)
+    
+    def _fallback_sync_translate(self, text: str, source_lang: str, target_lang: str) -> str:
+        """Ultra-fast fallback synchronous translation using requests"""
+        try:
+            import requests
+            
+            source_lang_converted = self._convert_lang_code(source_lang)
+            target_lang_converted = self._convert_lang_code(target_lang)
+            
+            if source_lang_converted == target_lang_converted:
+                return text
+            
+            url = f"{self.base_url}/translate"
+            payload = {
+                "input": text,
+                "source_language_code": source_lang_converted,
+                "target_language_code": target_lang_converted,
+                "speaker_gender": "Male",
+                "mode": "formal",
+                "model": settings.SARVAM_TRANSLATE_MODEL,
+                "enable_preprocessing": False,
+                "instruction": "Translate strictly and literally. Do not summarize, expand, or add content."
+            }
+            
+            # Ultra-fast synchronous request with minimal timeout
+            response = requests.post(url, json=payload, headers=self.headers, timeout=2)
+            if response.status_code == 200:
+                result = response.json()
+                translated = result.get('translated_text', text)
+                
+                # Cache the result
+                cache_key = f"{source_lang_converted}:{target_lang_converted}:{hash(text)}"
+                if len(self._translation_cache) >= self._cache_max_size:
+                    oldest_key = min(self._translation_cache.keys(), 
+                                   key=lambda k: self._translation_cache[k][1])
+                    del self._translation_cache[oldest_key]
+                self._translation_cache[cache_key] = (translated, time.time())
+                
+                logger.info(f"🚀 Fallback sync translation: {len(text)} chars -> {len(translated)} chars")
+                return translated
+            else:
+                logger.error(f"Fallback sync translation failed: {response.status_code}")
+                return text
+                
+        except Exception as e:
+            logger.error(f"Fallback sync translation error: {e}")
             return text

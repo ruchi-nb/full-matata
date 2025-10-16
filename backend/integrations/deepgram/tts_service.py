@@ -29,20 +29,27 @@ class DeepgramTTSService:
         self._session: Optional[aiohttp.ClientSession] = None
         self._session_lock = asyncio.Lock()
         
-        # Connection pool configuration
+        # Connection pool configuration - Optimized for low latency
         self._connector_config = {
             'limit': 100,  # Max concurrent connections
-            'limit_per_host': 10,  # Max per host
-            'ttl_dns_cache': 300,  # DNS cache TTL
-            'enable_cleanup_closed': True
+            'limit_per_host': 20,  # Increased per host for better throughput
+            'ttl_dns_cache': 600,  # Longer DNS cache TTL for stability
+            'enable_cleanup_closed': True,
+            'keepalive_timeout': 60,  # Keep connections alive longer
+            'force_close': False  # Don't force close connections
         }
         
-        # Timeout configuration (in seconds)
+        # Timeout configuration - Optimized for streaming
         self._timeout_config = aiohttp.ClientTimeout(
-            total=30,  # Total timeout
-            connect=5,  # Connection timeout
-            sock_read=25  # Socket read timeout
+            total=20,  # Reduced total timeout
+            connect=3,  # Faster connection timeout
+            sock_read=15  # Reduced socket read timeout for streaming
         )
+        
+        # Audio buffering for smooth playback - immediate first chunk delivery
+        self._audio_buffer = bytearray()
+        self._min_chunk_size = 1024  # Small minimum chunk size for immediate first delivery
+        self._max_buffer_time = 0.03  # Max 30ms buffer time before yielding (immediate)
     
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session with connection pooling"""
@@ -171,16 +178,16 @@ class DeepgramTTSService:
                                 continue
                             return
                         
-                        # Track first byte latency
+                        # Track first byte latency and implement smart buffering
                         first_byte_time = None
                         chunk_count = 0
                         total_bytes = 0
+                        buffer_start_time = None
                         
-                        # Stream with optimized chunk size
-                        # 8KB chunks = ~50ms of MP3 @ 128kbps = ultra-low latency
-                        async for chunk in resp.content.iter_chunked(8192):
+                        # Stream with optimized chunk size for immediate first chunk
+                        # 3KB chunks = ~18ms of MP3 @ 128kbps = good balance
+                        async for chunk in resp.content.iter_chunked(3072):
                             if chunk:
-                                chunk_count += 1
                                 total_bytes += len(chunk)
                                 
                                 # Log first byte latency
@@ -189,7 +196,36 @@ class DeepgramTTSService:
                                     ttfb_ms = int((first_byte_time - start_time) * 1000)
                                     logger.info(f"⚡ Deepgram TTS TTFB: {ttfb_ms}ms")
                                 
-                                yield chunk
+                                # Smart buffering for smooth playback
+                                self._audio_buffer.extend(chunk)
+                                
+                                # Initialize buffer timing
+                                if buffer_start_time is None:
+                                    buffer_start_time = time.time()
+                                
+                                # Yield when buffer reaches minimum size or max time
+                                current_time = time.time()
+                                buffer_duration = current_time - buffer_start_time
+                                
+                                if (len(self._audio_buffer) >= self._min_chunk_size or 
+                                    buffer_duration >= self._max_buffer_time):
+                                    
+                                    # Yield buffered audio
+                                    if self._audio_buffer:
+                                        chunk_count += 1
+                                        audio_to_yield = bytes(self._audio_buffer)
+                                        logger.debug(f"🎵 Deepgram TTS: Buffered chunk {chunk_count}: {len(audio_to_yield)} bytes")
+                                        yield audio_to_yield
+                                        self._audio_buffer.clear()
+                                        buffer_start_time = None
+                        
+                        # Final flush of any remaining buffered audio
+                        if self._audio_buffer:
+                            chunk_count += 1
+                            audio_to_yield = bytes(self._audio_buffer)
+                            logger.debug(f"🎵 Deepgram TTS: Final flush chunk {chunk_count}: {len(audio_to_yield)} bytes")
+                            yield audio_to_yield
+                            self._audio_buffer.clear()
                         
                         # Log completion metrics
                         total_time = int((time.time() - start_time) * 1000)

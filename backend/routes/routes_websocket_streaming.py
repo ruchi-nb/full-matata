@@ -502,19 +502,22 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
         ai_start_time = time.time()
         lang = (language or 'en').split('-')[0].lower()
         
-        # Stream tokens from OpenAI and send to TTS in real-time
+        # Stream tokens from OpenAI and send to TTS in real-time with ULTRA-FAST first chunk
         if lang == 'en':
             prompt_text = transcribed_text
             
-            # Use streaming API
+            # Use streaming API with optimized parameters for faster response
             full_response = ""
             sentence_buffer = ""
+            chunk_count = 0
+            first_chunk_sent = False
+            first_chunk_threshold = 5  # Send first chunk after 5 words for better balance
             
             for token in openai_service.generate_response_stream(
                 prompt=f"Patient said: {prompt_text}",
-                max_tokens=220,
-                temperature=0.3,
-                top_p=0.7,
+                max_tokens=200,  # Reduced for faster generation
+                temperature=0.2,  # More deterministic for faster response
+                top_p=0.8,
                 request_id=session_data['request_id'],
                 session_id=session_data['session_id'],
                 user_language='en',
@@ -523,34 +526,52 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                 full_response += token
                 sentence_buffer += token
                 
-                # Send complete sentences to TTS as they arrive
-                # Check for sentence boundaries: . ! ? followed by space or end
-                if any(sentence_buffer.rstrip().endswith(punct) for punct in ['.', '!', '?', '।']):
+                # ULTRA-FAST first chunk delivery - send after just a few words
+                if not first_chunk_sent and len(sentence_buffer.split()) >= first_chunk_threshold:
+                    first_chunk_sent = True
+                    chunk_count += 1
+                    # Send first chunk immediately for ultra-low latency
+                    if websocket.client_state.name == "CONNECTED":
+                        await manager.send_personal_message({
+                            "type": "ai_response_chunk",
+                            "text": sentence_buffer.strip(),
+                            "is_final": False,
+                            "chunk_id": chunk_count,
+                            "is_first_chunk": True
+                        }, websocket)
+                        logger.info(f"⚡ ULTRA-FAST First Chunk sent: {len(sentence_buffer)} chars")
+                
+                # Continue with sentence-based chunking for remaining text
+                elif any(sentence_buffer.rstrip().endswith(punct) for punct in ['.', '!', '?', '।']):
                     sentence = sentence_buffer.strip()
-                    if len(sentence) > 10:  # Only send meaningful sentences
+                    if len(sentence) > 8:  # Balanced threshold for good delivery
+                        chunk_count += 1
                         # Send sentence chunk to client for TTS
                         if websocket.client_state.name == "CONNECTED":
                             await manager.send_personal_message({
                                 "type": "ai_response_chunk",
                                 "text": sentence,
-                                "is_final": False
+                                "is_final": False,
+                                "chunk_id": chunk_count
                             }, websocket)
                         sentence_buffer = ""
             
             # Send any remaining text
             if sentence_buffer.strip():
+                chunk_count += 1
                 if websocket.client_state.name == "CONNECTED":
                     await manager.send_personal_message({
                         "type": "ai_response_chunk",
                         "text": sentence_buffer.strip(),
-                        "is_final": True
+                        "is_final": True,
+                        "chunk_id": chunk_count
                     }, websocket)
             
             final_response = full_response
             
         else:
-            # For non-English: translate input, stream response, translate output
-            prompt_text = sarvam_service.text_translate(
+            # For non-English: ULTRA-FAST async translate input, stream response, async translate output
+            prompt_text = await sarvam_service.translation_service.text_translate_async(
                 transcribed_text, 
                 source_lang=lang, 
                 target_lang='en',
@@ -558,15 +579,18 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                 session_id=session_data['session_id']
             ) or transcribed_text
             
-            # Stream English response
+            # Stream English response with ULTRA-FAST first chunk delivery
             response_en = ""
             sentence_buffer = ""
+            chunk_count = 0
+            first_chunk_sent = False
+            first_chunk_threshold = 5  # Send first chunk after 5 words for better balance
             
             for token in openai_service.generate_response_stream(
                 prompt=f"Patient said: {prompt_text}",
-                max_tokens=220,
-                temperature=0.3,
-                top_p=0.7,
+                max_tokens=200,  # Reduced for faster generation
+                temperature=0.2,  # More deterministic for faster response
+                top_p=0.8,
                 request_id=session_data['request_id'],
                 session_id=session_data['session_id'],
                 user_language='en',
@@ -575,12 +599,36 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                 response_en += token
                 sentence_buffer += token
                 
-                # Send complete sentences to TTS (after translation)
-                if any(sentence_buffer.rstrip().endswith(punct) for punct in ['.', '!', '?']):
+                # ULTRA-FAST first chunk delivery - send after just a few words
+                if not first_chunk_sent and len(sentence_buffer.split()) >= first_chunk_threshold:
+                    first_chunk_sent = True
+                    chunk_count += 1
+                    # ULTRA-FAST async translate first chunk immediately for ultra-low latency
+                    translated_first_chunk = await sarvam_service.translation_service.text_translate_async(
+                        sentence_buffer.strip(),
+                        source_lang='en',
+                        target_lang=lang,
+                        request_id=session_data['request_id'],
+                        session_id=session_data['session_id']
+                    ) or sentence_buffer.strip()
+                    
+                    # Send first translated chunk immediately
+                    if websocket.client_state.name == "CONNECTED":
+                        await manager.send_personal_message({
+                            "type": "ai_response_chunk",
+                            "text": translated_first_chunk,
+                            "is_final": False,
+                            "chunk_id": chunk_count,
+                            "is_first_chunk": True
+                        }, websocket)
+                        logger.info(f"⚡ ULTRA-FAST First Chunk (translated) sent: {len(translated_first_chunk)} chars")
+                
+                # Continue with sentence-based chunking for remaining text
+                elif any(sentence_buffer.rstrip().endswith(punct) for punct in ['.', '!', '?']):
                     sentence = sentence_buffer.strip()
-                    if len(sentence) > 10:
-                        # Translate sentence to target language
-                        translated_sentence = sarvam_service.text_translate(
+                    if len(sentence) > 8:  # Balanced threshold for good delivery
+                        # ULTRA-FAST async translate sentence to target language
+                        translated_sentence = await sarvam_service.translation_service.text_translate_async(
                             sentence,
                             source_lang='en',
                             target_lang=lang,
@@ -588,18 +636,20 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                             session_id=session_data['session_id']
                         ) or sentence
                         
+                        chunk_count += 1
                         # Send translated chunk to client for TTS
                         if websocket.client_state.name == "CONNECTED":
                             await manager.send_personal_message({
                                 "type": "ai_response_chunk",
                                 "text": translated_sentence,
-                                "is_final": False
+                                "is_final": False,
+                                "chunk_id": chunk_count
                             }, websocket)
                         sentence_buffer = ""
             
-            # Translate and send remaining text
+            # ULTRA-FAST async translate and send remaining text
             if sentence_buffer.strip():
-                translated_final = sarvam_service.text_translate(
+                translated_final = await sarvam_service.translation_service.text_translate_async(
                     sentence_buffer.strip(),
                     source_lang='en',
                     target_lang=lang,
@@ -607,15 +657,17 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                     session_id=session_data['session_id']
                 ) or sentence_buffer.strip()
                 
+                chunk_count += 1
                 if websocket.client_state.name == "CONNECTED":
                     await manager.send_personal_message({
                         "type": "ai_response_chunk",
                         "text": translated_final,
-                        "is_final": True
+                        "is_final": True,
+                        "chunk_id": chunk_count
                     }, websocket)
             
-            # Translate full response for storage
-            final_response = sarvam_service.text_translate(
+            # ULTRA-FAST async translate full response for storage
+            final_response = await sarvam_service.translation_service.text_translate_async(
                 response_en,
                 source_lang='en',
                 target_lang=lang,
@@ -908,7 +960,7 @@ async def handle_flush_signal(websocket: WebSocket, session_data: dict):
                                 system_prompt=dynamic_prompt
                             )
                             
-                            final_response = sarvam_service.text_translate(
+                            final_response = await sarvam_service.translation_service.text_translate_async(
                                 response_en,
                                 source_lang='en',
                                 target_lang=lang,
@@ -1246,7 +1298,7 @@ async def handle_audio_chunk(websocket: WebSocket, message: dict, session_data: 
                                                                 user_language='en'
                                                             )
                                                         else:
-                                                            prompt_text = sarvam_service.text_translate(
+                                                            prompt_text = await sarvam_service.translation_service.text_translate_async(
                                                                 final_text, 
                                                                 source_lang=lang, 
                                                                 target_lang='en',
@@ -1264,7 +1316,7 @@ async def handle_audio_chunk(websocket: WebSocket, message: dict, session_data: 
                                                                 user_language='en'
                                                             )
                                                             
-                                                            final_response = sarvam_service.text_translate(
+                                                            final_response = await sarvam_service.translation_service.text_translate_async(
                                                                 response_en,
                                                                 source_lang='en',
                                                                 target_lang=lang,
@@ -1657,7 +1709,7 @@ async def handle_final_audio(websocket: WebSocket, message: dict, session_data: 
                 user_language='en'
             )
         else:
-            prompt_text = sarvam_service.text_translate(
+            prompt_text = await sarvam_service.translation_service.text_translate_async(
                 transcribed_text, 
                 source_lang=lang, 
                 target_lang='en',
@@ -1675,7 +1727,7 @@ async def handle_final_audio(websocket: WebSocket, message: dict, session_data: 
                 user_language='en'
             )
             
-            final_response = sarvam_service.text_translate(
+            final_response = await sarvam_service.translation_service.text_translate_async(
                 response_en,
                 source_lang='en',
                 target_lang=lang,
