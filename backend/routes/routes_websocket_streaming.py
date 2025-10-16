@@ -19,6 +19,25 @@ from utils.utils import decode_token
 from database.redis import token_in_blocklist
 
 logger = logging.getLogger(__name__)
+
+async def translate_with_timeout(text: str, source_lang: str, target_lang: str, 
+                                request_id: str = None, session_id: str = None, 
+                                timeout: float = 3.0) -> str:
+    """Translation wrapper with timeout to prevent hanging"""
+    try:
+        result = await asyncio.wait_for(
+            sarvam_service.translation_service.text_translate_async(
+                text, source_lang, target_lang, request_id, session_id
+            ),
+            timeout=timeout
+        )
+        return result or text
+    except asyncio.TimeoutError:
+        logger.warning(f"Translation timeout after {timeout}s, returning original text")
+        return text
+    except Exception as e:
+        logger.error(f"Translation error: {e}, returning original text")
+        return text
 router = APIRouter()
 
 async def authenticate_websocket(websocket: WebSocket, token: Optional[str] = None) -> Dict[str, any]:
@@ -39,8 +58,8 @@ async def authenticate_websocket(websocket: WebSocket, token: Optional[str] = No
         await websocket.close(code=1008, reason="Token has been revoked")
         raise HTTPException(status_code=401, detail="Token has been revoked")
     
-    # Verify it's an access token (reject if refresh: true, which means it's a refresh token)
-    if token_data.get("refresh", False):
+    # Verify it's an access token (not a refresh token)
+    if token_data.get("is_refresh", False):
         await websocket.close(code=1008, reason="Access token required")
         raise HTTPException(status_code=401, detail="Access token required")
     
@@ -362,20 +381,16 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                 logger.warning(f"[Deepgram STT] WebM->WAV conversion failed: {conv_e}")
                 wav_bytes = audio_bytes
             logger.info(f"[Deepgram STT] processing final blob size={len(wav_bytes)}B lang={dg_lang}")
-            # Request diarization for final blob-style calls so we can label speakers
             multilingual_mode = provider == 'deepgram-nova3' or session_data.get('multilingual', False) or dg_lang == 'multi'
             transcribed_text = await deepgram_service.stt_streaming(
-                audio_bytes=wav_bytes,
-                language_code=dg_lang,
-                encoding="audio/wav",
-                sample_rate=16000,
-                request_id=session_data['request_id'],
-                session_id=session_data['session_id'],
-                diarize=True,
-                return_utterances=False,
-                diarize_version="2",
-                multilingual=multilingual_mode
-            )
+                 audio_bytes=wav_bytes,
+                 language_code=dg_lang,
+                 encoding="audio/wav",
+                 sample_rate=16000,
+                 request_id=session_data['request_id'],
+                 session_id=session_data['session_id'],
+                 multilingual=multilingual_mode
+             )
         else:
             # Sarvam path expects WAV
             try:
@@ -502,19 +517,22 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
         ai_start_time = time.time()
         lang = (language or 'en').split('-')[0].lower()
         
-        # Stream tokens from OpenAI and send to TTS in real-time
+        # Stream tokens from OpenAI and send to TTS in real-time with ULTRA-FAST first chunk
         if lang == 'en':
             prompt_text = transcribed_text
             
-            # Use streaming API
+            # Use streaming API with optimized parameters for faster response
             full_response = ""
             sentence_buffer = ""
+            chunk_count = 0
+            first_chunk_sent = False
+            first_chunk_threshold = 5  # Send first chunk after 5 words for better balance
             
             for token in openai_service.generate_response_stream(
                 prompt=f"Patient said: {prompt_text}",
-                max_tokens=220,
-                temperature=0.3,
-                top_p=0.7,
+                max_tokens=200,  # Reduced for faster generation
+                temperature=0.2,  # More deterministic for faster response
+                top_p=0.8,
                 request_id=session_data['request_id'],
                 session_id=session_data['session_id'],
                 user_language='en',
@@ -523,50 +541,71 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                 full_response += token
                 sentence_buffer += token
                 
-                # Send complete sentences to TTS as they arrive
-                # Check for sentence boundaries: . ! ? followed by space or end
-                if any(sentence_buffer.rstrip().endswith(punct) for punct in ['.', '!', '?', '।']):
+                # ULTRA-FAST first chunk delivery - send after just a few words
+                if not first_chunk_sent and len(sentence_buffer.split()) >= first_chunk_threshold:
+                    first_chunk_sent = True
+                    chunk_count += 1
+                    # Send first chunk immediately for ultra-low latency
+                    if websocket.client_state.name == "CONNECTED":
+                        await manager.send_personal_message({
+                            "type": "ai_response_chunk",
+                            "text": sentence_buffer.strip(),
+                            "is_final": False,
+                            "chunk_id": chunk_count,
+                            "is_first_chunk": True
+                        }, websocket)
+                        logger.info(f"⚡ ULTRA-FAST First Chunk sent: {len(sentence_buffer)} chars")
+                
+                # Continue with sentence-based chunking for remaining text
+                elif any(sentence_buffer.rstrip().endswith(punct) for punct in ['.', '!', '?', '।']):
                     sentence = sentence_buffer.strip()
-                    if len(sentence) > 10:  # Only send meaningful sentences
+                    if len(sentence) > 8:  # Balanced threshold for good delivery
+                        chunk_count += 1
                         # Send sentence chunk to client for TTS
                         if websocket.client_state.name == "CONNECTED":
                             await manager.send_personal_message({
                                 "type": "ai_response_chunk",
                                 "text": sentence,
-                                "is_final": False
+                                "is_final": False,
+                                "chunk_id": chunk_count
                             }, websocket)
                         sentence_buffer = ""
             
             # Send any remaining text
             if sentence_buffer.strip():
+                chunk_count += 1
                 if websocket.client_state.name == "CONNECTED":
                     await manager.send_personal_message({
                         "type": "ai_response_chunk",
                         "text": sentence_buffer.strip(),
-                        "is_final": True
+                        "is_final": True,
+                        "chunk_id": chunk_count
                     }, websocket)
             
             final_response = full_response
             
         else:
-            # For non-English: translate input, stream response, translate output
-            prompt_text = sarvam_service.text_translate(
+            # For non-English: ULTRA-FAST async translate input, stream response, async translate output
+            prompt_text = await translate_with_timeout(
                 transcribed_text, 
                 source_lang=lang, 
                 target_lang='en',
                 request_id=session_data['request_id'],
                 session_id=session_data['session_id']
-            ) or transcribed_text
+            )
             
-            # Stream English response
+            # Stream English response with ULTRA-FAST first chunk delivery
             response_en = ""
             sentence_buffer = ""
+            chunk_count = 0
+            first_chunk_sent = False
+            first_chunk_threshold = 5  # Send first chunk after 5 words for better balance
             
             for token in openai_service.generate_response_stream(
                 prompt=f"Patient said: {prompt_text}",
-                max_tokens=220,
-                temperature=0.3,
-                top_p=0.7,
+                max_tokens=200,  # Reduced for faster generation
+                temperature=0.2,  # More deterministic for faster response
+                top_p=0.8,
                 request_id=session_data['request_id'],
                 session_id=session_data['session_id'],
                 user_language='en',
@@ -575,53 +614,81 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                 response_en += token
                 sentence_buffer += token
                 
-                # Send complete sentences to TTS (after translation)
-                if any(sentence_buffer.rstrip().endswith(punct) for punct in ['.', '!', '?']):
+                # ULTRA-FAST first chunk delivery - send after just a few words
+                if not first_chunk_sent and len(sentence_buffer.split()) >= first_chunk_threshold:
+                    first_chunk_sent = True
+                    chunk_count += 1
+                    # ULTRA-FAST async translate first chunk immediately for ultra-low latency
+                    translated_first_chunk = await translate_with_timeout(
+                        sentence_buffer.strip(),
+                        source_lang='en',
+                        target_lang=lang,
+                        request_id=session_data['request_id'],
+                        session_id=session_data['session_id']
+                    )
+                    
+                    # Send first translated chunk immediately
+                    if websocket.client_state.name == "CONNECTED":
+                        await manager.send_personal_message({
+                            "type": "ai_response_chunk",
+                            "text": translated_first_chunk,
+                            "is_final": False,
+                            "chunk_id": chunk_count,
+                            "is_first_chunk": True
+                        }, websocket)
+                        logger.info(f"⚡ ULTRA-FAST First Chunk (translated) sent: {len(translated_first_chunk)} chars")
+                
+                # Continue with sentence-based chunking for remaining text
+                elif any(sentence_buffer.rstrip().endswith(punct) for punct in ['.', '!', '?']):
                     sentence = sentence_buffer.strip()
-                    if len(sentence) > 10:
-                        # Translate sentence to target language
-                        translated_sentence = sarvam_service.text_translate(
+                    if len(sentence) > 8:  # Balanced threshold for good delivery
+                        # ULTRA-FAST async translate sentence to target language
+                        translated_sentence = await translate_with_timeout(
                             sentence,
                             source_lang='en',
                             target_lang=lang,
                             request_id=session_data['request_id'],
                             session_id=session_data['session_id']
-                        ) or sentence
+                        )
                         
+                        chunk_count += 1
                         # Send translated chunk to client for TTS
                         if websocket.client_state.name == "CONNECTED":
                             await manager.send_personal_message({
                                 "type": "ai_response_chunk",
                                 "text": translated_sentence,
-                                "is_final": False
+                                "is_final": False,
+                                "chunk_id": chunk_count
                             }, websocket)
                         sentence_buffer = ""
             
-            # Translate and send remaining text
+            # ULTRA-FAST async translate and send remaining text
             if sentence_buffer.strip():
-                translated_final = sarvam_service.text_translate(
+                translated_final = await translate_with_timeout(
                     sentence_buffer.strip(),
                     source_lang='en',
                     target_lang=lang,
                     request_id=session_data['request_id'],
                     session_id=session_data['session_id']
-                ) or sentence_buffer.strip()
+                )
                 
+                chunk_count += 1
                 if websocket.client_state.name == "CONNECTED":
                     await manager.send_personal_message({
                         "type": "ai_response_chunk",
                         "text": translated_final,
-                        "is_final": True
+                        "is_final": True,
+                        "chunk_id": chunk_count
                     }, websocket)
             
-            # Translate full response for storage
-            final_response = sarvam_service.text_translate(
+            # ULTRA-FAST async translate full response for storage
+            final_response = await translate_with_timeout(
                 response_en,
                 source_lang='en',
                 target_lang=lang,
                 request_id=session_data['request_id'],
                 session_id=session_data['session_id']
-            ) or response_en
+            )
         
         ai_latency = int((time.time() - ai_start_time) * 1000)
         logger.info(f"AI response generated in {ai_latency}ms")
@@ -908,13 +975,13 @@ async def handle_flush_signal(websocket: WebSocket, session_data: dict):
                                 system_prompt=dynamic_prompt
                             )
                             
-                            final_response = sarvam_service.text_translate(
+                            final_response = await translate_with_timeout(
                                 response_en,
                                 source_lang='en',
                                 target_lang=lang,
                                 request_id=session_data['request_id'],
                                 session_id=session_data['session_id']
-                            ) or response_en
+                            )
                         ai_latency = int((time.time() - ai_start_time) * 1000)
                         # Comprehensive logging
                         try:
@@ -1017,6 +1084,15 @@ async def handle_audio_chunk(websocket: WebSocket, message: dict, session_data: 
             return
 
         audio_bytes = base64.b64decode(audio_b64)
+        
+        # Skip empty or very small audio chunks to avoid unnecessary processing
+        if len(audio_bytes) == 0:
+            logger.debug("[WS:audio_chunk] Skipping empty audio chunk")
+            return
+        elif len(audio_bytes) < 100:  # Skip chunks smaller than 100 bytes (likely silence/noise)
+            logger.debug(f"[WS:audio_chunk] Skipping very small audio chunk: {len(audio_bytes)}B")
+            return
+        
         logger.info(f"[WS:audio_chunk] provider={provider} enc={client_encoding} sr={client_sample_rate} size={len(audio_bytes)}B")
 
         # For Sarvam, maintain a session-scoped WS and forward chunks
@@ -1101,7 +1177,6 @@ async def handle_audio_chunk(websocket: WebSocket, message: dict, session_data: 
                         sample_rate=dg_entry['sample_rate'] or 16000,
                         request_id=session_data['request_id'],
                         session_id=session_data['session_id'],
-                        diarize=False,
                         multilingual=multilingual_mode
                     )
                     if transcript and websocket.client_state.name == "CONNECTED":
@@ -1246,13 +1321,13 @@ async def handle_audio_chunk(websocket: WebSocket, message: dict, session_data: 
                                                                 user_language='en'
                                                             )
                                                         else:
-                                                            prompt_text = sarvam_service.text_translate(
+                                                            prompt_text = await translate_with_timeout(
                                                                 final_text, 
                                                                 source_lang=lang, 
                                                                 target_lang='en',
                                                                 request_id=session_data['request_id'],
                                                                 session_id=session_data['session_id']
-                                                            ) or final_text
+                                                            )
                                                             
                                                             response_en = openai_service.generate_response(
                                                                 prompt=f"Patient said: {prompt_text}",
@@ -1264,13 +1339,13 @@ async def handle_audio_chunk(websocket: WebSocket, message: dict, session_data: 
                                                                 user_language='en'
                                                             )
                                                             
-                                                            final_response = sarvam_service.text_translate(
+                                                            final_response = await translate_with_timeout(
                                                                 response_en,
                                                                 source_lang='en',
                                                                 target_lang=lang,
                                                                 request_id=session_data['request_id'],
                                                                 session_id=session_data['session_id']
-                                                            ) or response_en
+                                                            )
                                                         ai_latency = int((time.time() - ai_start_time) * 1000)
                                                         
                                                         # Log STT and OpenAI
@@ -1450,6 +1525,12 @@ async def handle_audio_chunk(websocket: WebSocket, message: dict, session_data: 
                     struct.pack('<I', byte_rate) + struct.pack('<H', block_align) + struct.pack('<H', bits_per_sample) + \
                     b'data' + struct.pack('<I', data_size)
                 wav_bytes = wav_header + audio_bytes
+                
+                # Skip if WAV bytes are too small (just header + minimal data)
+                if len(wav_bytes) <= 44:  # WAV header is 44 bytes
+                    logger.debug(f"[Sarvam STT] Skipping very small WAV chunk: {len(wav_bytes)}B")
+                    return
+                
                 b64 = base64.b64encode(wav_bytes).decode('utf-8')
                 await ws.transcribe(audio=b64, encoding="audio/wav", sample_rate=client_sample_rate)
             else:
@@ -1459,6 +1540,12 @@ async def handle_audio_chunk(websocket: WebSocket, message: dict, session_data: 
                 except Exception as conv_e:
                     logger.warning(f"[Sarvam STT] WebM->WAV failed for chunk, using raw: {conv_e}")
                     wav_bytes = audio_bytes
+                
+                # Skip if WAV bytes are too small
+                if len(wav_bytes) <= 100:  # Skip very small chunks
+                    logger.debug(f"[Sarvam STT] Skipping very small WebM/WAV chunk: {len(wav_bytes)}B")
+                    return
+                
                 b64 = base64.b64encode(wav_bytes).decode('utf-8')
                 await ws.transcribe(audio=b64, encoding="audio/wav", sample_rate=16000)
         except Exception as e:
@@ -1506,6 +1593,17 @@ async def handle_final_audio(websocket: WebSocket, message: dict, session_data: 
             raise ValueError("No final audio data received")
 
         audio_bytes = base64.b64decode(audio_b64)
+        
+        # Skip empty or very small audio chunks to avoid unnecessary processing
+        if len(audio_bytes) == 0:
+            logger.debug("[WS:final_audio] Skipping empty audio chunk")
+            session_data['is_processing'] = False
+            return
+        elif len(audio_bytes) < 100:  # Skip chunks smaller than 100 bytes (likely silence/noise)
+            logger.debug(f"[WS:final_audio] Skipping very small audio chunk: {len(audio_bytes)}B")
+            session_data['is_processing'] = False
+            return
+        
         logger.info(f"[WS:final_audio] provider={provider} lang={language_code} size={len(audio_bytes)}B")
 
         # STT for final audio
@@ -1520,67 +1618,18 @@ async def handle_final_audio(websocket: WebSocket, message: dict, session_data: 
                 logger.warning(f"WebM->WAV conversion failed for Deepgram final: {conv_e}")
                 wav_bytes = audio_bytes
             
-            # Use the streaming STT method with diarization and request utterances
             multilingual_mode = provider == 'deepgram-nova3' or session_data.get('multilingual', False) or dg_lang == 'multi'
             dg_result = await deepgram_service.stt_streaming(
-                audio_bytes=wav_bytes,
-                language_code=dg_lang,
-                encoding="audio/wav",
-                sample_rate=16000,
-                request_id=session_data['request_id'],
-                session_id=session_data['session_id'],
-                diarize=True,
-                return_utterances=True,
-                diarize_version="2",
-                multilingual=multilingual_mode
-            )
-            # Normalize outputs: transcript string and utterances list
-            if isinstance(dg_result, dict):
-                transcribed_text = (dg_result.get('transcript') or '')
-                diarized_utterances = dg_result.get('utterances') or []
-                # Log speaker labels to terminal and compose human-friendly labeled text
-                try:
-                    if diarized_utterances:
-                        logger.info("[Deepgram STT] Diarization results:")
-                        speaker_map = {}
-                        speaker_order = []
-                        next_label_index = 1
-                        for u in diarized_utterances:
-                            spk_id = u.get('speaker')
-                            if spk_id not in speaker_map:
-                                speaker_map[spk_id] = f"Speaker {next_label_index}"
-                                speaker_order.append(spk_id)
-                                next_label_index += 1
-                            start = u.get('start')
-                            end = u.get('end')
-                            text = (u.get('text') or '').strip()
-                            # Only log the precise label lines per user request
-                            logger.info(f"  {speaker_map[spk_id]}: {start:.2f}s–{end:.2f}s | {text}")
-                        # Build labeled multi-line string to send to client if needed
-                        labeled_lines = []
-                        for u in diarized_utterances:
-                            spk_id = u.get('speaker')
-                            label = speaker_map.get(spk_id, f"Speaker {spk_id}")
-                            labeled_lines.append(f"{label}: {(u.get('text') or '').strip()}")
-                        labeled_text = "\n".join(labeled_lines)
-                    else:
-                        logger.info("[Deepgram STT] No diarized utterances returned.")
-                except Exception:
-                    pass
-                # Do not write any other STT content to logs (per user request)
-                # Send a separate speaker-labeled message to client if we built it
-                try:
-                    if 'labeled_text' in locals() and labeled_text and websocket.client_state.name == "CONNECTED":
-                        await manager.send_personal_message({
-                            "type": "diarized_transcript",
-                            "labeled": labeled_text,
-                            "utterances": diarized_utterances
-                        }, websocket)
-                except Exception:
-                    pass
-            else:
-                transcribed_text = dg_result or ''
-                diarized_utterances = []
+                 audio_bytes=wav_bytes,
+                 language_code=dg_lang,
+                 encoding="audio/wav",
+                 sample_rate=16000,
+                 request_id=session_data['request_id'],
+                 session_id=session_data['session_id'],
+                 multilingual=multilingual_mode
+             )
+            # Get transcript text directly
+            transcribed_text = dg_result or ''
         else:
             # For Sarvam, we now rely primarily on streaming interim transcripts.
             # If a final blob arrives (optional), we try flush on session WS and skip single-shot if empty.
@@ -1632,14 +1681,12 @@ async def handle_final_audio(websocket: WebSocket, message: dict, session_data: 
 
         # Send final transcript to client (only if we actually have it here)
         if transcribed_text and websocket.client_state.name == "CONNECTED":
-            await manager.send_personal_message({
-                "type": "final_transcript",
-                "transcript": transcribed_text,
-                "is_final": True,
-                "utterance_seq": utter_seq,
-                # Include diarization result if available
-                "utterances": diarized_utterances if 'diarized_utterances' in locals() else []
-            }, websocket)
+             await manager.send_personal_message({
+                 "type": "final_transcript",
+                 "transcript": transcribed_text,
+                 "is_final": True,
+                 "utterance_seq": utter_seq
+             }, websocket)
         
         # Generate AI response with translation
         ai_start_time = time.time()
@@ -1657,13 +1704,13 @@ async def handle_final_audio(websocket: WebSocket, message: dict, session_data: 
                 user_language='en'
             )
         else:
-            prompt_text = sarvam_service.text_translate(
+            prompt_text = await translate_with_timeout(
                 transcribed_text, 
                 source_lang=lang, 
                 target_lang='en',
                 request_id=session_data['request_id'],
                 session_id=session_data['session_id']
-            ) or transcribed_text
+            )
             
             response_en = openai_service.generate_response(
                 prompt=f"Patient said: {prompt_text}",
@@ -1675,13 +1722,13 @@ async def handle_final_audio(websocket: WebSocket, message: dict, session_data: 
                 user_language='en'
             )
             
-            final_response = sarvam_service.text_translate(
+            final_response = await translate_with_timeout(
                 response_en,
                 source_lang='en',
                 target_lang=lang,
                 request_id=session_data['request_id'],
                 session_id=session_data['session_id']
-            ) or response_en
+            )
         
         ai_latency = int((time.time() - ai_start_time) * 1000)
         logger.info(f"AI response generated in {ai_latency}ms")
@@ -1787,19 +1834,17 @@ async def handle_final_audio(websocket: WebSocket, message: dict, session_data: 
         
         # Send AI response to client
         if websocket.client_state.name == "CONNECTED":
-            await manager.send_personal_message({
-                "type": "response",
-                "final_response": final_response,
-                "transcript": transcribed_text,
-                "metrics": {
-                    "stt_latency_ms": stt_latency,
-                    "ai_latency_ms": ai_latency,
-                    "total_latency_ms": stt_latency + ai_latency
-                },
-                "utterance_seq": utter_seq,
-                # Echo diarization result if available for downstream clients
-                "utterances": diarized_utterances if 'diarized_utterances' in locals() else []
-            }, websocket)
+             await manager.send_personal_message({
+                 "type": "response",
+                 "final_response": final_response,
+                 "transcript": transcribed_text,
+                 "metrics": {
+                     "stt_latency_ms": stt_latency,
+                     "ai_latency_ms": ai_latency,
+                     "total_latency_ms": stt_latency + ai_latency
+                 },
+                 "utterance_seq": utter_seq
+             }, websocket)
         # Persist last final for dedupe window
         try:
             session_data['last_final_norm'] = (transcribed_text or '').strip().lower()

@@ -471,13 +471,17 @@ async def conversation_text(
                 logger.info(f"✅ Response cached for: {text[:50]}...")
             prompt_text = text
         else:
-            # Non-English: Translate to English -> ChatGPT (RAG) -> Translate back
-            prompt_text = sarvam_service.text_translate(text, source_lang=lang, target_lang="en", request_id=request_id, session_id=session_id) or text
+            # Non-English: ULTRA-FAST async translation -> ChatGPT (RAG) -> async translate back
+            # Use async translation for much faster processing
+            prompt_text = await sarvam_service.translation_service.text_translate_async(
+                text, source_lang=lang, target_lang="en", request_id=request_id, session_id=session_id
+            ) or text
+            
             # Always use RAG - never switch it off
-
             try:
                 # Try streaming first for immediate feedback
-                response_en = await openai_service.generate_response_stream(
+                response_en = ""
+                stream_gen = openai_service.generate_response_stream(
                     prompt=f"Patient question: {prompt_text}",
                     max_tokens=200,  # Updated to 200 tokens as requested
                     temperature=0.2,  # Updated to 0.2 as requested
@@ -486,9 +490,13 @@ async def conversation_text(
                     session_id=session_id,
                     use_rag=use_rag_flag,
                     user_language="en",
-                    system_prompt=dynamic_system_prompt,
-                    use_cache=True  # Enable response caching
+                    system_prompt=dynamic_system_prompt
                 )
+                
+                # Collect all tokens from generator
+                for token in stream_gen:
+                    response_en += token
+                    
             except Exception as e:
                 # Fallback to non-streaming if streaming fails
                 logger.warning(f"Streaming failed for non-English, using fallback: {e}")
@@ -501,11 +509,13 @@ async def conversation_text(
                     session_id=session_id,
                     use_rag=use_rag_flag,
                     user_language="en",
-                    system_prompt=dynamic_system_prompt,
-                    use_cache=True
+                    system_prompt=dynamic_system_prompt
                 )
             
-            response = sarvam_service.text_translate(response_en, source_lang="en", target_lang=lang, request_id=request_id, session_id=session_id) or response_en
+            # ULTRA-FAST async translation back to target language
+            response = await sarvam_service.translation_service.text_translate_async(
+                response_en, source_lang="en", target_lang=lang, request_id=request_id, session_id=session_id
+            ) or response_en
 
         # Ensure DB session for this conversation (optional)
         try:
@@ -724,8 +734,11 @@ async def conversation_speech(
             )
             input_en = transcribed_text
         else:
-            # Non-English: Translate to English -> ChatGPT (RAG) -> Translate back
-            input_en = sarvam_service.text_translate(transcribed_text, source_lang=lang, target_lang="en", request_id=request_id, session_id=session_id) or transcribed_text
+            # Non-English: ULTRA-FAST async translation -> ChatGPT (RAG) -> async translate back
+            input_en = await sarvam_service.translation_service.text_translate_async(
+                transcribed_text, source_lang=lang, target_lang="en", request_id=request_id, session_id=session_id
+            ) or transcribed_text
+            
             # Re-check triviality on normalized English
             rag_for_speech = (False if _is_trivial_utterance(input_en) else use_rag_flag)
             use_rag_flag = rag_for_speech  # Update the flag for logging
@@ -739,11 +752,13 @@ async def conversation_speech(
                 session_id=session_id,
                 use_rag=rag_for_speech,
                 user_language="en",
-                system_prompt=dynamic_system_prompt,
-                use_cache=True  # Enable response caching
+                system_prompt=dynamic_system_prompt
             )
             
-            final_response = sarvam_service.text_translate(final_response_en, source_lang="en", target_lang=lang, request_id=request_id, session_id=session_id) or final_response_en
+            # ULTRA-FAST async translation back to target language
+            final_response = await sarvam_service.translation_service.text_translate_async(
+                final_response_en, source_lang="en", target_lang=lang, request_id=request_id, session_id=session_id
+            ) or final_response_en
 
         # DB logging removed
         
@@ -1087,7 +1102,7 @@ async def tts_stream(
                 if lang_lower_for_tts in ["hi", "hi-in", "hin", "multi", "auto", "und", ""]:
                     dg_voice = os.getenv("DEEPGRAM_TTS_VOICE_HI", dg_voice)
                 
-                # Production-grade streaming with connection pooling and retry logic
+                # Production-grade streaming with optimized buffering
                 chunk_count = 0
                 first_chunk_time = None
                 
@@ -1109,6 +1124,7 @@ async def tts_stream(
                         ttfb = int((first_chunk_time - tts_start) * 1000)
                         logger.info(f"⚡ Deepgram First Chunk: {ttfb}ms, size: {len(chunk)} bytes")
                     
+                    # Immediate yield for low latency
                     yield chunk
                 
                 logger.info(f"✅ Deepgram TTS: {chunk_count} chunks streamed")
@@ -1161,48 +1177,79 @@ async def tts_stream(
                         except Exception:
                             return pcm_bytes
 
-                    # Ultra-optimized for voice agent: very small chunks for seamless playback
-                    TARGET_FLUSH_BYTES = 4096   # ~0.125s of audio - ultra-low latency
-                    MAX_COALESCE_INTERVAL = 0.025  # 25ms max delay for instant streaming
-                    FIRST_CHUNK_BYTES = 4096  # Same as target for instant first audio
+                    # Optimized for voice agent: immediate first chunk + complete streaming
+                    TARGET_FLUSH_BYTES = 2048   # ~0.06s of audio - good balance
+                    MAX_COALESCE_INTERVAL = 0.02  # 20ms max delay for immediate streaming
+                    FIRST_CHUNK_BYTES = 1024  # Small first chunk for fast start
+                    MAX_AUDIO_TIME = 60.0  # Allow up to 30 seconds for complete audio
 
                     coalesce = bytearray()
                     last_flush = time.time()
                     total_pcm = 0
                     chunk_count = 0
+                    stream_start_time = time.time()
 
-                    async for audio_chunk in sarvam_service.text_to_speech_streaming_chunks(
+                    # Process all audio chunks from the streaming service with timeout
+                    chunk_iterator = sarvam_service.text_to_speech_streaming_chunks(
                         text=text,
                         language=language,
                         speaker="karun"
-                    ):
-                        if not audio_chunk:
-                            continue
-                        coalesce.extend(audio_chunk)
-                        total_pcm += len(audio_chunk)
-                        now = time.time()
-                        
-                        # Reduced first chunk requirement for faster playback start
-                        min_chunk_size = FIRST_CHUNK_BYTES if chunk_count == 0 else TARGET_FLUSH_BYTES
-                        
-                        if len(coalesce) >= min_chunk_size or (now - last_flush) >= MAX_COALESCE_INTERVAL:
+                    )
+                    
+                    try:
+                        # Stream audio chunks immediately for low latency, but ensure complete delivery
+                        start_time = time.time()
+                        async for audio_chunk in chunk_iterator:
+                            # Check for timeout manually
+                            if time.time() - start_time > MAX_AUDIO_TIME:
+                                logger.warning(f"⏱️ Sarvam TTS streaming timeout after {MAX_AUDIO_TIME}s")
+                                break
+                                
+                            if not audio_chunk:
+                                continue
+                            coalesce.extend(audio_chunk)
+                            total_pcm += len(audio_chunk)
+                            now = time.time()
+                            
+                            # Optimized chunk delivery for smoother playback
+                            min_chunk_size = FIRST_CHUNK_BYTES if chunk_count == 0 else TARGET_FLUSH_BYTES
+                            
+                            if len(coalesce) >= min_chunk_size or (now - last_flush) >= MAX_COALESCE_INTERVAL:
+                                wav_chunk = _wrap_pcm16_to_wav(bytes(coalesce), sample_rate=16000)
+                                coalesce.clear()
+                                last_flush = now
+                                chunk_count += 1
+                                audio_chunks.append(wav_chunk)
+                                
+                                # Track first chunk latency
+                                if chunk_count == 1:
+                                    first_chunk_latency = int((time.time() - tts_start) * 1000)
+                                    logger.info(f"⚡ Sarvam TTS First Chunk: {first_chunk_latency}ms, size: {len(wav_chunk)} bytes")
+                                
+                                # Frame each WAV segment to preserve boundaries
+                                seg_len = len(wav_chunk)
+                                header = b'WAVC' + struct.pack('>I', seg_len)
+                                yield header + wav_chunk  # Send as single chunk
+                                
+                                # Log progress for debugging
+                                if chunk_count % 5 == 0:  # Log every 5 chunks
+                                    logger.info(f"🔄 Sarvam TTS: Processed {chunk_count} chunks, {total_pcm} bytes so far")
+                    
+                    except Exception as e:
+                        logger.error(f"❌ Sarvam TTS streaming error: {e}")
+                        raise e
+                    
+                    finally:
+                        # Ensure we flush any remaining buffer
+                        if coalesce:
                             wav_chunk = _wrap_pcm16_to_wav(bytes(coalesce), sample_rate=16000)
-                            coalesce.clear()
-                            last_flush = now
-                            chunk_count += 1
                             audio_chunks.append(wav_chunk)
-                            # Frame each WAV segment to preserve boundaries
-                            seg_len = len(wav_chunk)
-                            header = b'WAVC' + struct.pack('>I', seg_len)
-                            yield header + wav_chunk  # Send as single chunk
-
-                    # Flush remaining buffer
-                    if coalesce:
-                        wav_chunk = _wrap_pcm16_to_wav(bytes(coalesce), sample_rate=16000)
-                        audio_chunks.append(wav_chunk)
-                        chunk_count += 1
-                        header = b'WAVC' + struct.pack('>I', len(wav_chunk))
-                        yield header + wav_chunk
+                            chunk_count += 1
+                            header = b'WAVC' + struct.pack('>I', len(wav_chunk))
+                            yield header + wav_chunk
+                            logger.info(f"🎵 Sarvam TTS: Final chunk {chunk_count}: {len(wav_chunk)} bytes")
+                        
+                        # TTS streaming completed successfully
 
                     # Comprehensive Sarvam TTS logging
                     total_size = sum(len(c) for c in audio_chunks)
@@ -1276,7 +1323,16 @@ async def tts_stream(
                 return
     
     media_type = "audio/mpeg" if provider_lower in ["deepgram", "deepgram-nova3"] else "audio/wav"
-    return StreamingResponse(generator(), media_type=media_type)
+    
+    # Add headers to ensure proper streaming behavior
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Transfer-Encoding": "chunked",
+        "X-Accel-Buffering": "no"  # Disable nginx buffering if present
+    }
+    
+    return StreamingResponse(generator(), media_type=media_type, headers=headers)
 
 
 # ---------------------------

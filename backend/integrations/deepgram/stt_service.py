@@ -207,10 +207,6 @@ class DeepgramSTTService:
         silence_timeout: float = 3.0,
         request_id: str = None,
         session_id: str = None,
-        diarize: bool = True,
-        return_utterances: bool = False,
-        expected_speakers: Optional[int] = None,
-        diarize_version: str = "2",
         multilingual: bool = False
     ) -> Optional[str]:
         """
@@ -224,20 +220,15 @@ class DeepgramSTTService:
         Note: VAD-related parameters are accepted for API parity but are not used
         by the synchronous Deepgram path.
 
-        Example usage to get speaker-labeled utterances:
+        Example usage:
 
-            result = await deepgram_service.stt_streaming(
+            transcript = await deepgram_service.stt_streaming(
                 audio_bytes=wav_bytes,
                 language_code="en-US",
                 encoding="audio/wav",
-                sample_rate=16000,
-                diarize=True,
-                return_utterances=True
+                sample_rate=16000
             )
-            # result = { "transcript": "...", "utterances": [ { "speaker": 0, "start": 0.1, "end": 2.3, "text": "..." }, ... ] }
-
-        If you keep return_utterances=False (default), you’ll only get the transcript string.
-        For a non-streaming test that already returns labels, you can use POST /ai-test/deepgram/stt-diarize.
+            # Returns simple transcript string
         """
         start_time = time.time()
         request_id = request_id or f"stt-{int(time.time()*1000)}"
@@ -251,32 +242,14 @@ class DeepgramSTTService:
                 # Assume already WAV-compatible
                 wav_bytes = audio_bytes
 
-            # If diarization requested, use diarize path
-            if diarize:
-                result = self.stt_diarize(
-                    wav_bytes=wav_bytes,
-                    language=language,
-                    request_id=request_id,
-                    session_id=session_id,
-                    expected_speakers=expected_speakers,
-                    diarize_version=diarize_version,
-                    multilingual=multilingual
-                )
-                # Preserve backwards compatibility unless caller explicitly
-                # asks for utterances. If return_utterances is True, return the
-                # full dict; else return only the transcript string.
-                if return_utterances:
-                    return result  # type: ignore[return-value]
-                transcript = (result or {}).get('transcript') if isinstance(result, dict) else None
-            else:
-                # Reuse existing synchronous STT implementation
-                transcript = self.stt(
-                    wav_bytes=wav_bytes,
-                    language=language,
-                    request_id=request_id,
-                    session_id=session_id,
-                    multilingual=multilingual
-                )
+            # Use basic STT implementation (no diarization)
+            transcript = self.stt(
+                wav_bytes=wav_bytes,
+                language=language,
+                request_id=request_id,
+                session_id=session_id,
+                multilingual=multilingual
+            )
 
             # For API parity, apply a basic silence timeout behavior (noop here)
             # We keep the parameter for compatibility with Sarvam usage.

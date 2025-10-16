@@ -26,13 +26,19 @@ class SarvamTTSService:
         self._active_connections = {}
         self._connection_lock = asyncio.Lock()
         
-        # Performance tuning
-        self._config_timeout = 3.0  # Configuration timeout
-        self._convert_timeout = 3.0  # Text conversion timeout
-        self._flush_timeout = 2.0  # Flush timeout
-        self._chunk_timeout = 0.15  # 150ms per chunk (ultra-fast)
-        self._stream_timeout = 10.0  # Overall stream timeout
-        self._inactivity_threshold = 4  # 4 × 150ms = 600ms inactivity detection
+        # Performance tuning - Optimized for complete audio streaming
+        self._config_timeout = 2.0  # Reduced configuration timeout
+        self._convert_timeout = 2.0  # Reduced text conversion timeout
+        self._flush_timeout = 1.5  # Reduced flush timeout
+        self._chunk_timeout = 0.08  # 80ms per chunk (ultra-low latency)
+        self._stream_timeout = 60.0  # Extended overall stream timeout for complete audio
+        self._inactivity_threshold = 10  # 10 × 80ms = 800ms inactivity detection (more conservative)
+        
+        # Audio buffering for immediate first chunk delivery
+        self._min_chunk_size = 256  # Very small for immediate first chunk
+        self._max_buffer_time = 0.05  # Max 50ms buffer time before yielding (immediate)
+        self._audio_buffer = bytearray()
+        self._first_chunk_sent = False  # Track if first chunk was sent
 
     def _convert_lang_code(self, lang_code: str) -> str:
         """Convert simple language codes to Sarvam format"""
@@ -209,6 +215,9 @@ class SarvamTTSService:
             
             logger.info(f"🎤 [Sarvam TTS Stream] text_len={len(text)}, lang={language_code}, speaker={speaker}, req_id={request_id}")
             
+            # Reset first chunk flag for this streaming session
+            self._first_chunk_sent = False
+            
             # Validate input
             safe_text = (text or "").strip()
             if not safe_text:
@@ -257,28 +266,53 @@ class SarvamTTSService:
                         except asyncio.TimeoutError:
                             logger.warning("⚠️ Sarvam TTS: Flush timeout - continuing anyway")
                         
-                        # Stream audio chunks with ultra-low latency
-                        timeout_task = asyncio.create_task(asyncio.sleep(self._stream_timeout))
+                        # Stream audio chunks with optimized buffering for smooth playback
                         message_task = None
                         chunk_count = 0
                         last_chunk_time = time.time()
                         consecutive_timeouts = 0
                         first_chunk_time = None
+                        buffer_start_time = None
+                        stream_start_time = time.time()
                         
                         try:
-                            while not timeout_task.done():
+                            while True:
                                 try:
                                     if message_task is None:
                                         message_task = asyncio.create_task(ws.recv())
                                     
                                     done, pending = await asyncio.wait(
-                                        [message_task, timeout_task],
+                                        [message_task],
                                         return_when=asyncio.FIRST_COMPLETED,
-                                        timeout=self._chunk_timeout  # 150ms - ultra-fast
+                                        timeout=self._chunk_timeout  # 80ms - ultra-low latency
                                     )
                                     
-                                    if timeout_task in done:
-                                        logger.info("⏱️ Sarvam TTS: Overall timeout reached")
+                                    # Check for inactivity timeout
+                                    current_time = time.time()
+                                    time_since_last_chunk = current_time - last_chunk_time
+                                    total_stream_time = current_time - stream_start_time
+                                    
+                                    # Only end if we've had no activity for a long time AND we've received some chunks
+                                    if time_since_last_chunk > 5.0 and chunk_count > 0:
+                                        # Check if we have any buffered audio before ending
+                                        if self._audio_buffer:
+                                            chunk_count += 1
+                                            audio_to_yield = bytes(self._audio_buffer)
+                                            logger.debug(f"🎵 Sarvam TTS: Final timeout chunk {chunk_count}: {len(audio_to_yield)} bytes")
+                                            yield audio_to_yield
+                                            self._audio_buffer.clear()
+                                        
+                                        logger.info(f"⏱️ Sarvam TTS: Stream complete after {time_since_last_chunk:.1f}s inactivity ({chunk_count} chunks total)")
+                                        break
+                                    elif time_since_last_chunk > 2.0:
+                                        logger.debug(f"⏱️ Sarvam TTS: {time_since_last_chunk:.1f}s since last chunk, {chunk_count} chunks so far")
+                                    elif time_since_last_chunk > 10.0 and chunk_count == 0:
+                                        # If no chunks received for 10 seconds, abort
+                                        logger.warning(f"⚠️ Sarvam TTS: No chunks received for {time_since_last_chunk:.1f}s - aborting")
+                                        break
+                                    elif total_stream_time > 120.0:
+                                        # Hard timeout after 2 minutes
+                                        logger.warning(f"⚠️ Sarvam TTS: Hard timeout after {total_stream_time:.1f}s - aborting")
                                         break
                                         
                                     if message_task in done:
@@ -301,30 +335,66 @@ class SarvamTTSService:
                                                 audio_b64 += "=" * missing
                                             audio_chunk = base64.b64decode(audio_b64)
                                             
-                                            # Yield chunks immediately for real-time playback
-                                            chunk_count += 1
-                                            logger.debug(f"🎵 Sarvam TTS: Chunk {chunk_count}: {len(audio_chunk)} bytes")
-                                            yield audio_chunk
+                                            # Immediate first chunk delivery for ultra-low latency
+                                            self._audio_buffer.extend(audio_chunk)
+                                            
+                                            # Initialize buffer timing
+                                            if buffer_start_time is None:
+                                                buffer_start_time = time.time()
+                                            
+                                            # Yield immediately for first chunk, then use buffering
+                                            current_time = time.time()
+                                            buffer_duration = current_time - buffer_start_time
+                                            
+                                            should_yield = False
+                                            
+                                            # Always yield first chunk immediately (no buffering)
+                                            if not self._first_chunk_sent and len(self._audio_buffer) > 0:
+                                                should_yield = True
+                                                self._first_chunk_sent = True
+                                                logger.info(f"🚀 Sarvam TTS: IMMEDIATE first chunk: {len(self._audio_buffer)} bytes")
+                                            
+                                            # For subsequent chunks, use buffering
+                                            elif (len(self._audio_buffer) >= self._min_chunk_size or 
+                                                  buffer_duration >= self._max_buffer_time):
+                                                should_yield = True
+                                            
+                                            if should_yield and self._audio_buffer:
+                                                chunk_count += 1
+                                                audio_to_yield = bytes(self._audio_buffer)
+                                                logger.debug(f"🎵 Sarvam TTS: Chunk {chunk_count}: {len(audio_to_yield)} bytes")
+                                                yield audio_to_yield
+                                                self._audio_buffer.clear()
+                                                buffer_start_time = None
                                         else:
-                                            logger.debug(f"📨 Sarvam TTS: Non-audio message: {type(message)}")
+                                            logger.info(f"📨 Sarvam TTS: Non-audio message: {type(message)} - {message}")
+                                            # Flush any remaining buffer before ending
+                                            if self._audio_buffer:
+                                                chunk_count += 1
+                                                audio_to_yield = bytes(self._audio_buffer)
+                                                logger.debug(f"🎵 Sarvam TTS: Final buffered chunk {chunk_count}: {len(audio_to_yield)} bytes")
+                                                yield audio_to_yield
+                                                self._audio_buffer.clear()
+                                            
                                             if chunk_count > 0:
                                                 logger.info("✅ Sarvam TTS: Stream complete (non-audio message)")
                                                 break
+                                            else:
+                                                logger.warning("⚠️ Sarvam TTS: No audio chunks received before non-audio message")
                                         
                                 except asyncio.TimeoutError:
                                     consecutive_timeouts += 1
                                     
-                                    # PRODUCTION TUNING: 4 × 150ms = 600ms inactivity detection
-                                    # Fast enough for real-time, reliable enough to not cut off
-                                    if consecutive_timeouts >= self._inactivity_threshold and chunk_count > 0:
-                                        elapsed = consecutive_timeouts * self._chunk_timeout
-                                        logger.info(f"✅ Sarvam TTS: Stream complete after {elapsed:.1f}s inactivity")
-                                        break
+                                    # Flush any buffered audio on timeout to prevent gaps
+                                    if self._audio_buffer:
+                                        chunk_count += 1
+                                        audio_to_yield = bytes(self._audio_buffer)
+                                        logger.debug(f"🎵 Sarvam TTS: Timeout flush chunk {chunk_count}: {len(audio_to_yield)} bytes")
+                                        yield audio_to_yield
+                                        self._audio_buffer.clear()
+                                        buffer_start_time = None
                                     
-                                    # Fallback: 3 second hard timeout if no chunks at all
-                                    if time.time() - last_chunk_time > 3.0 and chunk_count == 0:
-                                        logger.warning("⚠️ Sarvam TTS: No chunks received for 3 seconds - aborting")
-                                        break
+                                    # Check inactivity timeout (handled above in the main loop)
                                     continue
                                     
                                 except Exception as e:
@@ -337,10 +407,16 @@ class SarvamTTSService:
                             
                         finally:
                             # Clean up tasks
-                            if timeout_task and not timeout_task.done():
-                                timeout_task.cancel()
                             if message_task and not message_task.done():
                                 message_task.cancel()
+                        
+                        # Final flush of any remaining buffered audio
+                        if self._audio_buffer:
+                            chunk_count += 1
+                            audio_to_yield = bytes(self._audio_buffer)
+                            logger.debug(f"🎵 Sarvam TTS: Final flush chunk {chunk_count}: {len(audio_to_yield)} bytes")
+                            yield audio_to_yield
+                            self._audio_buffer.clear()
                         
                         # Log completion metrics
                         total_time = int((time.time() - start_time) * 1000)
