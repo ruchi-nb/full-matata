@@ -19,7 +19,7 @@ const PatientLogin = () => {
     const token = localStorage.getItem('access_token');
     if (token) {
       // Verify token is still valid
-      fetch('/api/v1/auth/me', {
+      fetch('/auth/me', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -59,7 +59,7 @@ const PatientLogin = () => {
     setMessage('');
 
     try {
-      const response = await fetch('/api/v1/auth/login', {
+      const response = await fetch('/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

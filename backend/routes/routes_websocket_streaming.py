@@ -309,6 +309,8 @@ async def websocket_conversation(websocket: WebSocket, token: Optional[str] = Qu
                     await handle_flush_signal(websocket, session_data)
                 elif message.get("type") == "final_audio":
                     await handle_final_audio(websocket, message, session_data)
+                elif message.get("type") == "text_message":
+                    await handle_text_message(websocket, message, session_data)
                 elif message.get("type") == "stop":
                     await handle_stop(websocket)
                 
@@ -1875,6 +1877,165 @@ async def handle_final_audio(websocket: WebSocket, message: dict, session_data: 
                 await manager.send_personal_message({
                     "type": "processing_state",
                     "is_processing": False
+                }, websocket)
+            except:
+                pass  # Don't try to send error if connection is broken
+    
+    finally:
+        session_data['is_processing'] = False
+
+
+# ========================================
+# PHASE 1.2: WEBSOCKET TEXT MESSAGE SUPPORT
+# ========================================
+
+async def handle_text_message(websocket: WebSocket, message: dict, session_data: dict):
+    """Handle incoming text message from WebSocket client"""
+    try:
+        if session_data['is_processing']:
+            logger.warning("Already processing, ignoring text message")
+            return
+        
+        session_data['is_processing'] = True
+        
+        # Notify client that processing has started
+        await manager.send_personal_message({
+            "type": "processing_state",
+            "is_processing": True
+        }, websocket)
+        
+        # Extract text message
+        text_content = message.get('text', '').strip()
+        if not text_content:
+            await manager.send_personal_message({
+                "type": "error",
+                "message": "Empty text message"
+            }, websocket)
+            return
+        
+        logger.info(f"[WS:text_message] Processing text: {text_content[:100]}...")
+        
+        # Process text through AI
+        start_time = time.time()
+        
+        try:
+            # Get consultation details for AI context
+            consultation = None
+            if session_data.get('consultation_id'):
+                async with AsyncSessionLocal() as db:
+                    from sqlalchemy import select
+                    from models.models import Consultation
+                    
+                    result = await db.execute(
+                        select(Consultation).where(
+                            Consultation.consultation_id == session_data['consultation_id']
+                        )
+                    )
+                    consultation = result.scalar_one_or_none()
+            
+            # Generate AI response
+            if consultation:
+                # Use consultation-specific AI response
+                ai_response = await openai_service.chat_service.create_completion_async(
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": f"You are Dr. {consultation.doctor_id}, a medical AI assistant. Provide helpful medical advice based on the patient's text message. Be professional, empathetic, and informative."
+                        },
+                        {
+                            "role": "user",
+                            "content": text_content
+                        }
+                    ],
+                    max_tokens=500,
+                    temperature=0.7
+                )
+            else:
+                # Use generic AI response
+                ai_response = await openai_service.chat_service.create_completion_async(
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a helpful medical AI assistant. Provide helpful medical advice based on the patient's text message. Be professional, empathetic, and informative."
+                        },
+                        {
+                            "role": "user",
+                            "content": text_content
+                        }
+                    ],
+                    max_tokens=500,
+                    temperature=0.7
+                )
+            
+            ai_latency = (time.time() - start_time) * 1000
+            
+            # Log to database if consultation exists
+            if session_data.get('db_session_id') and consultation:
+                try:
+                    async with AsyncSessionLocal() as db:
+                        # Log patient message
+                        await append_message(
+                            db,
+                            session_id=int(session_data['db_session_id']),
+                            sender_type="patient",
+                            message_text=text_content,
+                            audio_url=None,
+                            processing_time_ms=0
+                        )
+                        
+                        # Log AI response
+                        await append_message(
+                            db,
+                            session_id=int(session_data['db_session_id']),
+                            sender_type="assistant",
+                            message_text=ai_response,
+                            audio_url=None,
+                            processing_time_ms=int(ai_latency)
+                        )
+                        
+                        # Log OpenAI usage
+                        await log_openai_chat(
+                            db=db,
+                            input_tokens=len(text_content.split()),
+                            output_tokens=len(ai_response.split()),
+                            response_time_ms=int(ai_latency),
+                            status="success",
+                            session_id=int(session_data['db_session_id']),
+                            doctor_id=consultation.doctor_id,
+                            patient_id=consultation.patient_id,
+                            hospital_id=consultation.hospital_id
+                        )
+                        
+                        logger.info(f"✅ Text message logging complete for session {session_data['db_session_id']}")
+                except Exception as e:
+                    logger.error(f"❌ [WS] Logging (text_message) failed: {e}", exc_info=True)
+            
+            # Send response to client
+            await manager.send_personal_message({
+                "type": "response",
+                "final_response": ai_response,
+                "transcript": text_content,
+                "metrics": {
+                    "ai_latency_ms": ai_latency,
+                    "total_latency_ms": ai_latency
+                },
+                "message_type": "text"
+            }, websocket)
+            
+        except Exception as e:
+            logger.error(f"Error processing text message: {e}")
+            await manager.send_personal_message({
+                "type": "error",
+                "message": f"Failed to process text message: {str(e)}"
+            }, websocket)
+    
+    except Exception as e:
+        logger.error(f"Error handling text message: {e}")
+        if websocket.client_state.name == "CONNECTED":
+            try:
+                await manager.send_personal_message({
+                    "type": "error",
+                    "message": f"Text message processing error: {str(e)}"
                 }, websocket)
             except:
                 pass  # Don't try to send error if connection is broken

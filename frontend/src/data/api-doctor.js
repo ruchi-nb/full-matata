@@ -76,3 +76,35 @@ export function getDoctorPatientsAnalytics() {
 export function getDoctorMonthlyConsultations() {
   return request("/doctors/consultations/monthly", { method: "GET" });
 }
+
+// =============================================
+// PUBLIC DOCTOR APIs (for patients)
+// =============================================
+
+/**
+ * Get all doctors (public endpoint for patients)
+ */
+export function getAllDoctors() {
+  return request("/doctors", { method: "GET" });
+}
+
+/**
+ * Get doctors by specialty (public endpoint for patients)
+ */
+export function getDoctorsBySpecialty(specialtyId) {
+  return request(`/doctors/specialty/${specialtyId}`, { method: "GET" });
+}
+
+/**
+ * Get doctor details by ID (public endpoint for patients)
+ */
+export function getDoctorById(doctorId) {
+  return request(`/doctors/${doctorId}`, { method: "GET" });
+}
+
+/**
+ * Get doctor languages by ID
+ */
+export function getDoctorLanguages(doctorId) {
+  return request(`/doctors/${doctorId}/languages`, { method: "GET" });
+}

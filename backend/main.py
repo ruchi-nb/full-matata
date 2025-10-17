@@ -29,6 +29,7 @@ from routes.routes_rag import router as rag_router
 
 # New routers
 from routes import patients_router, auth_router, hospital_router, doctors_router, search_router, superadmin_router, hospital_admin_routers
+from routes.routes_health import router as health_router
 
 # Dependencies and error handling
 from dependencies.middleware import register_middleware
@@ -158,6 +159,7 @@ app.include_router(rag_router, prefix="/api/v1", tags=["RAG"])
 app.include_router(patients_router.router)
 app.include_router(auth_router.router)
 app.include_router(hospital_router.router)
+app.include_router(health_router, prefix="/api/v1", tags=["Health & Services"])
 
 # Add direct thank you route for testing
 @app.get("/thank-you", response_class=HTMLResponse)
@@ -247,17 +249,7 @@ async def favicon():
     from fastapi import Response
     return Response(status_code=204)
 
-@app.get("/health")
-async def health_check():
-    # Optional DB connectivity check
-    from sqlalchemy import text
-    from database.database import AsyncSessionLocal
-    try:
-        async with AsyncSessionLocal() as s:
-            await s.execute(text("SELECT 1"))
-        return {"status": "ok", "db": "ok"}
-    except Exception as e:
-        return {"status": "degraded", "db": str(e)}
+# Health check moved to /api/v1/health with enhanced monitoring
 
 # Global exception handler
 @app.exception_handler(Exception)

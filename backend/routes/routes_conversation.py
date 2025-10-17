@@ -305,7 +305,7 @@ def _is_trivial_utterance(text: str) -> bool:
 @router.post("/consultation/create")
 async def create_consultation_endpoint(
     consultation: ConsultationCreate,
-    caller: Dict[str, Any] = Depends(require_permissions(["consultation.create"], allow_super_admin=True)),
+    caller: Dict[str, Any] = Depends(require_permissions(["consultation.create", "patient.consultation.create"], allow_super_admin=True)),
     db: AsyncSession = Depends(get_db)
 ):
     try:

@@ -320,3 +320,77 @@ export async function listHospitalNurses(hospitalId) {
 export async function listHospitalPatients(hospitalId) {
   return request(withQuery("/hospitals/patients", { hospital_id: hospitalId }), { method: "GET" });
 }
+
+// =============================================
+// MISSING METHODS FOR HOSPITAL CARDS
+// =============================================
+
+/**
+ * List all hospitals (alias for getAllHospitals)
+ */
+export async function listHospitals() {
+  return getAllHospitals();
+}
+
+/**
+ * Transform hospital data for frontend display
+ */
+export function transformHospitalData(hospital) {
+  return {
+    id: hospital.hospital_id || hospital.id,
+    name: hospital.hospital_name || hospital.name,
+    address: hospital.address,
+    city: hospital.city,
+    state: hospital.state,
+    pincode: hospital.pincode,
+    phone: hospital.phone,
+    email: hospital.email,
+    website: hospital.website,
+    description: hospital.description,
+    is_active: hospital.is_active,
+    created_at: hospital.created_at,
+    updated_at: hospital.updated_at
+  };
+}
+
+/**
+ * Transform frontend data to backend format
+ */
+export function transformToBackendFormat(hospital) {
+  return {
+    hospital_name: hospital.name,
+    address: hospital.address,
+    city: hospital.city,
+    state: hospital.state,
+    pincode: hospital.pincode,
+    phone: hospital.phone,
+    email: hospital.email,
+    website: hospital.website,
+    description: hospital.description,
+    is_active: hospital.is_active
+  };
+}
+
+/**
+ * Delete a hospital
+ */
+export async function deleteHospital(hospitalId) {
+  return request(`/hospitals/${hospitalId}`, { method: "DELETE" });
+}
+
+/**
+ * Create user for hospital
+ */
+export async function createUserForHospital(hospitalId, payload) {
+  return request(`/hospitals/${hospitalId}/users`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+/**
+ * List hospital lab technicians
+ */
+export async function listHospitalLabTechnicians(hospitalId) {
+  return request(withQuery("/hospitals/lab-technicians", { hospital_id: hospitalId }), { method: "GET" });
+}

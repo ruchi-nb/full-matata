@@ -2,6 +2,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { normalizePhoneNumber } from "@/utils/phoneUtils";
+import { useUser } from "@/data/UserContext";
 import InvertedGradientButton from "../common/InvertedGradientButton";
 
 export default function ProfileForm() {

@@ -3,7 +3,8 @@ import { normalizePhoneNumber } from "@/utils/phoneUtils";
 import { useUser } from '@/data/UserContext';
 import { getHospitalRoles } from '@/data/api-hospital-admin';
 import { createUserForHospital, createHospitalUser } from '@/data/api-hospital-admin';
-import { Save, LifeLine, X } from 'lucide-react';
+import { Save, X } from 'lucide-react';
+import { LifeLine } from 'react-loading-indicators';
 
 // Mock context for hospital ID (you might have this in your app)
 const HospitalContext = React.createContext();

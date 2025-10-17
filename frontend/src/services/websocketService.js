@@ -38,11 +38,24 @@ class WebSocketStreamingService {
         }
         
         // Include token in WebSocket URL
-        const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'}/conversation/stream?token=${encodeURIComponent(token)}`;
+        const wsBaseUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
+        const wsUrl = `${wsBaseUrl}/conversation/stream?token=${encodeURIComponent(token)}`;
+        
+        console.log('Attempting WebSocket connection to:', wsUrl.replace(token, '[TOKEN]'));
+        
+        // Set connection timeout
+        const connectionTimeout = setTimeout(() => {
+          if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+            this.ws.close();
+            reject(new Error('WebSocket connection timeout'));
+          }
+        }, 10000); // 10 second timeout
+        
         this.ws = new WebSocket(wsUrl);
         
         this.ws.onopen = () => {
           console.log('WebSocket connected');
+          clearTimeout(connectionTimeout);
           this.reconnectAttempts = 0;
           
           // Initialize session
@@ -77,12 +90,24 @@ class WebSocketStreamingService {
 
         this.ws.onerror = (error) => {
           console.error('WebSocket error event:', error);
+          clearTimeout(connectionTimeout);
           this.stopPingInterval();
           
           // Convert DOM Event to proper Error object
-          const wsError = new Error(
-            `WebSocket connection failed: ${error.type || 'Unknown error'}`
-          );
+          let errorMessage = 'WebSocket connection failed';
+          if (error && typeof error === 'object') {
+            if (error.type) {
+              errorMessage += `: ${error.type}`;
+            } else if (error.message) {
+              errorMessage += `: ${error.message}`;
+            } else if (error.code) {
+              errorMessage += `: Code ${error.code}`;
+            }
+          } else if (typeof error === 'string') {
+            errorMessage += `: ${error}`;
+          }
+          
+          const wsError = new Error(errorMessage);
           wsError.originalEvent = error;
           
           if (!this.isIntentionalDisconnect) {

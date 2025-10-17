@@ -11,15 +11,51 @@ from schema.schema import (
     RegisterPatientIn, RegisterPatientOut,
     UserDetailsRead, UserDetailsUpdate
 )
+from pydantic import BaseModel
+from typing import Optional
 from service.patients_service import (
     create_patient, 
     get_patient_profile, 
     update_patient_profile, 
     list_patient_consultations
 )
+from service.consultation_service import create_consultation
 from centralisedErrorHandling.ErrorHandling import ValidationError, DatabaseError, UserNotFoundError
 
 router = APIRouter()
+
+
+class PatientConsultationCreate(BaseModel):
+    doctor_id: int
+    specialty_id: int
+    hospital_id: Optional[int] = None
+    consultation_type: str = "online"
+
+
+@router.post("/patients/consultation/create")
+async def create_patient_consultation(
+    consultation: PatientConsultationCreate,
+    caller: Dict[str, Any] = Depends(require_permissions(["patient.consultation.create"], allow_super_admin=False)),
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a consultation for a patient"""
+    try:
+        user_id = caller.get("user_id")
+        if not user_id:
+            raise HTTPException(status_code=403, detail="User ID not found in token")
+        
+        consultation_id = await create_consultation(
+            db,
+            patient_id=user_id,
+            doctor_id=consultation.doctor_id,
+            specialty_id=consultation.specialty_id,
+            hospital_id=consultation.hospital_id,
+            consultation_type=consultation.consultation_type
+        )
+        
+        return {"status": "success", "consultation_id": consultation_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/auth/register/patient", response_model=RegisterPatientOut, status_code=status.HTTP_201_CREATED)

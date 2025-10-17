@@ -626,3 +626,104 @@ async def remove_hospital_specialties(db: AsyncSession, *, hospital_id: int, spe
             context={"hospital_id": hospital_id, "specialty_ids": specialty_ids}
         )
 
+
+# ========================================
+# PHASE 1.1: PUBLIC HOSPITAL SEARCH
+# ========================================
+
+async def search_hospitals_public(
+    db: AsyncSession, 
+    query: Optional[str] = None, 
+    specialty: Optional[str] = None, 
+    city: Optional[str] = None, 
+    limit: int = 20, 
+    offset: int = 0
+) -> List[Dict[str, Any]]:
+    """Public hospital search - no authentication required"""
+    try:
+        from sqlalchemy import func
+        
+        # Build base query
+        base_query = select(HospitalMaster)
+        
+        # Add filters
+        conditions = []
+        
+        if query:
+            conditions.append(
+                HospitalMaster.hospital_name.ilike(f"%{query}%")
+            )
+        
+        if city:
+            conditions.append(
+                HospitalMaster.city.ilike(f"%{city}%")
+            )
+        
+        if specialty:
+            # Join with specialties to filter by specialty
+            base_query = base_query.join(
+                HospitalSpecialties, 
+                HospitalMaster.hospital_id == HospitalSpecialties.hospital_id
+            ).join(
+                Specialties,
+                HospitalSpecialties.specialty_id == Specialties.specialty_id
+            )
+            conditions.append(
+                Specialties.specialty_name.ilike(f"%{specialty}%")
+            )
+        
+        if conditions:
+            base_query = base_query.where(and_(*conditions))
+        
+        # Add pagination and ordering
+        base_query = base_query.order_by(HospitalMaster.hospital_name).limit(limit).offset(offset)
+        
+        result = await db.execute(base_query)
+        hospitals = result.scalars().all()
+        
+        # Format results
+        formatted_hospitals = []
+        for hospital in hospitals:
+            # Get doctor count for this hospital
+            doctor_count_result = await db.execute(
+                select(func.count(Users.user_id))
+                .join(HospitalUserRoles, Users.user_id == HospitalUserRoles.user_id)
+                .where(
+                    and_(
+                        HospitalUserRoles.hospital_id == hospital.hospital_id,
+                        Users.role == "doctor"
+                    )
+                )
+            )
+            doctor_count = doctor_count_result.scalar() or 0
+            
+            # Get specialties for this hospital
+            specialties_result = await db.execute(
+                select(Specialties.specialty_name)
+                .join(HospitalSpecialties, Specialties.specialty_id == HospitalSpecialties.specialty_id)
+                .where(HospitalSpecialties.hospital_id == hospital.hospital_id)
+            )
+            specialties = [row[0] for row in specialties_result.fetchall()]
+            
+            formatted_hospitals.append({
+                "hospital_id": hospital.hospital_id,
+                "hospital_name": hospital.hospital_name,
+                "address": hospital.address,
+                "city": hospital.city,
+                "state": hospital.state,
+                "pincode": hospital.pincode,
+                "phone": hospital.phone,
+                "email": hospital.email,
+                "website": hospital.website,
+                "description": hospital.description,
+                "doctor_count": doctor_count,
+                "specialties": specialties,
+                "is_active": hospital.is_active,
+                "created_at": hospital.created_at.isoformat() if hospital.created_at else None,
+                "updated_at": hospital.updated_at.isoformat() if hospital.updated_at else None
+            })
+        
+        return formatted_hospitals
+    except Exception as e:
+        logger.error(f"Error searching hospitals: {e}")
+        raise DatabaseError("Failed to search hospitals", operation="select", table="hospital_master", original_error=e)

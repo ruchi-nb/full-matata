@@ -2,7 +2,7 @@
 
 import { Eye, Pencil, Trash2, Loader2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
-import { hospitalApiService } from "@/services/hospitalApiService";
+import * as hospitalApiService from "@/data/api-hospital-admin";
 import ViewModal from "./ViewModal";
 import EditHospitalModal from "./EditModal";
 

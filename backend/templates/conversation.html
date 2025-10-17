@@ -189,6 +189,7 @@
     const consultationId = urlParams.get('consultation_id');
     const provider = urlParams.get('provider') || 'deepgram';
     const language = urlParams.get('language') || 'multi';
+    const autoStart = urlParams.get('autoStart') === 'true';
     
     if (consultationId) {
       window.consultationId = consultationId;
@@ -211,6 +212,20 @@
       if (languageSelect) {
         languageSelect.value = language;
       }
+    }
+    
+    // Auto-start video call if requested
+    if (autoStart) {
+      console.log('Auto-starting video call...');
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          // Trigger video call start
+          const startCallBtn = document.getElementById('startCallBtn');
+          if (startCallBtn) {
+            startCallBtn.click();
+          }
+        }, 2000); // Wait 2 seconds for page to fully load
+      });
     }
   </script>
   

@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { BarChart3, X, Activity, Clock, DollarSign, AlertTriangle } from 'lucide-react';
-import consultationService from '@/services/consultationService';
+import { unifiedApiService } from '@/services/unifiedApiService';
 
 const AnalyticsPanel = ({ isOpen, onClose, consultationId }) => {
   const [analyticsData, setAnalyticsData] = useState({
@@ -34,7 +34,7 @@ const AnalyticsPanel = ({ isOpen, onClose, consultationId }) => {
   // Log analytics events
   const logEvent = async (event, data) => {
     try {
-      await consultationService.logAnalyticsEvent(event, {
+      await unifiedApiService.logEvent(event, {
         ...data,
         consultationId,
         timestamp: new Date().toISOString()

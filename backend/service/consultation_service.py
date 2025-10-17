@@ -1,8 +1,8 @@
-from typing import Optional
+from typing import Optional, List, Dict, Any
 import datetime
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import update
+from sqlalchemy import update, select, and_, func
 from sqlalchemy.exc import (
     IntegrityError,
     OperationalError,
@@ -1385,3 +1385,204 @@ async def log_tts_api(
         raise DatabaseError("Unexpected error during TTS logging", operation="insert", table="api_usage_logs", original_error=e)
 
 # Function removed - use close_session directly with better error handling in routes
+
+
+# ========================================
+# PHASE 1.1: MISSING CONSULTATION ENDPOINTS
+# ========================================
+
+async def get_consultation_by_id(db: AsyncSession, consultation_id: int, user_id: int) -> Optional[Dict[str, Any]]:
+    """Get consultation details by ID with user access validation"""
+    try:
+        result = await db.execute(
+            select(Consultation).where(
+                and_(
+                    Consultation.consultation_id == consultation_id,
+                    Consultation.patient_id == user_id
+                )
+            )
+        )
+        consultation = result.scalar_one_or_none()
+        
+        if not consultation:
+            return None
+        
+        return {
+            "id": consultation.consultation_id,
+            "patient_id": consultation.patient_id,
+            "doctor_id": consultation.doctor_id,
+            "specialty_id": consultation.specialty_id,
+            "hospital_id": consultation.hospital_id,
+            "consultation_type": consultation.consultation_type,
+            "status": consultation.status,
+            "created_at": consultation.created_at,
+            "updated_at": consultation.updated_at,
+            "duration_minutes": consultation.duration_minutes,
+            "audio_provider": consultation.audio_provider,
+            "language": consultation.language
+        }
+    except Exception as e:
+        logger.error(f"Error getting consultation {consultation_id}: {e}")
+        raise DatabaseError("Failed to get consultation", operation="select", table="consultation", original_error=e)
+
+async def get_consultation_transcript(db: AsyncSession, consultation_id: int, user_id: int) -> Optional[Dict[str, Any]]:
+    """Get consultation transcript with user access validation"""
+    try:
+        # Verify consultation access
+        consultation_result = await db.execute(
+            select(Consultation).where(
+                and_(
+                    Consultation.consultation_id == consultation_id,
+                    Consultation.patient_id == user_id
+                )
+            )
+        )
+        consultation = consultation_result.scalar_one_or_none()
+        
+        if not consultation:
+            return None
+        
+        # Get consultation messages
+        messages_result = await db.execute(
+            select(ConsultationMessages).where(
+                ConsultationMessages.consultation_id == consultation_id
+            ).order_by(ConsultationMessages.created_at)
+        )
+        messages = messages_result.scalars().all()
+        
+        # Get consultation sessions for duration calculation
+        sessions_result = await db.execute(
+            select(ConsultationSessions).where(
+                ConsultationSessions.consultation_id == consultation_id
+            )
+        )
+        sessions = sessions_result.scalars().all()
+        
+        # Calculate total duration
+        total_duration = 0
+        for session in sessions:
+            if session.ended_at and session.started_at:
+                duration = (session.ended_at - session.started_at).total_seconds()
+                total_duration += duration
+        
+        # Format messages
+        formatted_messages = []
+        for message in messages:
+            formatted_messages.append({
+                "id": message.message_id,
+                "role": message.role,
+                "content": message.content,
+                "timestamp": message.created_at.isoformat(),
+                "message_type": message.message_type,
+                "metadata": message.metadata
+            })
+        
+        return {
+            "consultation_id": consultation_id,
+            "messages": formatted_messages,
+            "total_duration": total_duration,
+            "message_count": len(formatted_messages),
+            "created_at": consultation.created_at.isoformat(),
+            "updated_at": consultation.updated_at.isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error getting transcript for consultation {consultation_id}: {e}")
+        raise DatabaseError("Failed to get consultation transcript", operation="select", table="consultation_messages", original_error=e)
+
+async def end_consultation_by_id(db: AsyncSession, consultation_id: int, user_id: int) -> Optional[Dict[str, Any]]:
+    """End consultation and calculate duration"""
+    try:
+        # Verify consultation access and get consultation
+        consultation_result = await db.execute(
+            select(Consultation).where(
+                and_(
+                    Consultation.consultation_id == consultation_id,
+                    Consultation.patient_id == user_id,
+                    Consultation.status == "active"
+                )
+            )
+        )
+        consultation = consultation_result.scalar_one_or_none()
+        
+        if not consultation:
+            return None
+        
+        # Calculate duration
+        duration_minutes = 0
+        if consultation.created_at:
+            duration_seconds = (datetime.datetime.utcnow() - consultation.created_at).total_seconds()
+            duration_minutes = int(duration_seconds / 60)
+        
+        # Update consultation status
+        await db.execute(
+            update(Consultation)
+            .where(Consultation.consultation_id == consultation_id)
+            .values(
+                status="completed",
+                duration_minutes=duration_minutes,
+                updated_at=datetime.datetime.utcnow()
+            )
+        )
+        
+        # End all active sessions for this consultation
+        await db.execute(
+            update(ConsultationSessions)
+            .where(
+                and_(
+                    ConsultationSessions.consultation_id == consultation_id,
+                    ConsultationSessions.status == "active"
+                )
+            )
+            .values(
+                status="ended",
+                ended_at=datetime.datetime.utcnow(),
+                updated_at=datetime.datetime.utcnow()
+            )
+        )
+        
+        await db.commit()
+        
+        return {
+            "consultation_id": consultation_id,
+            "status": "completed",
+            "duration_minutes": duration_minutes,
+            "ended_at": datetime.datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        await _safe_rollback(db, "consultation")
+        logger.error(f"Error ending consultation {consultation_id}: {e}")
+        raise DatabaseError("Failed to end consultation", operation="update", table="consultation", original_error=e)
+
+async def get_patient_consultations(db: AsyncSession, patient_id: int, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
+    """Get patient consultations with pagination"""
+    try:
+        result = await db.execute(
+            select(Consultation)
+            .where(Consultation.patient_id == patient_id)
+            .order_by(Consultation.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        consultations = result.scalars().all()
+        
+        formatted_consultations = []
+        for consultation in consultations:
+            formatted_consultations.append({
+                "consultation_id": consultation.consultation_id,
+                "patient_id": consultation.patient_id,
+                "doctor_id": consultation.doctor_id,
+                "specialty_id": consultation.specialty_id,
+                "hospital_id": consultation.hospital_id,
+                "consultation_type": consultation.consultation_type,
+                "status": consultation.status,
+                "created_at": consultation.created_at.isoformat(),
+                "updated_at": consultation.updated_at.isoformat(),
+                "duration_minutes": consultation.duration_minutes,
+                "audio_provider": consultation.audio_provider,
+                "language": consultation.language
+            })
+        
+        return formatted_consultations
+    except Exception as e:
+        logger.error(f"Error getting consultations for patient {patient_id}: {e}")
+        raise DatabaseError("Failed to get patient consultations", operation="select", table="consultation", original_error=e)

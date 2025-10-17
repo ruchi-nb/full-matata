@@ -8,7 +8,8 @@ import Navbar from '@/components/Landing/Navbar';
 import Footer from '@/components/Landing/Footer';
 import { MoveRight } from 'lucide-react';
 import { LifeLine } from "react-loading-indicators";
-import { getStoredTokens, clearTokens, logout } from "@/data/api";
+import { getStoredTokens, clearTokens } from "@/data/api";
+import { logout } from "@/data/api-auth";
 
 const portalNavItems = [
   { type: "link", path: "/patientportal", label: "Home" },

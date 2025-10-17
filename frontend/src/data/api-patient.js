@@ -150,3 +150,37 @@ export async function uploadPatientAvatar(file) {
     throw error;
   }
 }
+
+// =============================================
+// CONSULTATION APIs
+// =============================================
+
+/**
+ * Create a new consultation
+ */
+export async function createConsultation(consultationData) {
+  console.log("🩺 [PATIENT API] Creating consultation with data:", consultationData);
+  
+  try {
+    const result = await request("/api/v1/consultation/create", {
+      method: "POST",
+      body: JSON.stringify(consultationData)
+    });
+    
+    console.log("✅ [PATIENT API] Consultation created successfully:", result);
+    return result;
+  } catch (error) {
+    console.error("❌ [PATIENT API] Consultation creation failed:", error);
+    
+    // Enhanced error handling for consultation creation failures
+    if (error.status === 400) {
+      throw new Error(`Consultation creation failed: ${error.message}`);
+    } else if (error.status === 500) {
+      throw new Error("Consultation creation failed due to server error. Please try again or contact support.");
+    } else if (error.status === 404) {
+      throw new Error("Consultation creation endpoint not found. Please contact support.");
+    } else {
+      throw new Error(`Consultation creation failed: ${error.message}`);
+    }
+  }
+}
