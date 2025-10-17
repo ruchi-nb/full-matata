@@ -66,7 +66,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🚀 Enhanced Consultation Form</h1>
+        <h1>Enhanced Consultation Form</h1>
         <p>Start a new consultation with integrated analytics and multi-language support</p>
         
         <form id="consultationForm">
@@ -101,7 +101,7 @@
             
             <div class="enhanced-options">
                 <div class="option-group">
-                    <h3>🎤 Audio Provider</h3>
+                    <h3>Audio Provider</h3>
                     <div class="form-group">
                         <label for="audio_provider">STT Provider:</label>
                         <select id="audio_provider" name="audio_provider">
@@ -132,7 +132,7 @@
                 </div>
             </div>
             
-            <button type="submit">🚀 Create Consultation & Start Enhanced Chat</button>
+            <button type="submit">Create Consultation & Start Enhanced Chat</button>
         </form>
         
         <div id="message"></div>
@@ -145,7 +145,7 @@
             const token = localStorage.getItem('access_token');
             if (!token) {
                 document.getElementById('message').innerHTML = 
-                    `<div class="error">❌ Authentication required. <a href="/login">Please login first</a>.</div>`;
+                    `<div class="error">Authentication required. <a href="/login">Please login first</a>.</div>`;
                 // Disable form
                 document.getElementById('consultationForm').style.opacity = '0.5';
                 document.getElementById('consultationForm').style.pointerEvents = 'none';
@@ -208,7 +208,7 @@
                 const token = localStorage.getItem('access_token');
                 if (!token) {
                     document.getElementById('message').innerHTML = 
-                        `<div class="error">❌ Authentication required. Please <a href="/login">login</a> first.</div>`;
+                        `<div class="error">Authentication required. Please <a href="/login">login</a> first.</div>`;
                     isSubmitting = false;
                     if (submitBtn) {
                         submitBtn.disabled = false;
@@ -230,7 +230,7 @@
                 
                 if (response.ok) {
                     document.getElementById('message').innerHTML = 
-                        `<div class="success">✅ Consultation created successfully! ID: ${result.consultation_id}</div>`;
+                        `<div class="success">Consultation created successfully! ID: ${result.consultation_id}</div>`;
                     
                     // Log successful creation
                     const successToken = localStorage.getItem('access_token');
@@ -259,7 +259,7 @@
                     }, 1500);
                 } else {
                     document.getElementById('message').innerHTML = 
-                        `<div class="error">❌ Error: ${result.detail || 'Failed to create consultation'}</div>`;
+                        `<div class="error">Error: ${result.detail || 'Failed to create consultation'}</div>`;
                     
                     // Log error
                     const errorToken = localStorage.getItem('access_token');
@@ -290,7 +290,7 @@
                 }
                 } catch (error) {
                 document.getElementById('message').innerHTML = 
-                    `<div class="error">❌ Network error: ${error.message}</div>`;
+                    `<div class="error">Network error: ${error.message}</div>`;
                 
                 // Log network error
                 try {

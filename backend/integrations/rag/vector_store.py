@@ -39,9 +39,9 @@ class VectorStore:
                     allow_reset=False  # Prevent accidental reset
                 )
             )
-            logger.info(f"✅ ChromaDB client initialized (path: {persist_dir})")
+            logger.info(f"ChromaDB client initialized (path: {persist_dir})")
         except Exception as e:
-            logger.error(f"❌ ChromaDB initialization error: {e}")
+            logger.error(f"ChromaDB initialization error: {e}")
             raise
         
         # Get or create collection with cosine similarity
@@ -50,9 +50,9 @@ class VectorStore:
                 name=collection_name,
                 metadata={"hnsw:space": "cosine"}  # Cosine similarity for embeddings
             )
-            logger.info(f"✅ Collection '{collection_name}' loaded ({self.count()} documents)")
+            logger.info(f"Collection '{collection_name}' loaded ({self.count()} documents)")
         except Exception as e:
-            logger.error(f"❌ Collection initialization error: {e}")
+            logger.error(f"Collection initialization error: {e}")
             raise
 
     def add(
@@ -78,9 +78,9 @@ class VectorStore:
                 metadatas=metadatas,
                 embeddings=embeddings
             )
-            logger.info(f"✅ Added {len(ids)} documents to collection")
+            logger.info(f"Added {len(ids)} documents to collection")
         except Exception as e:
-            logger.error(f"❌ Error adding documents: {e}")
+            logger.error(f"Error adding documents: {e}")
             raise
 
     def query(
@@ -112,7 +112,7 @@ class VectorStore:
             )
             return result
         except Exception as e:
-            logger.error(f"❌ Query error: {e}")
+            logger.error(f"Query error: {e}")
             return {"documents": [[]], "metadatas": [[]], "distances": [[]]}
 
     def count(self) -> int:
@@ -120,7 +120,7 @@ class VectorStore:
         try:
             return self.collection.count()
         except Exception as e:
-            logger.error(f"❌ Count error: {e}")
+            logger.error(f"Count error: {e}")
             return 0
     
     def get_stats(self) -> dict:
@@ -132,16 +132,16 @@ class VectorStore:
                 "metadata": self.collection.metadata
             }
         except Exception as e:
-            logger.error(f"❌ Stats error: {e}")
+            logger.error(f"Stats error: {e}")
             return {}
     
     def delete(self, ids: List[str]):
         """Delete documents by IDs"""
         try:
             self.collection.delete(ids=ids)
-            logger.info(f"✅ Deleted {len(ids)} documents")
+            logger.info(f"Deleted {len(ids)} documents")
         except Exception as e:
-            logger.error(f"❌ Delete error: {e}")
+            logger.error(f"Delete error: {e}")
             raise
     
     def update(
@@ -159,7 +159,7 @@ class VectorStore:
                 metadatas=metadatas,
                 embeddings=embeddings
             )
-            logger.info(f"✅ Updated {len(ids)} documents")
+            logger.info(f"Updated {len(ids)} documents")
         except Exception as e:
-            logger.error(f"❌ Update error: {e}")
+            logger.error(f"Update error: {e}")
             raise

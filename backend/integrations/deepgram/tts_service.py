@@ -77,7 +77,7 @@ class DeepgramTTSService:
                             "User-Agent": "MedicalVoiceAgent/1.0"
                         }
                     )
-                    logger.info("✅ Deepgram TTS session created with connection pooling")
+                    logger.info("Deepgram TTS session created with connection pooling")
         
         return self._session
     
@@ -152,7 +152,7 @@ class DeepgramTTSService:
             
             payload = {"text": text}
             
-            logger.info(f"🎤 [Deepgram TTS] Streaming: text_len={len(text)}, voice={voice}, encoding={encoding}")
+            logger.info(f"Deepgram TTS Streaming: text_len={len(text)}, voice={voice}, encoding={encoding}")
             
             # Get pooled session
             session = await self._get_session()
@@ -172,13 +172,13 @@ class DeepgramTTSService:
                         # Check response status
                         if resp.status != 200:
                             error_text = await resp.text()
-                            logger.error(f"❌ Deepgram TTS HTTP {resp.status}: {error_text[:200]}")
+                            logger.error(f"Deepgram TTS HTTP {resp.status}: {error_text[:200]}")
                             
                             # Retry on 5xx errors
                             if resp.status >= 500 and retry_count < max_retries:
                                 retry_count += 1
                                 await asyncio.sleep(0.5 * retry_count)  # Exponential backoff
-                                logger.warning(f"🔄 Retrying Deepgram TTS (attempt {retry_count + 1}/{max_retries + 1})")
+                                logger.warning(f"Retrying Deepgram TTS (attempt {retry_count + 1}/{max_retries + 1})")
                                 continue
                             return
                         
@@ -202,7 +202,7 @@ class DeepgramTTSService:
                                     if first_byte_time is None:
                                         first_byte_time = time.time()
                                         ttfb_ms = int((first_byte_time - start_time) * 1000)
-                                        logger.info(f"⚡ Deepgram TTS TTFB: {ttfb_ms}ms")
+                                        logger.info(f"Deepgram TTS TTFB: {ttfb_ms}ms")
                                     
                                     # Add chunk to buffer
                                     self._audio_buffer.extend(chunk)
@@ -221,7 +221,7 @@ class DeepgramTTSService:
                                     if not self._first_chunk_sent and len(self._audio_buffer) > 0:
                                         should_yield = True
                                         self._first_chunk_sent = True
-                                        logger.info(f"🚀 Deepgram TTS: IMMEDIATE first chunk: {len(self._audio_buffer)} bytes")
+                                        logger.info(f"Deepgram TTS: IMMEDIATE first chunk: {len(self._audio_buffer)} bytes")
                                     
                                     # For subsequent chunks, yield more frequently to reduce pauses
                                     elif (len(self._audio_buffer) >= self._min_chunk_size or 
@@ -232,29 +232,29 @@ class DeepgramTTSService:
                                     if should_yield and self._audio_buffer:
                                         chunk_count += 1
                                         audio_to_yield = bytes(self._audio_buffer)
-                                        logger.debug(f"🎵 Deepgram TTS: Chunk {chunk_count}: {len(audio_to_yield)} bytes")
+                                        logger.debug(f"Deepgram TTS: Chunk {chunk_count}: {len(audio_to_yield)} bytes")
                                         yield audio_to_yield
                                         self._audio_buffer.clear()
                                         buffer_start_time = None
                                 
                                 # Log progress for debugging
                                 if chunk_count > 0 and chunk_count % 10 == 0:
-                                    logger.debug(f"🔄 Deepgram TTS: Processed {chunk_count} chunks, {total_bytes} bytes so far")
+                                    logger.debug(f"Deepgram TTS: Processed {chunk_count} chunks, {total_bytes} bytes so far")
                                 
                             # Stream completed naturally
                             logger.info("📡 Deepgram TTS: Stream ended naturally")
                             
                         except Exception as stream_error:
-                            logger.warning(f"⚠️ Deepgram TTS: Stream error: {stream_error}")
+                            logger.warning(f"Deepgram TTS: Stream error: {stream_error}")
                             
                             # Check for inactivity timeout
                             current_time = time.time()
                             time_since_last_chunk = current_time - last_chunk_time
                             
                             if time_since_last_chunk > 5.0 and chunk_count > 0:
-                                logger.info(f"⏱️ Deepgram TTS: Stream complete after {time_since_last_chunk:.1f}s inactivity ({chunk_count} chunks total)")
+                                logger.info(f"Deepgram TTS: Stream complete after {time_since_last_chunk:.1f}s inactivity ({chunk_count} chunks total)")
                             elif time_since_last_chunk > 10.0 and chunk_count == 0:
-                                logger.warning(f"⚠️ Deepgram TTS: No chunks received for {time_since_last_chunk:.1f}s - aborting")
+                                logger.warning(f"Deepgram TTS: No chunks received for {time_since_last_chunk:.1f}s - aborting")
                             else:
                                 logger.info(f"📡 Deepgram TTS: Stream ended with {chunk_count} chunks")
                         
@@ -262,14 +262,14 @@ class DeepgramTTSService:
                         if self._audio_buffer:
                             chunk_count += 1
                             audio_to_yield = bytes(self._audio_buffer)
-                            logger.debug(f"🎵 Deepgram TTS: Final flush chunk {chunk_count}: {len(audio_to_yield)} bytes")
+                            logger.debug(f"Deepgram TTS: Final flush chunk {chunk_count}: {len(audio_to_yield)} bytes")
                             yield audio_to_yield
                             self._audio_buffer.clear()
                         
                         # Log completion metrics
                         total_time = int((time.time() - start_time) * 1000)
                         logger.info(
-                            f"✅ Deepgram TTS Complete: {chunk_count} chunks, "
+                            f"Deepgram TTS Complete: {chunk_count} chunks, "
                             f"{total_bytes} bytes, {total_time}ms total"
                         )
                         break  # Success, exit retry loop

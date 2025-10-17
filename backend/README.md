@@ -1,4 +1,4 @@
-# AI Avatar Doctor Backend 🏥
+# AI Avatar Doctor Backend
 
 > An intelligent AI-powered virtual doctor system with multilingual support, real-time voice interaction, RAG-enhanced medical knowledge, and comprehensive analytics.
 
@@ -19,7 +19,7 @@
 
 ---
 
-## 🎯 Overview
+## Overview
 
 **AI Avatar Doctor** is a production-ready FastAPI backend system that powers virtual doctor consultations with:
 - **Real-time voice consultations** with bidirectional streaming
@@ -33,7 +33,7 @@
 
 ## ✨ Key Features
 
-### 🎙️ Voice & Text Conversations
+### Voice & Text Conversations
 - **Real-time WebSocket streaming** for low-latency voice interactions
 - **Multi-provider STT**: Deepgram (English) and Sarvam (Indian languages)
 - **Multi-provider TTS**: Deepgram and Sarvam with streaming support
@@ -45,7 +45,7 @@
 - **Context-aware responses** with conversation history
 - **Smart utterance detection** to optimize API calls
 
-### 📊 Analytics & Monitoring
+### Analytics & Monitoring
 - **Real-time cost tracking** for all API calls (OpenAI, Deepgram, Sarvam)
 - **Latency monitoring** with millisecond precision
 - **Token usage tracking** with automatic session aggregation

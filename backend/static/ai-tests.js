@@ -43,7 +43,7 @@ recordBtn.addEventListener('click', async () => {
     } else {
       mediaRecorder.stop();
       isRecording = false;
-      recordBtn.textContent = '🎤 Record';
+      recordBtn.textContent = 'Record';
       setStatus('Processing...');
     }
   } catch (e) {

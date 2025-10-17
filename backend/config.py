@@ -194,7 +194,7 @@ settings = Settings()
 #     # Default Swagger UI CSP sources
 #     DOCS_CSP_SCRIPT_SOURCES: Union[str, List[str]] = ""
 #     DOCS_CSP_STYLE_SOURCES: Union[str, List[str]] = ""
-#     DOCS_CSP_FONT_SOURCES: Union[str, List[str]] = ""   # ✅ Added this
+#     DOCS_CSP_FONT_SOURCES: Union[str, List[str]] = ""   # Added this
 
 #     # External CSP sources (for any additional scripts/styles)
 #     EXTERNAL_SCRIPT_SOURCES: Union[str, List[str]] = ""

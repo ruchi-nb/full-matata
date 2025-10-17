@@ -70,7 +70,7 @@ class SarvamTranslationService:
                     headers=self.headers
                 )
                 self._sessions_by_loop[key] = session
-                logger.info("✅ Sarvam Translation session created with connection pooling (per event loop)")
+                logger.info("Sarvam Translation session created with connection pooling (per event loop)")
 
             return session
     
@@ -189,7 +189,7 @@ class SarvamTranslationService:
             if cache_key in self._translation_cache:
                 cached_result, cache_time = self._translation_cache[cache_key]
                 if time.time() - cache_time < self._cache_ttl:
-                    logger.debug(f"🚀 Translation cache HIT: {cache_key}")
+                    logger.debug(f"Translation cache HIT: {cache_key}")
                     return cached_result
                 else:
                     # Remove expired cache entry
@@ -313,7 +313,7 @@ class SarvamTranslationService:
             if cache_key in self._translation_cache:
                 cached_result, cache_time = self._translation_cache[cache_key]
                 if time.time() - cache_time < self._cache_ttl:
-                    logger.debug(f"🚀 Translation cache HIT (sync): {cache_key}")
+                    logger.debug(f"Translation cache HIT (sync): {cache_key}")
                     return cached_result
             
             # Try to get the current event loop
@@ -381,7 +381,7 @@ class SarvamTranslationService:
                     del self._translation_cache[oldest_key]
                 self._translation_cache[cache_key] = (translated, time.time())
                 
-                logger.info(f"🚀 Fallback sync translation: {len(text)} chars -> {len(translated)} chars")
+                logger.info(f"Fallback sync translation: {len(text)} chars -> {len(translated)} chars")
                 return translated
             else:
                 logger.error(f"Fallback sync translation failed: {response.status_code}")

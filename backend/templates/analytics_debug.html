@@ -45,7 +45,7 @@
     </style>
 </head>
 <body>
-    <h1>🔍 Analytics Debug Console</h1>
+    <h1>Analytics Debug Console</h1>
 
     <div class="section">
         <h2>1. Chart.js Status</h2>
@@ -86,9 +86,9 @@
         window.addEventListener('DOMContentLoaded', () => {
             const status = document.getElementById('chartjsStatus');
             if (typeof Chart !== 'undefined') {
-                status.innerHTML = `<span class="success">✅ Chart.js loaded successfully</span><br>Version: ${Chart.version}`;
+                status.innerHTML = `<span class="success">Chart.js loaded successfully</span><br>Version: ${Chart.version}`;
             } else {
-                status.innerHTML = `<span class="error">❌ Chart.js NOT loaded</span>`;
+                status.innerHTML = `<span class="error">Chart.js NOT loaded</span>`;
             }
         });
 
@@ -101,7 +101,7 @@
             try {
                 const response = await fetch('/api/v1/analytics/comprehensive?hours=24');
                 
-                statusDiv.innerHTML = `<span class="success">✅ API Response: ${response.status} ${response.statusText}</span>`;
+                statusDiv.innerHTML = `<span class="success">API Response: ${response.status} ${response.statusText}</span>`;
                 
                 const data = await response.json();
                 apiData = data;
@@ -110,7 +110,7 @@
                 
                 processData(data);
             } catch (err) {
-                statusDiv.innerHTML = `<span class="error">❌ API Error: ${err.message}</span>`;
+                statusDiv.innerHTML = `<span class="error">API Error: ${err.message}</span>`;
                 responseDiv.textContent = err.stack;
             }
         }
@@ -122,7 +122,7 @@
             try {
                 const breakdown = data?.data?.api_breakdown || [];
                 
-                let html = `<span class="success">✅ Data processed</span><br>`;
+                let html = `<span class="success">Data processed</span><br>`;
                 html += `Status: ${data.status}<br>`;
                 html += `API Breakdown Items: ${breakdown.length}<br>`;
                 
@@ -130,13 +130,13 @@
                     html += `<br>First item:<br>`;
                     detailsDiv.textContent = JSON.stringify(breakdown[0], null, 2);
                 } else {
-                    html += `<span class="warning">⚠️ No API breakdown data</span>`;
+                    html += `<span class="warning">No API breakdown data</span>`;
                     detailsDiv.textContent = 'No data available';
                 }
                 
                 statusDiv.innerHTML = html;
             } catch (err) {
-                statusDiv.innerHTML = `<span class="error">❌ Processing Error: ${err.message}</span>`;
+                statusDiv.innerHTML = `<span class="error">Processing Error: ${err.message}</span>`;
                 detailsDiv.textContent = err.stack;
             }
         }
@@ -172,9 +172,9 @@
                     }
                 });
                 
-                statusDiv.innerHTML = '<span class="success">✅ Test chart created successfully!</span>';
+                statusDiv.innerHTML = '<span class="success">Test chart created successfully!</span>';
             } catch (err) {
-                statusDiv.innerHTML = `<span class="error">❌ Chart Error: ${err.message}</span><br>${err.stack}`;
+                statusDiv.innerHTML = `<span class="error">Chart Error: ${err.message}</span><br>${err.stack}`;
             }
         }
 
@@ -183,7 +183,7 @@
             const canvas = document.getElementById('fullChart');
             
             if (!apiData) {
-                statusDiv.innerHTML = '<span class="error">❌ No API data. Click "Test API Endpoint" first!</span>';
+                statusDiv.innerHTML = '<span class="error">No API data. Click "Test API Endpoint" first!</span>';
                 return;
             }
             
@@ -193,7 +193,7 @@
                 const breakdown = apiData?.data?.api_breakdown || [];
                 
                 if (breakdown.length === 0) {
-                    statusDiv.innerHTML = '<span class="warning">⚠️ No data to chart</span>';
+                    statusDiv.innerHTML = '<span class="warning">No data to chart</span>';
                     return;
                 }
                 
@@ -224,7 +224,7 @@
                     }
                 });
                 
-                statusDiv.innerHTML += '<span class="success">✅ Analytics chart created!</span>';
+                statusDiv.innerHTML += '<span class="success">Analytics chart created!</span>';
             } catch (err) {
                 statusDiv.innerHTML += `<br><span class="error">❌ Error: ${err.message}</span><br><pre>${err.stack}</pre>`;
             }

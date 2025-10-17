@@ -509,9 +509,9 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                     consultation = await get_consultation_details(db, consultation_id=consultation_id)
                     if consultation and consultation.doctor_id:
                         dynamic_prompt = await get_dynamic_system_prompt(db, consultation.doctor_id, consultation_id)
-                        logger.info(f"✅ Using dynamic prompt for doctor_id={consultation.doctor_id}")
+                        logger.info(f"Using dynamic prompt for doctor_id={consultation.doctor_id}")
         except Exception as e:
-            logger.warning(f"⚠️ Failed to fetch dynamic prompt: {e}, using default")
+            logger.warning(f"Failed to fetch dynamic prompt: {e}, using default")
         
         # Generate AI response with STREAMING and real-time TTS
         ai_start_time = time.time()
@@ -554,7 +554,7 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                             "chunk_id": chunk_count,
                             "is_first_chunk": True
                         }, websocket)
-                        logger.info(f"⚡ ULTRA-FAST First Chunk sent: {len(sentence_buffer)} chars")
+                        logger.info(f"ULTRA-FAST First Chunk sent: {len(sentence_buffer)} chars")
                 
                 # Continue with sentence-based chunking for remaining text
                 elif any(sentence_buffer.rstrip().endswith(punct) for punct in ['.', '!', '?', '।']):
@@ -636,7 +636,7 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                             "chunk_id": chunk_count,
                             "is_first_chunk": True
                         }, websocket)
-                        logger.info(f"⚡ ULTRA-FAST First Chunk (translated) sent: {len(translated_first_chunk)} chars")
+                        logger.info(f"ULTRA-FAST First Chunk (translated) sent: {len(translated_first_chunk)} chars")
                 
                 # Continue with sentence-based chunking for remaining text
                 elif any(sentence_buffer.rstrip().endswith(punct) for punct in ['.', '!', '?']):
@@ -719,7 +719,7 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                                 patient_id=consultation.patient_id,
                                 hospital_id=consultation.hospital_id
                             )
-                            logger.info(f"✅ Deepgram STT logged for session {session_data['db_session_id']}")
+                            logger.info(f"Deepgram STT logged for session {session_data['db_session_id']}")
                         elif session_data.get('provider') == "sarvam":
                             logger.info(f"[WS] Logging Sarvam STT for session {session_data['db_session_id']}")
                             await log_sarvam_stt(
@@ -733,7 +733,7 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                                 patient_id=consultation.patient_id,
                                 hospital_id=consultation.hospital_id
                             )
-                            logger.info(f"✅ Sarvam STT logged for session {session_data['db_session_id']}")
+                            logger.info(f"Sarvam STT logged for session {session_data['db_session_id']}")
                         
                         # Log OpenAI response with analytics service
                         logger.info(f"[WS] Logging OpenAI chat for session {session_data['db_session_id']}")
@@ -748,7 +748,7 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                             patient_id=consultation.patient_id,
                             hospital_id=consultation.hospital_id
                         )
-                        logger.info(f"✅ OpenAI chat logged for session {session_data['db_session_id']}")
+                        logger.info(f"OpenAI chat logged for session {session_data['db_session_id']}")
                         
                         # Log messages to consultation_messages
                         await append_message(
@@ -936,9 +936,9 @@ async def handle_flush_signal(websocket: WebSocket, session_data: dict):
                                     consultation_temp = await get_consultation_details(db_temp, consultation_id=consultation_id_temp)
                                     if consultation_temp and consultation_temp.doctor_id:
                                         dynamic_prompt = await get_dynamic_system_prompt(db_temp, consultation_temp.doctor_id, consultation_id_temp)
-                                        logger.info(f"✅ Using dynamic prompt (flush) for doctor_id={consultation_temp.doctor_id}")
+                                        logger.info(f"Using dynamic prompt (flush) for doctor_id={consultation_temp.doctor_id}")
                         except Exception as e:
-                            logger.warning(f"⚠️ Failed to fetch dynamic prompt (flush): {e}, using default")
+                            logger.warning(f"Failed to fetch dynamic prompt (flush): {e}, using default")
                         
                         ai_start_time = time.time()
                         lang = (session_data.get('language') or 'en').split('-')[0].lower()
@@ -1007,7 +1007,7 @@ async def handle_flush_signal(websocket: WebSocket, session_data: dict):
                                             patient_id=consultation.patient_id,
                                             hospital_id=consultation.hospital_id
                                         )
-                                        logger.info(f"✅ Sarvam STT logged for session {session_data['db_session_id']}")
+                                        logger.info(f"Sarvam STT logged for session {session_data['db_session_id']}")
                                         
                                         # Log OpenAI response with analytics service
                                         logger.info(f"[WS] Logging OpenAI chat for session {session_data['db_session_id']}")
@@ -1022,7 +1022,7 @@ async def handle_flush_signal(websocket: WebSocket, session_data: dict):
                                             patient_id=consultation.patient_id,
                                             hospital_id=consultation.hospital_id
                                         )
-                                        logger.info(f"✅ OpenAI chat logged for session {session_data['db_session_id']}")
+                                        logger.info(f"OpenAI chat logged for session {session_data['db_session_id']}")
                                         
                                         # Log messages
                                         await append_message(
@@ -1371,7 +1371,7 @@ async def handle_audio_chunk(websocket: WebSocket, message: dict, session_data: 
                                                                             patient_id=consultation.patient_id,
                                                                             hospital_id=consultation.hospital_id
                                                                         )
-                                                                        logger.info(f"✅ Sarvam STT logged (END_SPEECH) for session {session_data['db_session_id']}")
+                                                                        logger.info(f"Sarvam STT logged (END_SPEECH) for session {session_data['db_session_id']}")
                                                                         
                                                                         # Log OpenAI
                                                                         logger.info(f"[WS/END_SPEECH] Logging OpenAI chat for session {session_data['db_session_id']}")
@@ -1386,7 +1386,7 @@ async def handle_audio_chunk(websocket: WebSocket, message: dict, session_data: 
                                                                             patient_id=consultation.patient_id,
                                                                             hospital_id=consultation.hospital_id
                                                                         )
-                                                                        logger.info(f"✅ OpenAI chat logged (END_SPEECH) for session {session_data['db_session_id']}")
+                                                                        logger.info(f"OpenAI chat logged (END_SPEECH) for session {session_data['db_session_id']}")
                                                                         
                                                                         # Log messages
                                                                         await append_message(
@@ -1789,7 +1789,7 @@ async def handle_final_audio(websocket: WebSocket, message: dict, session_data: 
                                         patient_id=consultation.patient_id,
                                         hospital_id=consultation.hospital_id
                                     )
-                                    logger.info(f"✅ RAG retrieval logged: {rag_svc.last_chunks_count} chunks in {int(rag_svc.last_retrieval_time*1000)}ms")
+                                    logger.info(f"RAG retrieval logged: {rag_svc.last_chunks_count} chunks in {int(rag_svc.last_retrieval_time*1000)}ms")
                         except Exception as rag_log_err:
                             logger.debug(f"RAG logging skipped: {rag_log_err}")
                         
@@ -1828,9 +1828,9 @@ async def handle_final_audio(websocket: WebSocket, message: dict, session_data: 
                             audio_url=None,
                             processing_time_ms=int(ai_latency)
                         )
-                        logger.info(f"✅ Final audio logging complete for session {session_data['db_session_id']}")
+                        logger.info(f"Final audio logging complete for session {session_data['db_session_id']}")
         except Exception as e:
-            logger.error(f"❌ [WS] Logging (final_audio) failed: {e}", exc_info=True)
+            logger.error(f"[WS] Logging (final_audio) failed: {e}", exc_info=True)
         
         # Send AI response to client
         if websocket.client_state.name == "CONNECTED":

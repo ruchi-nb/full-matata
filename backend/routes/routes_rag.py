@@ -104,11 +104,11 @@ async def rag_answer(
                     
                     # DO NOT auto-close session - let it stay open for ongoing conversation
                     # Session will be closed when user explicitly ends the conversation
-                    logger.info(f"✅ RAG answer logged to database for session {session_db_id}")
+                    logger.info(f"RAG answer logged to database for session {session_db_id}")
             except Exception as e:
-                logger.error(f"❌ RAG database logging failed: {e}")
+                logger.error(f"RAG database logging failed: {e}")
                 import traceback
-                logger.error(f"❌ RAG logging traceback: {traceback.format_exc()}")
+                logger.error(f"RAG logging traceback: {traceback.format_exc()}")
         
         return {
             "status": "success",

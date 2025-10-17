@@ -301,7 +301,7 @@
                     <option value="300">5 minutes</option>
                 </select>
             </div>
-            <button class="btn" onclick="loadAnalytics()">🔄 Refresh</button>
+            <button class="btn" onclick="loadAnalytics()">Refresh</button>
         </div>
 
         <div class="dashboard">
@@ -326,15 +326,15 @@
                         <canvas id="costChart"></canvas>
                     </div>
                     <div class="chart-container">
-                        <h3>⚡ Latency by Operation</h3>
+                        <h3>Latency by Operation</h3>
                         <canvas id="latencyChart"></canvas>
                     </div>
                     <div class="chart-container">
-                        <h3>📈 Requests per Hour (by API)</h3>
+                        <h3>Requests per Hour (by API)</h3>
                         <canvas id="rateChart"></canvas>
                     </div>
                     <div class="chart-container">
-                        <h3>🎯 Accuracy by API</h3>
+                        <h3>Accuracy by API</h3>
                         <canvas id="accuracyChart"></canvas>
                     </div>
                     <div class="chart-container">
@@ -345,7 +345,7 @@
 
                 <!-- Detailed Tables -->
                 <div class="table-container">
-                    <h3>📊 Recent API Requests</h3>
+                    <h3>Recent API Requests</h3>
                     <table id="recentRequests">
                         <thead>
                             <tr>
@@ -533,7 +533,7 @@
             }
 
             container.innerHTML = `
-                <h3>🔍 Key Insights</h3>
+                <h3>Key Insights</h3>
                 <div class="insight-item">
                     <span class="insight-label">Most Expensive API:</span>
                     <span class="insight-value">${mostExpensive.api_type || 'N/A'} ($${(mostExpensive.cost_usd || 0).toFixed(4)})</span>

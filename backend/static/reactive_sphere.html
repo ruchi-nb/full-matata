@@ -110,14 +110,14 @@
     <canvas id="canvas"></canvas>
     
     <div class="controls">
-        <button id="micBtn">🎤 Start Microphone</button>
+        <button id="micBtn">Start Microphone</button>
         <label for="audioFile" class="file-label">📁 Load Audio</label>
         <input type="file" id="audioFile" accept="audio/*">
         <span class="status" id="status">Click to start</span>
     </div>
 
     <div class="info">
-        🎵 Waves pulse inward & outward with audio • Microphone or upload audio file
+        Waves pulse inward & outward with audio • Microphone or upload audio file
     </div>
 
     <script>
@@ -252,7 +252,7 @@
                 audioContext.close();
             }
             isActive = false;
-            micBtn.textContent = '🎤 Start Microphone';
+            micBtn.textContent = 'Start Microphone';
             micBtn.disabled = false;
             status.textContent = 'Stopped';
         }

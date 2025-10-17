@@ -89,7 +89,7 @@ def ingest_book(
         pages: Dict[str, Dict[str, str]] = data.get("pages", {})
         
         if not pages:
-            logger.warning("⚠️ No pages found in book data")
+            logger.warning("No pages found in book data")
             return vs.count()
         
         logger.info(f"📖 Found {len(pages)} pages to process")
@@ -114,10 +114,10 @@ def ingest_book(
                 all_metas.append({"page": page_num, "side": side})
         
         if not all_ids:
-            logger.warning("⚠️ No valid text content found in book")
+            logger.warning("No valid text content found in book")
             return vs.count()
         
-        logger.info(f"📝 Processing {len(all_ids)} chunks in batches of {batch_size}")
+        logger.info(f"Processing {len(all_ids)} chunks in batches of {batch_size}")
         
         # Process in batches for better performance
         all_embs: List[List[float]] = []
@@ -129,7 +129,7 @@ def ingest_book(
             
             try:
                 if show_progress:
-                    logger.info(f"⚡ Processing batch {batch_num}/{total_batches} ({len(batch_docs)} chunks)")
+                    logger.info(f"Processing batch {batch_num}/{total_batches} ({len(batch_docs)} chunks)")
                 
                 batch_start = time.time()
                 
@@ -146,25 +146,25 @@ def ingest_book(
                 all_embs.extend(batch_embs)
                 
                 if show_progress:
-                    logger.info(f"✅ Batch {batch_num}/{total_batches} complete ({int(batch_time*1000)}ms)")
+                    logger.info(f"Batch {batch_num}/{total_batches} complete ({int(batch_time*1000)}ms)")
                 
             except Exception as e:
-                logger.error(f"❌ Error processing batch {batch_num}: {e}")
+                logger.error(f"Error processing batch {batch_num}: {e}")
                 # Continue with next batch instead of failing completely
                 # Add zero embeddings as placeholders (will be skipped)
-                logger.warning(f"⚠️ Skipping batch {batch_num} due to error")
+                logger.warning(f"Skipping batch {batch_num} due to error")
                 continue
         
         # Add all chunks to vector store
         if len(all_embs) == len(all_ids):
-            logger.info(f"💾 Adding {len(all_ids)} chunks to vector store...")
+            logger.info(f"Adding {len(all_ids)} chunks to vector store...")
             vs.add(ids=all_ids, documents=all_docs, metadatas=all_metas, embeddings=all_embs)
             
             total_time = time.time() - start_time
-            logger.info(f"✅ Ingestion complete: {len(all_ids)} chunks in {int(total_time)}s")
+            logger.info(f"Ingestion complete: {len(all_ids)} chunks in {int(total_time)}s")
         else:
-            logger.error(f"❌ Embedding count mismatch: {len(all_embs)} embeddings for {len(all_ids)} chunks")
-            logger.warning("⚠️ Some batches may have failed. Ingesting available chunks...")
+            logger.error(f"Embedding count mismatch: {len(all_embs)} embeddings for {len(all_ids)} chunks")
+            logger.warning("Some batches may have failed. Ingesting available chunks...")
             
             # Ingest only successfully embedded chunks
             valid_count = min(len(all_embs), len(all_ids))
@@ -175,10 +175,10 @@ def ingest_book(
                     metadatas=all_metas[:valid_count],
                     embeddings=all_embs[:valid_count]
                 )
-                logger.info(f"✅ Partial ingestion: {valid_count} chunks added")
+                logger.info(f"Partial ingestion: {valid_count} chunks added")
         
         final_count = vs.count()
-        logger.info(f"📊 Vector store now contains {final_count} documents")
+        logger.info(f"Vector store now contains {final_count} documents")
         
         return final_count
         
@@ -249,7 +249,7 @@ def ingest_book_file(
             logger.warning("⚠️ No valid text content found in file")
             return vs.count()
         
-        logger.info(f"📝 Processing {len(all_ids)} chunks in batches of {batch_size}")
+        logger.info(f"Processing {len(all_ids)} chunks in batches of {batch_size}")
         
         # Process in batches
         all_embs: List[List[float]] = []
@@ -261,7 +261,7 @@ def ingest_book_file(
             
             try:
                 if show_progress:
-                    logger.info(f"⚡ Processing batch {batch_num}/{total_batches} ({len(batch_docs)} chunks)")
+                    logger.info(f"Processing batch {batch_num}/{total_batches} ({len(batch_docs)} chunks)")
                 
                 batch_start = time.time()
                 
@@ -276,22 +276,22 @@ def ingest_book_file(
                 all_embs.extend(batch_embs)
                 
                 if show_progress:
-                    logger.info(f"✅ Batch {batch_num}/{total_batches} complete ({int(batch_time*1000)}ms)")
+                    logger.info(f"Batch {batch_num}/{total_batches} complete ({int(batch_time*1000)}ms)")
                 
             except Exception as e:
-                logger.error(f"❌ Error processing batch {batch_num}: {e}")
-                logger.warning(f"⚠️ Skipping batch {batch_num} due to error")
+                logger.error(f"Error processing batch {batch_num}: {e}")
+                logger.warning(f"Skipping batch {batch_num} due to error")
                 continue
         
         # Add to vector store
         if len(all_embs) == len(all_ids):
-            logger.info(f"💾 Adding {len(all_ids)} chunks to vector store...")
+            logger.info(f"Adding {len(all_ids)} chunks to vector store...")
             vs.add(ids=all_ids, documents=all_docs, metadatas=all_metas, embeddings=all_embs)
             
             total_time = time.time() - start_time
             logger.info(f"✅ Upload ingestion complete: {len(all_ids)} chunks in {int(total_time)}s")
         else:
-            logger.error(f"❌ Embedding count mismatch: {len(all_embs)} embeddings for {len(all_ids)} chunks")
+            logger.error(f"Embedding count mismatch: {len(all_embs)} embeddings for {len(all_ids)} chunks")
             
             valid_count = min(len(all_embs), len(all_ids))
             if valid_count > 0:
@@ -301,10 +301,10 @@ def ingest_book_file(
                     metadatas=all_metas[:valid_count],
                     embeddings=all_embs[:valid_count]
                 )
-                logger.info(f"✅ Partial ingestion: {valid_count} chunks added")
+                logger.info(f"Partial ingestion: {valid_count} chunks added")
         
         final_count = vs.count()
-        logger.info(f"📊 Vector store now contains {final_count} documents")
+        logger.info(f"Vector store now contains {final_count} documents")
         
         return final_count
         

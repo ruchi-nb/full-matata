@@ -130,7 +130,7 @@
 <body>
     <div class="login-container">
         <div class="logo">
-            <h1>🏥 Avatar OpenAI</h1>
+            <h1>Avatar OpenAI</h1>
             <p>AI-Powered Medical Consultation Platform</p>
         </div>
 
@@ -154,7 +154,7 @@
             </div>
             
             <button type="submit" class="login-btn" id="loginBtn">
-                🚀 Login & Start Consultation
+                Login & Start Consultation
             </button>
         </form>
 
@@ -176,7 +176,7 @@
             
             // Disable button and show loading
             loginBtn.disabled = true;
-            loginBtn.innerHTML = '🔄 Logging in...';
+            loginBtn.innerHTML = 'Logging in...';
             messageDiv.innerHTML = '';
             
             try {
@@ -200,7 +200,7 @@
                     localStorage.setItem('token_expires_in', result.expires_in);
                     
                     // Show success message
-                    messageDiv.innerHTML = '<div class="success">✅ Login successful! Redirecting...</div>';
+                    messageDiv.innerHTML = '<div class="success">Login successful! Redirecting...</div>';
                     
                     // Redirect to consultation form after short delay
                     setTimeout(() => {
@@ -209,16 +209,16 @@
                     
                 } else {
                     // Show error message
-                    messageDiv.innerHTML = `<div class="error">❌ Login failed: ${result.detail || 'Invalid credentials'}</div>`;
+                    messageDiv.innerHTML = `<div class="error">Login failed: ${result.detail || 'Invalid credentials'}</div>`;
                 }
                 
             } catch (error) {
                 console.error('Login error:', error);
-                messageDiv.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+                messageDiv.innerHTML = `<div class="error">Network error: ${error.message}</div>`;
             } finally {
                 // Re-enable button
                 loginBtn.disabled = false;
-                loginBtn.innerHTML = '🚀 Login & Start Consultation';
+                loginBtn.innerHTML = 'Login & Start Consultation';
             }
         });
 

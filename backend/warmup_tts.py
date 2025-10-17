@@ -14,14 +14,14 @@ logger = logging.getLogger(__name__)
 
 async def warmup_tts_connections():
     """Warmup TTS connections for faster streaming"""
-    logger.info("🚀 Starting TTS connection warmup...")
+    logger.info("Starting TTS connection warmup...")
     
     tts_service = SarvamTTSService()
     
     # Perform startup warmup
     await tts_service.startup_warmup()
     
-    logger.info("✅ TTS warmup complete!")
+    logger.info("TTS warmup complete!")
 
 if __name__ == "__main__":
     asyncio.run(warmup_tts_connections())

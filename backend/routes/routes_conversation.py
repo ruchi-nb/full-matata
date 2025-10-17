@@ -357,10 +357,10 @@ async def conversation_text(
         text_lower = text.lower().strip()
         if text_lower in simple_queries:
             use_rag_flag = False
-            logger.info(f"⚡ Ultra-fast path: Skipping RAG for simple query '{text}'")
+            logger.info(f"Ultra-fast path: Skipping RAG for simple query '{text}'")
         else:
             use_rag_flag = True
-            logger.info(f"🔍 Using RAG for query: '{text[:50]}...'")
+            logger.info(f"Using RAG for query: '{text[:50]}...'")
         
 
         # OPTIMIZATION 1: Always get dynamic system prompt from database
@@ -378,14 +378,14 @@ async def conversation_text(
                     dynamic_system_prompt = await system_prompt_cache.get_system_prompt(
                         db, consultation.doctor_id, consultation_id
                     )
-                    logger.info(f"✅ Using dynamic system prompt for Dr. ID {consultation.doctor_id}")
+                    logger.info(f"Using dynamic system prompt for Dr. ID {consultation.doctor_id}")
                 else:
                     # Fallback to default if no consultation or doctor_id
                     from system_prompt import VIRTUAL_DOCTOR_SYSTEM_PROMPT
                     dynamic_system_prompt = VIRTUAL_DOCTOR_SYSTEM_PROMPT
-                    logger.warning("⚠️ No consultation or doctor_id found, using default prompt")
+                    logger.warning("No consultation or doctor_id found, using default prompt")
             except Exception as e:
-                logger.warning(f"⚠️ Could not get dynamic system prompt: {e}")
+                logger.warning(f"Could not get dynamic system prompt: {e}")
                 # Ensure we always have a system prompt
                 from system_prompt import VIRTUAL_DOCTOR_SYSTEM_PROMPT
                 dynamic_system_prompt = VIRTUAL_DOCTOR_SYSTEM_PROMPT
@@ -393,7 +393,7 @@ async def conversation_text(
             # No consultation_id provided, use default prompt
             from system_prompt import VIRTUAL_DOCTOR_SYSTEM_PROMPT
             dynamic_system_prompt = VIRTUAL_DOCTOR_SYSTEM_PROMPT
-            logger.warning("⚠️ No consultation_id provided, using default prompt")
+            logger.warning("No consultation_id provided, using default prompt")
 
         if lang == "en":
             # OPTIMIZATION 2: Check response cache first
@@ -403,7 +403,7 @@ async def conversation_text(
             if cache_key in _response_cache:
                 cached_response, timestamp = _response_cache[cache_key]
                 if current_time - timestamp < _response_cache_ttl:
-                    logger.info(f"✅ Response cache HIT for: {text[:50]}...")
+                    logger.info(f"Response cache HIT for: {text[:50]}...")
                     response = cached_response
                 else:
                     # Cache expired, remove it
@@ -414,7 +414,7 @@ async def conversation_text(
                 try:
                     if use_rag_flag:
                         # Always use RAG - no timeout, no skipping
-                        logger.info(f"🔍 Using RAG for query: '{text[:50]}...' (no latency limits)")
+                        logger.info(f"Using RAG for query: '{text[:50]}...' (no latency limits)")
                         response = ""
                         stream_gen = openai_service.generate_response_stream(
                             prompt=f"Patient question: {text}",
@@ -433,7 +433,7 @@ async def conversation_text(
                             response += token
                     else:
                         # Direct prompt without RAG (only for simple queries)
-                        logger.info(f"⚡ Skipping RAG for simple query: '{text[:50]}...'")
+                        logger.info(f"Skipping RAG for simple query: '{text[:50]}...'")
                         response = ""
                         stream_gen = openai_service.generate_response_stream(
                             prompt=f"Patient question: {text}",
@@ -468,7 +468,7 @@ async def conversation_text(
                 
                 # Cache the response for future requests
                 _response_cache[cache_key] = (response, current_time)
-                logger.info(f"✅ Response cached for: {text[:50]}...")
+                logger.info(f"Response cached for: {text[:50]}...")
             prompt_text = text
         else:
             # Non-English: ULTRA-FAST async translation -> ChatGPT (RAG) -> async translate back
@@ -564,7 +564,7 @@ async def conversation_text(
                 message_task.add_done_callback(lambda t: logger.debug(f"Message logging task completed for session {session_db_id}"))
                 api_task.add_done_callback(lambda t: logger.debug(f"API logging task completed for session {session_db_id}"))
                 
-                logger.info(f"✅ Non-blocking async logging initiated for session {session_db_id}")
+                logger.info(f"Non-blocking async logging initiated for session {session_db_id}")
                 
             except Exception as e:
                 logger.warning(f"Failed to initiate async logging for session {session_db_id}: {e}")
@@ -640,7 +640,7 @@ async def conversation_speech(
         # Track which provider is actually used for logging
         actual_stt_provider = None
         
-        logger.info(f"🔍 STT Provider Selection: provider_lower='{provider_lower}', language='{language}'")
+        logger.info(f"STT Provider Selection: provider_lower='{provider_lower}', language='{language}'")
         
         if provider_lower == "deepgram-nova3" or (provider_lower == "deepgram" and language == "multi"):
             # Use Deepgram Nova 3 with multilingual support
@@ -676,9 +676,9 @@ async def conversation_speech(
             logger.info("STT provider=sarvam")
             actual_stt_provider = "sarvam"
         
-        logger.info(f"🔍 STT Provider Used: actual_stt_provider='{actual_stt_provider}', transcript='{transcribed_text}'")
+        logger.info(f"STT Provider Used: actual_stt_provider='{actual_stt_provider}', transcript='{transcribed_text}'")
         stt_latency_ms = int((time.time() - stt_start) * 1000)
-        logger.info(f"🔍 STT Completed: provider={actual_stt_provider}, latency={stt_latency_ms}ms, transcript_len={len(transcribed_text or '')}")
+        logger.info(f"STT Completed: provider={actual_stt_provider}, latency={stt_latency_ms}ms, transcript_len={len(transcribed_text or '')}")
 
         # Ensure DB session for this conversation
         try:
@@ -706,9 +706,9 @@ async def conversation_speech(
                     dynamic_system_prompt = await system_prompt_cache.get_system_prompt(
                         db, consultation.doctor_id, consultation_id
                     )
-                    logger.info(f"✅ Using cached system prompt for Dr. ID {consultation.doctor_id}")
+                    logger.info(f"Using cached system prompt for Dr. ID {consultation.doctor_id}")
             except Exception as e:
-                logger.warning(f"⚠️ Could not get cached system prompt: {e}")
+                logger.warning(f"Could not get cached system prompt: {e}")
 
         # Pipeline: Language-based STT routing and processing
         lang = (language or "en").split("-")[0].lower()
@@ -796,7 +796,7 @@ async def conversation_speech(
                 message_task.add_done_callback(lambda t: logger.debug(f"Speech message logging task completed for session {session_db_id}"))
                 api_task.add_done_callback(lambda t: logger.debug(f"Speech API logging task completed for session {session_db_id}"))
                 
-                logger.info(f"✅ Non-blocking async speech logging initiated for session {session_db_id}")
+                logger.info(f"Non-blocking async speech logging initiated for session {session_db_id}")
                 
             except Exception as e:
                 logger.warning(f"Failed to initiate async speech logging for session {session_db_id}: {e}")
@@ -862,9 +862,9 @@ async def clear_session(
             try:
                 from service.consultation_service import close_session
                 await close_session(db, session_id=int(session_db_id), status="completed")
-                logger.info(f"✅ Closed DB session_id={session_db_id} for consultation_id={consultation_id}")
+                logger.info(f"Closed DB session_id={session_db_id} for consultation_id={consultation_id}")
             except Exception as e:
-                logger.warning(f"⚠️ Failed to close DB session {session_db_id}: {e}")
+                logger.warning(f"Failed to close DB session {session_db_id}: {e}")
 
         return {"status": "success", "message": f"Session {session_id} cleared", "session_db_id": session_db_id}
     except Exception as e:

@@ -214,7 +214,7 @@ function forceStatusRecovery() {
   
   // Reset status
   if (isStreamingMode) {
-    updateStatus('✅ Ready - Speak again');
+    updateStatus('Ready - Speak again');
     micBtn.style.backgroundColor = '#4CAF50';
     if (streamingSession) {
       streamingSession.onAudioPlaybackComplete();
@@ -226,7 +226,7 @@ function forceStatusRecovery() {
       }, 500);
     }
   } else {
-    updateStatus('✅ Ready');
+    updateStatus('Ready');
   }
   
   addMessage('system', 'Status automatically recovered from stuck state');
@@ -269,14 +269,14 @@ function startStreamingMode() {
       onSessionStart: () => {
         console.log('WebSocket session started successfully');
         isStartingStreaming = false; // Reset the starting flag
-        updateStatus('🎤 Session active - Speak naturally');
+        updateStatus('Session active - Speak naturally');
         micBtn.textContent = '🔴 Streaming ON';
         micBtn.style.backgroundColor = '#4CAF50';
         micBtn.disabled = false;
       },
       
       onSpeechStart: () => {
-        updateStatus('🎤 Listening...');
+        updateStatus('Listening...');
         micBtn.style.backgroundColor = '#ff8800'; // Orange when recording
         interimTranscriptBuffer = '';
         isUtteranceActive = true;
@@ -286,7 +286,7 @@ function startStreamingMode() {
       },
       
       onSpeechEnd: () => {
-        updateStatus('⚙️ Processing speech...');
+        updateStatus('Processing speech...');
         micBtn.style.backgroundColor = '#ff4444'; // Red when processing
       },
       
@@ -369,8 +369,8 @@ function startStreamingMode() {
         console.error('Streaming error:', error);
         isStartingStreaming = false; // Reset the starting flag on error
         addMessage('system', 'Speech error: ' + error.message);
-        updateStatus('❌ Error - Try again');
-        micBtn.textContent = '🎤 Start Recording';
+        updateStatus('Error - Try again');
+        micBtn.textContent = 'Start Recording';
         micBtn.classList.remove('realtime');
         micBtn.style.backgroundColor = '#ff4444'; // Red for error
         micBtn.disabled = false; // Re-enable button on error
@@ -383,7 +383,7 @@ function startStreamingMode() {
         }
         
         setTimeout(() => {
-          updateStatus('✅ Ready');
+          updateStatus('Ready');
           micBtn.style.backgroundColor = ''; // Reset button color
         }, 3000);
       }
@@ -403,7 +403,7 @@ function startStreamingMode() {
       console.log('Streaming startup timeout - resetting state');
       isStartingStreaming = false;
       isStreamingMode = false;
-      micBtn.textContent = '🎤 Start Recording';
+      micBtn.textContent = 'Start Recording';
       micBtn.classList.remove('realtime');
       micBtn.style.backgroundColor = '';
       micBtn.disabled = false;
@@ -424,7 +424,7 @@ function stopStreamingMode() {
   console.log('Stopping streaming mode...');
   isStreamingMode = false;
   isStartingStreaming = false; // Reset the starting flag
-  micBtn.textContent = '🎤 Start Recording';
+  micBtn.textContent = 'Start Recording';
   micBtn.classList.remove('realtime');
   micBtn.style.backgroundColor = '';
   micBtn.disabled = false;
@@ -456,7 +456,7 @@ async function generateAudioResponse(text, retryCount = 0) {
     const globalTimeout = setTimeout(() => {
       console.log('Global audio timeout - forcing status update');
       if (isStreamingMode) {
-        updateStatus('✅ Ready - Speak again');
+        updateStatus('Ready - Speak again');
         micBtn.style.backgroundColor = '#4CAF50';
         if (streamingSession) {
           streamingSession.onAudioPlaybackComplete();
@@ -468,7 +468,7 @@ async function generateAudioResponse(text, retryCount = 0) {
           }, 500);
         }
       } else {
-        updateStatus('✅ Ready');
+        updateStatus('Ready');
       }
     }, 30000); // 30 second global timeout (increased to allow for longer audio)
     
@@ -497,7 +497,7 @@ async function generateAudioResponse(text, retryCount = 0) {
     
     // Force status update on error
     if (isStreamingMode) {
-      updateStatus('✅ Ready - Speak again');
+      updateStatus('Ready - Speak again');
       micBtn.style.backgroundColor = '#4CAF50';
       if (streamingSession) {
         streamingSession.onAudioPlaybackComplete();
@@ -509,7 +509,7 @@ async function generateAudioResponse(text, retryCount = 0) {
         }, 500);
       }
     } else {
-      updateStatus('✅ Ready');
+      updateStatus('Ready');
     }
     
     // Add a message to inform user about the issue
@@ -742,7 +742,7 @@ async function streamAudioPlayback(text) {
         }
         console.log('Handling Deepgram audio completion');
         if (isStreamingMode) {
-          updateStatus('✅ Ready - Speak again');
+          updateStatus('Ready - Speak again');
           micBtn.style.backgroundColor = '#4CAF50';
           if (streamingSession) {
             streamingSession.onAudioPlaybackComplete();
@@ -755,7 +755,7 @@ async function streamAudioPlayback(text) {
             }
           }, 500);
         } else {
-          updateStatus('✅ Ready');
+          updateStatus('Ready');
         }
         currentAudio = null;
         isTTSActive = false; // Clear TTS flag
@@ -994,7 +994,7 @@ async function streamAudioPlayback(text) {
         }
         
         if (isStreamingMode) {
-          updateStatus('✅ Ready - Speak again');
+          updateStatus('Ready - Speak again');
           micBtn.style.backgroundColor = '#4CAF50';
           if (streamingSession) {
             streamingSession.onAudioPlaybackComplete();
@@ -1006,7 +1006,7 @@ async function streamAudioPlayback(text) {
             }
           }, 500);
         } else {
-          updateStatus('✅ Ready');
+          updateStatus('Ready');
         }
         currentAudio = null;
         isTTSActive = false; // Clear TTS flag
@@ -1056,7 +1056,7 @@ async function streamAudioPlayback(text) {
     
   } catch (error) {
     console.error('Streaming audio error:', error);
-    updateStatus('✅ Ready');
+    updateStatus('Ready');
     // Reset audio playing state on error
     if (streamingSession) {
       streamingSession.onAudioPlaybackComplete();
@@ -1093,7 +1093,7 @@ async function playAudioChunks(chunks, audioContext) {
     currentAudio.onended = () => {
       console.log('Fallback audio playback ended');
       if (isStreamingMode) {
-        updateStatus('✅ Ready - Speak again');
+        updateStatus('Ready - Speak again');
         micBtn.style.backgroundColor = '#4CAF50';
         if (streamingSession) {
           streamingSession.onAudioPlaybackComplete();
@@ -1106,7 +1106,7 @@ async function playAudioChunks(chunks, audioContext) {
           }
         }, 500);
       } else {
-        updateStatus('✅ Ready');
+        updateStatus('Ready');
       }
       URL.revokeObjectURL(audioUrl);
       currentAudio = null;
@@ -1133,7 +1133,7 @@ async function playAudioChunks(chunks, audioContext) {
     
   } catch (error) {
     console.error('Audio playback error:', error);
-    updateStatus('✅ Ready');
+    updateStatus('Ready');
   }
 }
 
@@ -1173,7 +1173,7 @@ async function fallbackAudioPlayback(text) {
         currentAudio.onended = () => {
           console.log('Fallback audio playback ended');
           if (isStreamingMode) {
-            updateStatus('✅ Ready - Speak again');
+            updateStatus('Ready - Speak again');
             micBtn.style.backgroundColor = '#4CAF50';
             if (streamingSession) {
               streamingSession.onAudioPlaybackComplete();
@@ -1186,7 +1186,7 @@ async function fallbackAudioPlayback(text) {
               }
             }, 500);
           } else {
-            updateStatus('✅ Ready');
+            updateStatus('Ready');
           }
           URL.revokeObjectURL(audioUrl);
         };
@@ -1197,7 +1197,7 @@ async function fallbackAudioPlayback(text) {
     }
   } catch (error) {
     console.error('Fallback audio error:', error);
-    updateStatus('✅ Ready');
+    updateStatus('Ready');
   }
 }
 
@@ -1223,7 +1223,7 @@ async function startRecording() {
     
     mediaRecorder.start();
     isRecording = true;
-    micBtn.textContent = '⏹️ Stop Recording';
+    micBtn.textContent = 'Stop Recording';
     micBtn.classList.add('recording');
     updateStatus('Recording... Click to stop');
   } catch (error) {
@@ -1236,7 +1236,7 @@ async function stopRecording() {
   if (mediaRecorder && isRecording) {
     mediaRecorder.stop();
     isRecording = false;
-    micBtn.textContent = '🎤 Start Recording';
+    micBtn.textContent = 'Start Recording';
     micBtn.classList.remove('recording');
     updateStatus('Processing speech...');
     
@@ -1304,9 +1304,9 @@ async function processSpeech(audioBlob) {
     // Capture session_db_id from response for subsequent requests (always update if provided)
     if (data.session_db_id) {
       currentSessionDbId = data.session_db_id;
-      console.log('✅ Captured session_db_id from speech response:', currentSessionDbId);
+      console.log('Captured session_db_id from speech response:', currentSessionDbId);
     } else {
-      console.warn('⚠️ No session_db_id in speech response! Response keys:', Object.keys(data));
+      console.warn('No session_db_id in speech response! Response keys:', Object.keys(data));
     }
     
     addMessage('user', `${data.transcribed_text} (${languageSelect.options[languageSelect.selectedIndex].text})`);
@@ -1416,9 +1416,9 @@ sendBtn.addEventListener('click', async () => {
     // Capture session_db_id from response for subsequent requests (always update if provided)
     if (data.session_db_id) {
       currentSessionDbId = data.session_db_id;
-      console.log('✅ Captured session_db_id from response:', currentSessionDbId);
+      console.log('Captured session_db_id from response:', currentSessionDbId);
     } else {
-      console.warn('⚠️ No session_db_id in response! Response keys:', Object.keys(data));
+      console.warn('No session_db_id in response! Response keys:', Object.keys(data));
     }
     
     addMessage('doctor', data.final_response);
@@ -1531,7 +1531,7 @@ if (forceReadyBtn) {
     }
     // Reset status
     if (isStreamingMode) {
-      updateStatus('✅ Ready - Speak again');
+      updateStatus('Ready - Speak again');
       micBtn.style.backgroundColor = '#4CAF50';
       if (streamingSession) {
         streamingSession.onAudioPlaybackComplete();
@@ -1543,7 +1543,7 @@ if (forceReadyBtn) {
         }, 500);
       }
     } else {
-      updateStatus('✅ Ready');
+      updateStatus('Ready');
     }
     addMessage('system', 'Status manually reset to Ready');
   });
@@ -1635,7 +1635,7 @@ if (endConversationBtn) endConversationBtn.addEventListener('click', async () =>
       // Clear local session
       clearCurrentSession();
       addMessage('system', 'Conversation ended. Redirecting to thank you page...');
-      updateStatus('✅ Session ended');
+      updateStatus('Session ended');
 
       // Calculate session duration
       const sessionStartTime = window.sessionStartTime || Date.now() - 60000; // Fallback to 1 minute if not tracked

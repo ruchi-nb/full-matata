@@ -42,10 +42,10 @@
         // Check if Chart.js loaded
         if (typeof Chart === 'undefined') {
             document.getElementById('status').className = 'status error';
-            document.getElementById('status').textContent = '❌ Chart.js failed to load!';
+            document.getElementById('status').textContent = 'Chart.js failed to load!';
         } else {
             document.getElementById('status').className = 'status success';
-            document.getElementById('status').textContent = '✅ Chart.js loaded successfully! Version: ' + Chart.version;
+            document.getElementById('status').textContent = 'Chart.js loaded successfully! Version: ' + Chart.version;
             
             // Create a simple test chart
             const ctx = document.getElementById('testChart').getContext('2d');

@@ -8,7 +8,7 @@ from database.database import get_db
 from schema.schema import (
     OnboardHospitalAdminIn, OnboardHospitalAdminOut, 
     SuperAdminCreateUserIn, SuperAdminCreateUserOut,
-    UserRead  # ✅ Using UserRead instead of UserProfileOut
+    UserRead  # Using UserRead instead of UserProfileOut
 )
 from fastapi import Path, Body
 from dependencies.dependencies import require_global_roles
@@ -18,7 +18,7 @@ from service.superadmin_service import (
     assign_permissions_to_all_doctors,
     get_doctor_permissions_status
 )
-from models.models import Users  # ✅ Only need Users model now
+from models.models import Users  # Only need Users model now
 
 logger = logging.getLogger(__name__)
 

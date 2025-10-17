@@ -138,7 +138,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📊 API Analytics Dashboard</h1>
+            <h1>API Analytics Dashboard</h1>
             <p>Real-time monitoring of OpenAI, Deepgram, and Sarvam APIs</p>
             
             <div class="controls">
@@ -148,7 +148,7 @@
                     <option value="24" selected>Last 24 Hours</option>
                     <option value="168">Last 7 Days</option>
                 </select>
-                <button onclick="loadData()">🔄 Refresh</button>
+                <button onclick="loadData()">Refresh</button>
             </div>
         </div>
 
@@ -168,19 +168,19 @@
                     </div>
                 </div>
                 <div class="chart-card">
-                    <h3>⚡ Latency by Service</h3>
+                    <h3>Latency by Service</h3>
                     <div class="chart-container">
                         <canvas id="latencyChart"></canvas>
                     </div>
                 </div>
                 <div class="chart-card">
-                    <h3>📊 Request Count</h3>
+                    <h3>Request Count</h3>
                     <div class="chart-container">
                         <canvas id="requestChart"></canvas>
                     </div>
                 </div>
                 <div class="chart-card">
-                    <h3>✅ Success Rate</h3>
+                    <h3>Success Rate</h3>
                     <div class="chart-container">
                         <canvas id="successChart"></canvas>
                     </div>
@@ -252,7 +252,7 @@
                 console.log('API breakdown length:', apiData.length);
                 
                 if (apiData.length === 0) {
-                    console.warn('⚠️ No API data available - using placeholder');
+                    console.warn('No API data available - using placeholder');
                     apiData.push({
                         api_type: 'No Data',
                         cost_usd: 0,
@@ -261,7 +261,7 @@
                         avg_accuracy: 0
                     });
                 } else {
-                    console.log('✅ Found API data:', apiData.length, 'items');
+                    console.log('Found API data:', apiData.length, 'items');
                 }
 
                 console.log('\n--- Creating Charts ---');
@@ -272,7 +272,7 @@
                 console.log('=== ALL CHARTS CREATED ===');
                 
             } catch (err) {
-                console.error('❌ Error in displayData:', err);
+                console.error('Error in displayData:', err);
                 console.error('Stack trace:', err.stack);
             }
         }
@@ -312,7 +312,7 @@
                         <div class="metric-value">${accuracy.toFixed(1)}%</div>
                     </div>
                 `;
-                console.log('✅ Metrics displayed successfully');
+                console.log('Metrics displayed successfully');
             } catch (err) {
                 console.error('Error displaying metrics:', err);
             }

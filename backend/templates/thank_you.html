@@ -274,10 +274,10 @@
                 📥 Download Transcript
             </button>
             <button class="btn btn-secondary" id="viewAnalytics">
-                📊 View Analytics
+                View Analytics
             </button>
             <a href="/" class="btn btn-outline">
-                🏠 Back to Home
+                Back to Home
             </a>
         </div>
         
@@ -347,7 +347,7 @@
                 document.body.removeChild(a);
                 
                 // Success feedback
-                button.innerHTML = '✅ Downloaded!';
+                button.innerHTML = 'Downloaded!';
                 button.style.background = 'linear-gradient(135deg, #4CAF50, #388E3C)';
                 
             } catch (error) {
@@ -372,7 +372,7 @@
                     window.URL.revokeObjectURL(url);
                     document.body.removeChild(a);
                     
-                    button.innerHTML = '✅ Downloaded (Basic)';
+                    button.innerHTML = 'Downloaded (Basic)';
                     button.style.background = 'linear-gradient(135deg, #FF9800, #F57C00)';
                 } catch (fallbackError) {
                     alert('Error downloading transcript: ' + error.message);

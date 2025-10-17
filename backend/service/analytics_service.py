@@ -181,7 +181,7 @@ async def log_api_usage(
                 # Session stats update has its own commit, so we don't need to rollback here
         
         await db.commit()
-        logger.info(f"✅ API Usage Logged - ID: {row.usage_id}, Service: {service_type}, Tokens: {tokens_used}, Cost: ${cost}, Latency: {response_time_ms}ms")
+        logger.info(f"API Usage Logged - ID: {row.usage_id}, Service: {service_type}, Tokens: {tokens_used}, Cost: ${cost}, Latency: {response_time_ms}ms")
     
     except IntegrityError as e:
         await _safe_rollback(db, "api_usage_logs")
@@ -246,7 +246,7 @@ async def log_openai_chat(
     total_tokens = input_tokens + output_tokens
     cost = (input_tokens / 1000 * 0.03) + (output_tokens / 1000 * 0.06)
     
-    logger.info(f"🔄 Logging OpenAI chat: tokens={total_tokens}, cost=${cost:.4f}, session_id={session_id}")
+    logger.info(f"Logging OpenAI chat: tokens={total_tokens}, cost=${cost:.4f}, session_id={session_id}")
     
     # Errors are handled by log_api_usage
     await log_api_usage(
@@ -263,7 +263,7 @@ async def log_openai_chat(
         api_calls=1
     )
     
-    logger.info(f"✅ OpenAI chat logged successfully")
+    logger.info(f"OpenAI chat logged successfully")
 
 
 async def log_deepgram_stt(
@@ -280,7 +280,7 @@ async def log_deepgram_stt(
 ) -> None:
     """Log Deepgram STT API usage with cost calculation"""
     cost = (audio_duration_sec / 60) * 0.0043
-    logger.info(f"🔄 Logging Deepgram STT: duration={audio_duration_sec:.2f}s, cost=${cost:.4f}, session_id={session_id}")
+    logger.info(f"Logging Deepgram STT: duration={audio_duration_sec:.2f}s, cost=${cost:.4f}, session_id={session_id}")
     
     await log_api_usage(
         db,
@@ -296,7 +296,7 @@ async def log_deepgram_stt(
         api_calls=1
     )
     
-    logger.info(f"✅ Deepgram STT logged successfully")
+    logger.info(f"Deepgram STT logged successfully")
 
 
 async def log_deepgram_tts(
@@ -343,7 +343,7 @@ async def log_sarvam_stt(
 ) -> None:
     """Log Sarvam STT API usage with cost calculation"""
     cost = (audio_duration_sec / 60) * 0.002
-    logger.info(f"🔄 Logging Sarvam STT: duration={audio_duration_sec:.2f}s, cost=${cost:.4f}, session_id={session_id}")
+    logger.info(f"Logging Sarvam STT: duration={audio_duration_sec:.2f}s, cost=${cost:.4f}, session_id={session_id}")
     
     await log_api_usage(
         db,
@@ -359,7 +359,7 @@ async def log_sarvam_stt(
         api_calls=1
     )
     
-    logger.info(f"✅ Sarvam STT logged successfully")
+    logger.info(f"Sarvam STT logged successfully")
 
 
 async def log_sarvam_tts(

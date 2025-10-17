@@ -68,9 +68,9 @@ class SessionManager:
             self.redis = redis_sync.Redis.from_url(settings.REDIS_URL, decode_responses=True)
             # Test connection
             self.redis.ping()
-            logger.info("✅ Redis connection established for session management")
+            logger.info("Redis connection established for session management")
         except Exception as e:
-            logger.error(f"❌ Failed to connect to Redis: {e}")
+            logger.error(f"Failed to connect to Redis: {e}")
             logger.warning("Falling back to in-memory session storage")
             self.redis = None
 

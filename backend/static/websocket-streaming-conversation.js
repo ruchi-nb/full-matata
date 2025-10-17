@@ -22,7 +22,7 @@
       // Restore consultation_id from sessionStorage on page load (survive refresh)
       if (!window.consultationId && sessionStorage.getItem('consultationId')) {
         window.consultationId = parseInt(sessionStorage.getItem('consultationId'));
-        console.log('[Init] 🔄 Restored consultation_id from sessionStorage:', window.consultationId);
+        console.log('[Init] Restored consultation_id from sessionStorage:', window.consultationId);
       }
 
       this.mediaRecorder = null;
@@ -257,7 +257,7 @@
               // Restore consultation_id from sessionStorage if page was refreshed
               if (!window.consultationId && sessionStorage.getItem('consultationId')) {
                 window.consultationId = parseInt(sessionStorage.getItem('consultationId'));
-                console.log('[WebSocket] ✅ Restored consultation_id from sessionStorage:', window.consultationId);
+                console.log('[WebSocket] Restored consultation_id from sessionStorage:', window.consultationId);
               }
               
               // Add consultation_id if available
@@ -281,20 +281,20 @@
               if (message.type === 'connection_established') {
                 if (message.db_session_id) {
                   this.dbSessionId = message.db_session_id;
-                  console.log('[WebSocket] ✅ Captured db_session_id from init:', this.dbSessionId);
+                  console.log('[WebSocket] Captured db_session_id from init:', this.dbSessionId);
                   // Update global currentSessionDbId
                   window.currentSessionDbId = this.dbSessionId;
                 }
                 if (message.consultation_id) {
                   this.consultationId = message.consultation_id;
-                  console.log('[WebSocket] ✅ Captured consultation_id from init:', this.consultationId);
+                  console.log('[WebSocket] Captured consultation_id from init:', this.consultationId);
                   // Update global consultationId if not set
                   if (!window.consultationId) {
                     window.consultationId = this.consultationId;
                   }
                   // Persist to sessionStorage for page refresh survival
                   sessionStorage.setItem('consultationId', this.consultationId.toString());
-                  console.log('[WebSocket] 💾 Persisted consultation_id to sessionStorage');
+                  console.log('[WebSocket] Persisted consultation_id to sessionStorage');
                 }
               }
               
@@ -342,7 +342,7 @@
     
     async handleAIResponseChunk(text, isFinal) {
       // Stream AI response chunks to TTS in real-time
-      console.log(`🎙️ [Streaming TTS] Chunk received: "${text.substring(0, 50)}..." (${text.length} chars, final: ${isFinal})`);
+      console.log(`[Streaming TTS] Chunk received: "${text.substring(0, 50)}..." (${text.length} chars, final: ${isFinal})`);
       
       try {
         // Build TTS request URL
@@ -358,7 +358,7 @@
           session_db_id: this.dbSessionId || window.currentSessionDbId
         };
         
-        console.log(`🎙️ [Streaming TTS] Sending chunk to TTS API...`);
+        console.log(`[Streaming TTS] Sending chunk to TTS API...`);
         
         // Fetch TTS audio stream
         const response = await fetch(ttsUrl, {
@@ -375,7 +375,7 @@
         // Stream audio playback
         await this.streamAudioPlayback(response.body, this.provider);
         
-        console.log(`🎙️ [Streaming TTS] Chunk playback complete`);
+        console.log(`[Streaming TTS] Chunk playback complete`);
         
       } catch (error) {
         console.error('[Streaming TTS] Error processing chunk:', error);
@@ -386,10 +386,10 @@
       switch (message.type) {
         case 'connection_established':
           console.log('[WebSocket] Connection confirmed:', message.message);
-          this.onStatusUpdate('✅ WebSocket connected - Ready to speak');
+          this.onStatusUpdate('WebSocket connected - Ready to speak');
           // Set button to green when ready
           if (this.onStatusUpdate) {
-            this.onStatusUpdate('✅ Ready - Speak naturally');
+            this.onStatusUpdate('Ready - Speak naturally');
           }
           break;
           
@@ -464,7 +464,7 @@
           } else {
             // Don't update status if audio is currently playing
             if (!this.currentAudio) {
-              this.onStatusUpdate('✅ Ready - Speak again');
+              this.onStatusUpdate('Ready - Speak again');
             }
           }
           break;
@@ -504,7 +504,7 @@
         
       } catch (error) {
         console.error('[WebSocket] Audio generation error:', error);
-        this.onStatusUpdate('✅ Ready - Speak again');
+        this.onStatusUpdate('Ready - Speak again');
       }
     }
     
@@ -564,7 +564,7 @@
         let bufferTimer = null;
         let streamEnded = false; // Track if stream has finished receiving all chunks
         
-        // 🎯 PRODUCTION-GRADE BUFFERING: Optimized for both Deepgram MP3 and Sarvam WAV
+        // PRODUCTION-GRADE BUFFERING: Optimized for both Deepgram MP3 and Sarvam WAV
         // Deepgram: 16KB chunks = ~100ms of MP3 @ 128kbps = smooth playback, low latency
         // Sarvam: 4KB chunks = ~125ms of WAV @ 16kHz = instant start, ultra-low latency
         const START_BUFFER_SIZE = isMp3 ? 16384 : 4096;   // 16KB MP3 / 4KB WAV for first chunk
@@ -613,7 +613,7 @@
             currentAudioIndex++;
             isPlaying = false;
             if (currentAudioIndex >= audioQueue.length) {
-              this.onStatusUpdate('✅ Ready - Speak again');
+              this.onStatusUpdate('Ready - Speak again');
               if (this.currentAudio === audioEl) {
                 this.currentAudio = null;
               }
@@ -632,7 +632,7 @@
           audioEl.preload = 'auto'; // Force immediate loading
           isPlaying = true;
           
-          // 🚀 Prefetch next chunk while current is playing (reduces gaps to near-zero)
+          // Prefetch next chunk while current is playing (reduces gaps to near-zero)
           if (currentAudioIndex + 1 < audioQueue.length) {
             const nextBlob = audioQueue[currentAudioIndex + 1];
             if (nextBlob && nextBlob.size > 0) {
@@ -677,12 +677,12 @@
               // Don't mark as complete yet - more chunks may arrive
             } else {
               // All chunks finished AND stream ended - TTS truly complete
-              console.log('🎙️ [Voice Agent] TTS playback complete - all chunks played');
+              console.log('[Voice Agent] TTS playback complete - all chunks played');
               this.isTTSPlaying = false;
               
               // Only update status when ALL chunks are finished
               setTimeout(() => {
-                this.onStatusUpdate('✅ Ready - Speak again');
+                this.onStatusUpdate('Ready - Speak again');
               }, 100);
               if (this.currentAudio === audioEl) {
                 this.currentAudio = null;
@@ -690,7 +690,7 @@
               // Clear abort controller when finished
               this.ttsAbortController = null;
               
-              // 🎙️ Voice Agent Mode: Resume recording after TTS
+              // Voice Agent Mode: Resume recording after TTS
               if (this.shouldResumeRecordingAfterTTS && this.isActive) {
                 console.log('🎙️ [Voice Agent] Resuming recording - AI finished speaking');
                 this.shouldResumeRecordingAfterTTS = false;
@@ -720,13 +720,13 @@
             if (currentAudioIndex >= audioQueue.length) {
               console.log('[WebSocket] Last chunk failed - completing stream');
               this.isTTSPlaying = false;
-              this.onStatusUpdate('✅ Ready - Speak again');
+              this.onStatusUpdate('Ready - Speak again');
               if (this.currentAudio === audioEl) {
                 this.currentAudio = null;
               }
               this.ttsAbortController = null;
               
-              // 🎙️ Voice Agent Mode: Resume recording after TTS error
+              // Voice Agent Mode: Resume recording after TTS error
               if (this.shouldResumeRecordingAfterTTS && this.isActive) {
                 console.log('🎙️ [Voice Agent] Resuming recording after TTS error');
                 this.shouldResumeRecordingAfterTTS = false;
@@ -868,10 +868,10 @@
             this.isTTSPlaying = false;
             
             if (audioQueue.length === 0) {
-              this.onStatusUpdate('✅ Ready - Speak again');
+              this.onStatusUpdate('Ready - Speak again');
             } else {
               setTimeout(() => {
-                this.onStatusUpdate('✅ Ready - Speak again');
+                this.onStatusUpdate('Ready - Speak again');
               }, 100);
             }
             
@@ -905,7 +905,7 @@
       } catch (error) {
         console.error('[WebSocket] Audio error:', error);
         this.isTTSPlaying = false;
-        this.onStatusUpdate('✅ Ready - Speak again');
+        this.onStatusUpdate('Ready - Speak again');
         
         // 🎙️ Voice Agent Mode: Resume recording after error
         if (this.shouldResumeRecordingAfterTTS && this.isActive) {

@@ -173,5 +173,5 @@ async def get_dynamic_system_prompt(db: AsyncSession, doctor_id: int, consultati
         logger.info(f" Dynamic prompt generated for Dr. {full_name} at {hospital_name}")
         return build_system_prompt(full_name, hospital_name)
     else:
-        logger.warning(f"⚠️ Could not fetch doctor details for ID {doctor_id}, using default prompt")
+        logger.warning(f"Could not fetch doctor details for ID {doctor_id}, using default prompt")
         return VIRTUAL_DOCTOR_SYSTEM_PROMPT
