@@ -1285,4 +1285,4 @@ class CreateHospitalRoleOut(BaseModel):
     description: str
 
 class AssignPermissionsIn(BaseModel):
-    permission_ids: List[int] = Field(..., description="List of permission IDs to assign to role")
+    permission_names: List[str] = Field(..., description="List of permission names to assign to role")

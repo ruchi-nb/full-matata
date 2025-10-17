@@ -73,13 +73,79 @@ async def hospital_admin_create_user(
 
 
     # Check if user is superadmin (bypass hospital check) or validate hospital access
-    user_role = actor_user.get("global_role", {}).get("role_name")
-    if user_role != "superadmin":
+    logger.info("🔍 Authorization check - actor_user: %s", actor_user)
+    user_role = actor_user.get("global_role", {}).get("role_name") or actor_user.get("role")
+    logger.info("🔍 Detected user role: %s", user_role)
+    
+    # Check if user is superadmin
+    if user_role == "superadmin":
+        logger.info("✅ Superadmin access granted")
+    else:
         # For hospital admins, check if they belong to this hospital
-        admin_hospital_id = actor_user.get("hospital_id")
+        # Try multiple ways to get hospital_id from JWT
+        admin_hospital_id = (
+            actor_user.get("hospital_id") or 
+            actor_user.get("hospital_roles", [{}])[0].get("hospital_id") if actor_user.get("hospital_roles") else None or
+            actor_user.get("global_role", {}).get("hospital_id")
+        )
+        logger.info("🔍 Admin hospital ID: %s, Requested hospital ID: %s", admin_hospital_id, hospital_id)
+        
+        # If we can't find hospital_id in JWT, check database for user's hospital
+        if not admin_hospital_id:
+            user_id = actor_user.get("user_id")
+            if user_id:
+                try:
+                    q = (
+                        select(HospitalUserRoles.hospital_id)
+                        .where(
+                            HospitalUserRoles.user_id == user_id,
+                            HospitalUserRoles.is_active == 1,
+                        )
+                        .limit(1)
+                    )
+                    res = await db.execute(q)
+                    hospital_result = res.scalar_one_or_none()
+                    if hospital_result:
+                        admin_hospital_id = hospital_result
+                        logger.info("🔍 Found hospital_id from database: %s", admin_hospital_id)
+                except Exception as e:
+                    logger.error("❌ Error getting hospital_id from database: %s", str(e))
+        
         if not admin_hospital_id or int(admin_hospital_id) != int(hospital_id):
+            logger.warning("❌ Authorization failed - hospital ID mismatch")
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                 detail="You are not authorized to create users in this hospital")
+        
+        # Check if user has hospital_admin role in the database
+        user_id = actor_user.get("user_id")
+        if user_id:
+            try:
+                q = (
+                    select(HospitalRole.role_name)
+                    .join(HospitalUserRoles, HospitalUserRoles.hospital_role_id == HospitalRole.hospital_role_id)
+                    .where(
+                        HospitalUserRoles.user_id == user_id,
+                        HospitalUserRoles.hospital_id == hospital_id,
+                        HospitalUserRoles.is_active == 1,
+                        HospitalRole.is_active == 1,
+                    )
+                )
+                res = await db.execute(q)
+                user_roles = [r for r in res.scalars().all() if r]
+                logger.info("🔍 User roles in database: %s", user_roles)
+                
+                # Check for both "hospital_admin" and "hospital admin" (space vs underscore)
+                has_admin_role = "hospital_admin" in user_roles or "hospital admin" in user_roles
+                if not has_admin_role:
+                    logger.warning("❌ User does not have hospital admin role in database. User roles: %s", user_roles)
+                    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                        detail="You are not authorized to create users in this hospital")
+            except Exception as e:
+                logger.error("❌ Error checking user roles: %s", str(e))
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                                    detail="Permission check failed")
+    
+    logger.info("✅ Authorization passed")
 
     
     hospital_q = await db.execute(select(HospitalMaster).where(HospitalMaster.hospital_id == hospital_id))
@@ -151,7 +217,7 @@ async def hospital_admin_create_user(
         hospital_id=hospital_id,
         user_id=user.user_id,
         hospital_role_id=tenant_role.hospital_role_id,
-        is_active=True
+        is_active=1
     )
     db.add(hur)
     await db.flush()
@@ -189,9 +255,35 @@ async def create_custom_hospital_role(db: AsyncSession, hospital_id: int, payloa
     }
 
 
-async def assign_permissions_to_hospital_role(db: AsyncSession, hospital_id: int, role_id: int, permission_ids: list):
+async def list_hospital_roles(db: AsyncSession, hospital_id: int):
     """
-    Assign selected permissions to a hospital-specific role.
+    List all roles for a specific hospital.
+    """
+    q = await db.execute(
+        select(HospitalRole).where(
+            HospitalRole.hospital_id == hospital_id,
+            HospitalRole.is_active == 1
+        ).order_by(HospitalRole.role_name)
+    )
+    roles = q.scalars().all()
+    
+    return [
+        {
+            "hospital_role_id": role.hospital_role_id,
+            "hospital_id": role.hospital_id,
+            "role_name": role.role_name,
+            "description": role.description,
+            "is_active": role.is_active,
+            "created_at": role.created_at.isoformat() if role.created_at else None,
+            "updated_at": role.updated_at.isoformat() if role.updated_at else None
+        }
+        for role in roles
+    ]
+
+
+async def assign_permissions_to_hospital_role(db: AsyncSession, hospital_id: int, role_id: int, permission_names: list):
+    """
+    Assign selected permissions to a hospital-specific role by permission names.
     """
     # Verify role belongs to hospital
     q = await db.execute(select(HospitalRole).where(
@@ -202,8 +294,21 @@ async def assign_permissions_to_hospital_role(db: AsyncSession, hospital_id: int
     if not hr:
         raise HTTPException(status_code=404, detail="Role not found for this hospital")
 
-    for pid in permission_ids:
+    # Get permission IDs from permission names
+    perm_q = await db.execute(
+        select(PermissionMaster.permission_id).where(
+            PermissionMaster.permission_name.in_(permission_names)
+        )
+    )
+    perm_id_tuples = perm_q.all()
+    perm_ids = [pid for (pid,) in perm_id_tuples if pid is not None]
+    
+    if len(perm_ids) != len(permission_names):
+        raise HTTPException(status_code=400, detail="Some permission names were not found")
+
+    # Assign permissions to the role
+    for pid in perm_ids:
         db.add(HospitalRolePermission(hospital_role_id=role_id, permission_id=pid))
 
     await db.commit()
-    return {"role_id": role_id, "assigned_permissions": len(permission_ids)}
+    return {"role_id": role_id, "assigned_permissions": len(perm_ids)}

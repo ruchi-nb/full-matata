@@ -171,7 +171,7 @@ export async function getHospitalSpecialties(hospitalId) {
  * Get hospital roles
  */
 export async function getHospitalRoles(hospitalId) {
-  return request(`/hospitals/${hospitalId}/roles`, { method: "GET" });
+  return request(`/hospital-admin/hospitals/${hospitalId}/roles`, { method: "GET" });
 }
 
 /**

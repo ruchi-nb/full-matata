@@ -1,57 +1,45 @@
 'use client';
 
-import { useState, useMemo } from "react";
-import { doctors as rawDoctors } from "@/data/doctors";
 import HosSidebar from "@/components/Hospital/Sidebar";
 import DoctorsManagementHeader from "@/components/Hospital/Doctor/ManagementHeader";
 import DoctorStats from "@/components/Hospital/Doctor/DoctorStats";
 import DoctorTable from "@/components/Hospital/Doctor/DoctorTable";
-
-// Normalize languages field to always be an array
-const doctorData = rawDoctors.map((doc) => ({
-  ...doc,
-  languages: typeof doc.languages === "string"
-    ? doc.languages.split(",").map((l) => l.trim())
-    : doc.languages,
-}));
+import { getHospitalUsers, getHospitalRoles } from "@/data/api-hospital-admin.js";
+import { useUser } from "@/data/UserContext";
+import { useState, useCallback } from "react";
 
 export default function Page1() {
-  const [search, setSearch] = useState("");
-  const [specialtyFilter, setSpecialtyFilter] = useState("all");
+  const { user } = useUser();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Filter doctors
-  const filteredDoctors = useMemo(() => {
-    return doctorData.filter((doc) => {
-      const matchesSearch =
-        doc.name.toLowerCase().includes(search.toLowerCase()) ||
-        (doc.email?.toLowerCase().includes(search.toLowerCase()) ?? false);
-      const matchesSpecialty =
-        specialtyFilter === "all" || doc.specialty === specialtyFilter;
+  const handleView = (user) => console.log("Viewing profile:", user);
+  const handleDelete = (user) => console.log("Deleting user:", user);
 
-      return matchesSearch && matchesSpecialty;
+  // Refresh function that triggers a re-render of all components
+  const handleRefresh = useCallback(async () => {
+    console.log("🔄 Manual refresh triggered");
+    // Increment refresh trigger to force re-render of all components
+    setRefreshTrigger(prev => prev + 1);
+    
+    // Also trigger a small delay to ensure the refresh is visible
+    return new Promise(resolve => {
+      setTimeout(resolve, 500);
     });
-  }, [search, specialtyFilter]);
-
-  const handleView = (doctor) => console.log("Viewing profile:", doctor);
-  const handlePause = (doctor) => console.log("Pausing doctor:", doctor);
-  const handleDelete = (doctor) => console.log("Deleting doctor:", doctor);
+  }, []);
 
   return (
     <div className="flex h-screen bg-[#E6EEF8]">
-      <div className="h-full w-[17rem]flex-shrink-0">
+      <div className="h-full w-[17rem] flex-shrink-0">
         <HosSidebar />
       </div>
       <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-x-hidden overflow-y-auto ">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto">
           <div className="p-6 max-w-7xl mx-auto">
-            <DoctorsManagementHeader />
-            <DoctorStats />
-
-            {/* Table */}
+            <DoctorsManagementHeader onRefresh={handleRefresh} />
+            <DoctorStats key={refreshTrigger} />
             <DoctorTable
-              doctors={filteredDoctors}
+              key={refreshTrigger}
               onView={handleView}
-              onPause={handlePause}
               onDelete={handleDelete}
             />
           </div>

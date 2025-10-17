@@ -1,7 +1,7 @@
 // file: src/components/PatientPortal/home/data/doctors.js
 export const doctors = [
   {
-    id: 'emily-chen',
+    id: '1',
     name: 'Emily Chen',
     specialty: 'Cardiology',
     experience: '12 years experience',
@@ -14,7 +14,7 @@ export const doctors = [
     image: '/images/woman(3).png',
   },
   {
-    id: 'james-wilson',
+    id: '2',
     name: 'James Wilson',
     specialty: 'General Medicine',
     experience: '8 years experience',
@@ -27,7 +27,7 @@ export const doctors = [
     image: '/images/man(1).png',
   },
   {
-    id: 'michael-rodriguez',
+    id: '3',
     name: 'Michael Rodriguez',
     specialty: 'Dermatology',
     experience: '15 years experience',
@@ -40,7 +40,7 @@ export const doctors = [
     image: '/images/man(2).png',
   },
   {
-    id: 'tarun-singh',
+    id: '4',
     name: 'Tarun Singh',
     specialty: 'Orthopedics',
     experience: '18 years experience',
@@ -53,7 +53,7 @@ export const doctors = [
     image: '/images/man(3).png',
   },
   {
-    id: 'devangi-patel',
+    id: '5',
     name: 'Devangi Patel',
     specialty: 'Neurology',
     experience: '14 years experience',
@@ -66,7 +66,7 @@ export const doctors = [
     image: '/images/woman.png',
   },
   {
-    id: 'sarah-johnson',
+    id: '6',
     name: 'Sarah Johnson',
     specialty: 'Pediatrics',
     experience: '10 years experience',
@@ -79,7 +79,7 @@ export const doctors = [
     image: '/images/woman(1).png',
   },
   {
-    id: 'kshitij-mehta',
+    id: '7',
     name: 'Kshitij Mehta',
     specialty: 'Oncology',
     experience: '16 years experience',
@@ -92,7 +92,7 @@ export const doctors = [
     image: '/images/man(4).png',
   },
   {
-    id: 'veena-gupta',
+    id: '8',
     name: 'Veena Gupta',
     specialty: 'Psychiatry',
     experience: '13 years experience',
@@ -105,7 +105,7 @@ export const doctors = [
     image: '/images/woman(2).png',
   },
   {
-    id: 'tony-chopper',
+    id: '9',
     name: 'Tony Chopper',
     specialty: 'General Medicine',
     experience: '7 years experience',
@@ -118,7 +118,7 @@ export const doctors = [
     image: '/images/man(5).png',
   },
   {
-    id: 'dr-kureha',
+    id: '10',
     name: 'Kureha',
     specialty: 'General Medicine',
     experience: '50+ years experience',
@@ -131,7 +131,7 @@ export const doctors = [
     image: '/images/woman(4).png',
   },
   {
-    id: 'dr-hiluluk',
+    id: '11',
     name: 'Hiluluk',
     specialty: 'Pediatrics',
     experience: '20 years experience',
@@ -144,7 +144,7 @@ export const doctors = [
     image: '/images/man(6).png',
   },
   {
-    id: 'dr-stein',
+    id: '12',
     name: 'Franken Stein',
     specialty: 'Psychiatry',
     experience: '18 years experience',
@@ -157,7 +157,7 @@ export const doctors = [
     image: '/images/man(7).png',
   },
   {
-    id: 'dr-senku',
+    id: '13',
     name: 'Senku Ishigami',
     specialty: 'Neurology',
     experience: '10 years experience',
@@ -170,7 +170,7 @@ export const doctors = [
     image: '/images/man(8).png',
   },
   {
-    id: 'dr-tsunade',
+    id: '14',
     name: 'Tsunade Senju',
     specialty: 'Cardiology',
     experience: '30 years experience',

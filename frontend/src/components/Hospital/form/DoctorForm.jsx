@@ -3,7 +3,7 @@ import { normalizePhoneNumber } from "@/utils/phoneUtils";
 import { useUser } from '@/data/UserContext';
 import { getHospitalRoles } from '@/data/api-hospital-admin';
 import { createUserForHospital, createHospitalUser } from '@/data/api-hospital-admin';
-import { Save, X } from 'lucide-react';
+import { Save, X, User, RefreshCw, Key, FileText } from 'lucide-react';
 import { LifeLine } from 'react-loading-indicators';
 
 // Mock context for hospital ID (you might have this in your app)
@@ -65,87 +65,7 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
   const [availableRoles, setAvailableRoles] = useState(DEFAULT_ROLES);
   const [loadingRoles, setLoadingRoles] = useState(true);
   const [rolesError, setRolesError] = useState("");
-
-  // Load custom roles dynamically
-  useEffect(() => {
-    async function loadRoles() {
-      try {
-        if (!hospitalId) {
-          setLoadingRoles(false);
-          return;
-        }
-
-        // For superadmin context, we might have different role loading logic
-        if (isSuperAdminContext) {
-          // Superadmin can create users with any role, including custom hospital roles
-          try {
-            const customRoles = await getHospitalRoles(hospitalId);
-            const customRoleObjects = customRoles.map(role => ({
-              name: role.role_name,
-              label: role.role_name.charAt(0).toUpperCase() + role.role_name.slice(1).replace('_', ' '),
-              isDefault: false,
-              hospital_role_id: role.hospital_role_id,
-              description: role.description
-            }));
-            
-            setAvailableRoles([...DEFAULT_ROLES, ...customRoleObjects]);
-            console.log("✅ Superadmin: Custom roles loaded:", customRoleObjects.length);
-          } catch (error) {
-            console.log("⚠️ Superadmin: Custom roles endpoint not available, using default roles only");
-            setAvailableRoles(DEFAULT_ROLES);
-            setRolesError("Custom roles not available - using default roles only");
-          }
-        } else {
-          // Hospital admin context - try to fetch custom roles
-          try {
-            const customRoles = await getHospitalRoles(hospitalId);
-            const customRoleObjects = customRoles.map(role => ({
-              name: role.role_name,
-              label: role.role_name.charAt(0).toUpperCase() + role.role_name.slice(1).replace('_', ' '),
-              isDefault: false,
-              hospital_role_id: role.hospital_role_id,
-              description: role.description
-            }));
-            
-            setAvailableRoles([...DEFAULT_ROLES, ...customRoleObjects]);
-            console.log("✅ Hospital admin: Custom roles loaded:", customRoleObjects.length);
-          } catch (error) {
-            console.log("⚠️ Hospital admin: Custom roles endpoint not available, using default roles only");
-            console.log("Error details:", error.message);
-            setAvailableRoles(DEFAULT_ROLES);
-            setRolesError("Custom roles not available - using default roles only");
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load roles:", error);
-        setRolesError("Failed to load roles. Using default roles only.");
-        setAvailableRoles(DEFAULT_ROLES);
-      } finally {
-        setLoadingRoles(false);
-      }
-    }
-
-    if (hospitalId) {
-      loadRoles();
-    }
-  }, [hospitalId, isSuperAdminContext]);
-
-  if (!hasHospitalAccess) {
-    return (
-      <div className="p-8 bg-red-50 border border-red-200 rounded-xl">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-red-800 mb-2">Access Denied</h3>
-          <p className="text-red-600">You don't have permission to access this hospital's data.</p>
-        </div>
-      </div>
-    );
-  }
-
+  
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -169,7 +89,113 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
     }
   }, [availableRoles, form.role]);
 
-  const username = useMemo(() => form.email.trim(), [form.email]);
+  const username = useMemo(() => {
+    if (!form.email || !form.email.trim()) {
+      return "";
+    }
+    return form.email.trim();
+  }, [form.email]);
+
+  // Load custom roles dynamically
+  useEffect(() => {
+    async function loadRoles() {
+      try {
+        if (!hospitalId) {
+          setLoadingRoles(false);
+          return;
+        }
+
+        // Load custom roles for both superadmin and hospital admin contexts
+        try {
+          console.log("🔍 Initial role loading for hospital ID:", hospitalId);
+          const customRoles = await getHospitalRoles(hospitalId);
+          console.log("📋 Raw roles from API:", customRoles);
+          
+          if (!customRoles || !Array.isArray(customRoles)) {
+            console.warn("⚠️ API returned invalid roles data:", customRoles);
+            setAvailableRoles(DEFAULT_ROLES);
+            setRolesError("Invalid roles data received from API");
+            return;
+          }
+          
+          const customRoleObjects = customRoles.map(role => ({
+            name: role.role_name,
+            label: role.role_name.charAt(0).toUpperCase() + role.role_name.slice(1).replace('_', ' '),
+            isDefault: false,
+            hospital_role_id: role.hospital_role_id,
+            description: role.description
+          }));
+          
+          // Filter out custom roles that already exist in DEFAULT_ROLES to avoid duplicates
+          const filteredCustomRoles = customRoleObjects.filter(customRole => 
+            !DEFAULT_ROLES.some(defaultRole => defaultRole.name === customRole.name)
+          );
+          
+          const allRoles = [...DEFAULT_ROLES, ...filteredCustomRoles];
+          console.log("✅ All available roles (duplicates filtered):", allRoles);
+          
+          setAvailableRoles(allRoles);
+          console.log(`✅ ${isSuperAdminContext ? 'Superadmin' : 'Hospital admin'}: Custom roles loaded:`, filteredCustomRoles.length);
+        } catch (error) {
+          console.log(`⚠️ ${isSuperAdminContext ? 'Superadmin' : 'Hospital admin'}: Custom roles endpoint not available, using default roles only:`, error.message);
+          console.log("Full error:", error);
+          setAvailableRoles(DEFAULT_ROLES);
+          setRolesError("Custom roles not available - using default roles only");
+        }
+      } catch (error) {
+        console.error("Failed to load roles:", error);
+        setRolesError("Failed to load roles. Using default roles only.");
+        setAvailableRoles(DEFAULT_ROLES);
+      } finally {
+        setLoadingRoles(false);
+      }
+    }
+
+    if (hospitalId) {
+      loadRoles();
+    }
+  }, [hospitalId, isSuperAdminContext]);
+
+  // Auto-refresh roles when component becomes visible (useful when returning from role creation)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && hospitalId) {
+        console.log("🔄 Component became visible, refreshing roles...");
+        refreshRoles();
+      }
+    };
+
+    const handleFocus = () => {
+      if (hospitalId) {
+        console.log("🔄 Window focused, refreshing roles...");
+        refreshRoles();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [hospitalId]);
+
+  if (!hasHospitalAccess) {
+    return (
+      <div className="p-8 bg-red-50 border border-red-200 rounded-xl">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-red-800 mb-2">Access Denied</h3>
+          <p className="text-red-600">You don't have permission to access this hospital's data.</p>
+        </div>
+      </div>
+    );
+  }
 
   const onChange = (field) => (e) => {
     const value = e?.target?.type === "checkbox" ? e.target.checked : e?.target?.value ?? e;
@@ -188,16 +214,33 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
     });
   };
 
-  const isClinician = form.role === "doctor" || form.role === "nurse" || form.role === "lab technician" || 
-                     (form.role && !availableRoles.find(r => r.name === form.role)?.isDefault);
+  const isClinician = form.role === "doctor";
 
   const refreshRoles = async () => {
+    console.log("🔄 Starting role refresh...");
     setLoadingRoles(true);
     setRolesError("");
+    
     try {
+      if (!hospitalId) {
+        console.log("⚠️ No hospital ID available for role refresh");
+        setAvailableRoles(DEFAULT_ROLES);
+        return;
+      }
+
       // Try to fetch custom roles, but don't fail if endpoint doesn't exist
       try {
+        console.log("🔍 Fetching roles for hospital ID:", hospitalId);
         const customRoles = await getHospitalRoles(hospitalId);
+        console.log("📋 Raw roles from API:", customRoles);
+        
+        if (!customRoles || !Array.isArray(customRoles)) {
+          console.warn("⚠️ API returned invalid roles data:", customRoles);
+          setAvailableRoles(DEFAULT_ROLES);
+          setRolesError("Invalid roles data received from API");
+          return;
+        }
+        
         const customRoleObjects = customRoles.map(role => ({
           name: role.role_name,
           label: role.role_name.charAt(0).toUpperCase() + role.role_name.slice(1).replace('_', ' '),
@@ -206,18 +249,28 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
           description: role.description
         }));
         
-        setAvailableRoles([...DEFAULT_ROLES, ...customRoleObjects]);
-        console.log(`✅ ${isSuperAdminContext ? 'Superadmin' : 'Hospital admin'}: Roles refreshed successfully:`, customRoleObjects.length);
+        // Filter out custom roles that already exist in DEFAULT_ROLES to avoid duplicates
+        const filteredCustomRoles = customRoleObjects.filter(customRole => 
+          !DEFAULT_ROLES.some(defaultRole => defaultRole.name === customRole.name)
+        );
+        
+        const allRoles = [...DEFAULT_ROLES, ...filteredCustomRoles];
+        console.log("✅ All available roles (duplicates filtered):", allRoles);
+        
+        setAvailableRoles(allRoles);
+        console.log(`✅ ${isSuperAdminContext ? 'Superadmin' : 'Hospital admin'}: Roles refreshed successfully:`, filteredCustomRoles.length);
       } catch (error) {
-        console.log(`⚠️ ${isSuperAdminContext ? 'Superadmin' : 'Hospital admin'}: Custom roles endpoint not available during refresh`);
+        console.log(`⚠️ ${isSuperAdminContext ? 'Superadmin' : 'Hospital admin'}: Custom roles endpoint not available during refresh:`, error.message);
+        console.log("Full error:", error);
         setAvailableRoles(DEFAULT_ROLES);
         setRolesError("Custom roles not available - using default roles only");
       }
     } catch (error) {
-      console.error("Failed to refresh roles:", error);
+      console.error("❌ Failed to refresh roles:", error);
       setRolesError("Failed to refresh roles. Please try again.");
     } finally {
       setLoadingRoles(false);
+      console.log("🔄 Role refresh completed");
     }
   };
 
@@ -249,6 +302,10 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
         throw new Error("Please fill in all required fields");
       }
 
+      if (!username) {
+        throw new Error("Username is required");
+      }
+
       if (isClinician && !form.specialty) {
         throw new Error("Please select a specialty for clinician roles");
       }
@@ -278,7 +335,10 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
         hospitalId,
         payload,
         specialtyIds,
-        context: isSuperAdminContext ? 'superadmin' : 'hospital-admin'
+        context: isSuperAdminContext ? 'superadmin' : 'hospital-admin',
+        formState: form,
+        username,
+        isClinician
       });
 
       // Call the appropriate API based on context
@@ -315,7 +375,26 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
       });
 
     } catch (err) {
-      console.error("Failed to create user:", err);
+      console.error("❌ Form submission error:", err);
+      console.error("❌ Error details:", {
+        message: err.message,
+        status: err.status,
+        data: err.data,
+        formState: form,
+        payload: {
+          first_name: form.firstName,
+          last_name: form.lastName,
+          email: form.email,
+          phone: normalizePhoneNumber(form.phone) || undefined,
+          role_name: form.role,
+          username: username,
+          password: form.password,
+          ...(isClinician && {
+            specialty: form.specialty,
+            languages: form.languages,
+          }),
+        }
+      });
       setError(err.message || "Failed to create user. Please try again.");
     } finally {
       setLoading(false);
@@ -467,20 +546,22 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
                 setForm((f) => ({
                   ...f,
                   role: newRole,
-                  // reset clinician-only fields if switching to patient or non-clinician role
-                  specialty: newRole === "patient" ? "" : f.specialty,
-                  languages: newRole === "patient" ? [] : f.languages,
+                  // reset clinician-only fields if switching to non-doctor role
+                  specialty: newRole === "doctor" ? f.specialty : "",
+                  languages: newRole === "doctor" ? f.languages : [],
                 }));
               }}
               disabled={loading || loadingRoles}
               className="w-full px-4 py-2 text-gray-800 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
             >
               <option value="">Select role</option>
-              {availableRoles.map((role) => (
-                <option key={role.name} value={role.name}>
-                  {role.label} {role.isDefault ? '(Default)' : '(Custom)'}
-                </option>
-              ))}
+              {availableRoles
+                .filter(role => role.name !== 'hospital_admin') // Remove hospital admin role
+                .map((role) => (
+                  <option key={role.name} value={role.name}>
+                    {role.label}
+                  </option>
+                ))}
             </select>
             {rolesError && (
               <p className="text-red-500 text-xs mt-1">{rolesError}</p>

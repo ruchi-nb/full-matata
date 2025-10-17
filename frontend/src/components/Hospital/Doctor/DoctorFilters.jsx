@@ -11,6 +11,7 @@ const DoctorFilters = ({
   onRoleChange,
   filteredCount = 0,
   totalCount = 0,
+  availableRoles = ['doctor', 'patient'],
 }) => {
   // Get the display name for the selected role
   const getRoleDisplayName = (roleValue) => {
@@ -46,8 +47,11 @@ const DoctorFilters = ({
             className="px-4 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="all">All Roles</option>
-            <option value="doctor">Doctors</option>
-            <option value="patient">Patients</option>
+            {availableRoles.map(roleName => (
+              <option key={roleName} value={roleName}>
+                {roleName.charAt(0).toUpperCase() + roleName.slice(1).replace('_', ' ')}
+              </option>
+            ))}
           </select>
 
             <select

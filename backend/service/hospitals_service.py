@@ -404,6 +404,12 @@ async def get_hospital_users_debug(db: AsyncSession, *, hospital_id: int) -> Dic
         )
         detailed_users = detailed_check.fetchall()
         
+        # Also check hospital_role table for this hospital
+        hospital_roles_check = await db.execute(
+            select(HospitalRole).where(HospitalRole.hospital_id == hospital_id)
+        )
+        hospital_roles = hospital_roles_check.fetchall()
+        
         return {
             "hospital_exists": hospital is not None,
             "hospital_name": hospital.hospital_name if hospital else None,
@@ -415,6 +421,13 @@ async def get_hospital_users_debug(db: AsyncSession, *, hospital_id: int) -> Dic
                     "hospital_role_id": r.hospital_role_id,
                     "is_active": r.is_active
                 } for r in roles
+            ],
+            "hospital_roles_available": [
+                {
+                    "hospital_role_id": hr.hospital_role_id,
+                    "role_name": hr.role_name,
+                    "description": hr.description
+                } for hr in hospital_roles
             ],
             "detailed_users": [
                 {
@@ -440,9 +453,10 @@ async def get_hospital_users(db: AsyncSession, *, hospital_id: int, limit: int =
     """
     try:
         from sqlalchemy import select
-        from models.models import Users, HospitalUserRoles, RoleMaster, UserDetails
+        from models.models import Users, HospitalUserRoles, RoleMaster, UserDetails, HospitalRole
         
-        # Simple query: get all users from hospital_user_roles table
+        # Enhanced query: get all users with both global and hospital-specific roles
+        # Note: A user can have multiple hospital roles, so we need to handle that
         q = (
             select(
                 Users.user_id,
@@ -454,15 +468,19 @@ async def get_hospital_users(db: AsyncSession, *, hospital_id: int, limit: int =
                 UserDetails.last_name,
                 UserDetails.phone,
                 HospitalUserRoles.hospital_role_id,
+                HospitalRole.role_name.label('hospital_role_name'),
+                HospitalRole.description.label('hospital_role_description'),
                 HospitalUserRoles.assigned_on
             )
             .join(HospitalUserRoles, HospitalUserRoles.user_id == Users.user_id)
             .join(RoleMaster, RoleMaster.role_id == Users.global_role_id)
+            .join(HospitalRole, HospitalRole.hospital_role_id == HospitalUserRoles.hospital_role_id)
             .outerjoin(UserDetails, UserDetails.user_id == Users.user_id)
             .where(
                 HospitalUserRoles.hospital_id == hospital_id,
-                HospitalUserRoles.is_active == True
+                HospitalUserRoles.is_active == 1
             )
+            .order_by(Users.user_id, HospitalRole.role_name)  # Order for consistent results
             .limit(limit)
         )
         
@@ -471,7 +489,11 @@ async def get_hospital_users(db: AsyncSession, *, hospital_id: int, limit: int =
         
         # Convert to list of dictionaries
         users = []
+        logger.info(f"🔍 Processing {len(rows)} rows from database")
+        
         for row in rows:
+            logger.info(f"🔍 Row data: user_id={row.user_id}, username={row.username}, global_role={row.global_role_name}, hospital_role={row.hospital_role_name}")
+            
             user_dict = {
                 'user_id': row.user_id,
                 'username': row.username,
@@ -481,6 +503,11 @@ async def get_hospital_users(db: AsyncSession, *, hospital_id: int, limit: int =
                     'role_id': row.global_role_id,
                     'role_name': row.global_role_name
                 },
+                'hospital_role': {
+                    'hospital_role_id': row.hospital_role_id,
+                    'role_name': row.hospital_role_name,
+                    'description': row.hospital_role_description
+                },
                 'first_name': row.first_name,
                 'last_name': row.last_name,
                 'phone': row.phone,
@@ -489,6 +516,7 @@ async def get_hospital_users(db: AsyncSession, *, hospital_id: int, limit: int =
             }
             users.append(user_dict)
         
+        logger.info(f"🔍 Returning {len(users)} users with hospital role data")
         return users
         
     except Exception as e:

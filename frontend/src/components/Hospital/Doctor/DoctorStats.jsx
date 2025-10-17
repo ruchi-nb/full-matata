@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { User, Stethoscope } from "lucide-react";
-import { getHospitalUsers } from "@/data/api-hospital-admin.js";
+import { getHospitalUsers, getHospitalRoles } from "@/data/api-hospital-admin.js";
 import { useUser } from "@/data/UserContext";
 
 const StatsCard = ({ icon: Icon, bgColor, iconColor, label, value }) => (
@@ -21,6 +21,7 @@ const StatsCard = ({ icon: Icon, bgColor, iconColor, label, value }) => (
 
 const DoctorStats = () => {
   const [users, setUsers] = useState([]);
+  const [customRoles, setCustomRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useUser();
 
@@ -39,6 +40,10 @@ const DoctorStats = () => {
         // Load hospital users data
         const usersList = await getHospitalUsers(hospitalId);
         setUsers(usersList || []);
+        
+        // Load custom roles
+        const roles = await getHospitalRoles(hospitalId);
+        setCustomRoles(roles || []);
       } catch (error) {
         console.error("Failed to load hospital data:", error);
         // Set empty array on error
@@ -52,6 +57,59 @@ const DoctorStats = () => {
     if (user) {
       loadHospitalData();
     }
+  }, [user]);
+
+  // Auto-refresh when page becomes visible (for immediate updates after role creation)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user) {
+        console.log("🔄 Page became visible, refreshing hospital data...");
+        // Reload data when page becomes visible
+        const hospitalId = user?.hospital_id || user?.hospital_roles?.[0]?.hospital_id;
+        if (hospitalId) {
+          Promise.all([
+            getHospitalUsers(hospitalId),
+            getHospitalRoles(hospitalId)
+          ]).then(([usersList, roles]) => {
+            setUsers(usersList || []);
+            setCustomRoles(roles || []);
+            console.log("🔄 Hospital data refreshed on visibility change");
+          }).catch(error => {
+            console.error("Failed to refresh hospital data on visibility change:", error);
+          });
+        }
+      }
+    };
+
+    const handleFocus = () => {
+      if (user) {
+        console.log("🔄 Window focused, refreshing hospital data...");
+        // Reload data when window gains focus
+        const hospitalId = user?.hospital_id || user?.hospital_roles?.[0]?.hospital_id;
+        if (hospitalId) {
+          Promise.all([
+            getHospitalUsers(hospitalId),
+            getHospitalRoles(hospitalId)
+          ]).then(([usersList, roles]) => {
+            setUsers(usersList || []);
+            setCustomRoles(roles || []);
+            console.log("🔄 Hospital data refreshed on focus");
+          }).catch(error => {
+            console.error("Failed to refresh hospital data on focus:", error);
+          });
+        }
+      }
+    };
+
+    // Add event listeners for visibility and focus changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    // Cleanup event listeners
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [user]);
 
   if (loading) {
@@ -69,9 +127,38 @@ const DoctorStats = () => {
     );
   }
 
-  // Filter users by role
-  const doctors = users.filter(user => user.global_role?.role_name === 'doctor');
-  const patients = users.filter(user => user.global_role?.role_name === 'patient');
+  // Filter users by role (both global and hospital roles)
+  console.log("🔍 DoctorStats - All users:", users);
+  console.log("🔍 DoctorStats - Custom roles:", customRoles);
+  
+  const doctors = users.filter(user => 
+    user.global_role?.role_name === 'doctor' || 
+    user.hospital_role?.role_name === 'doctor'
+  );
+  const patients = users.filter(user => 
+    user.global_role?.role_name === 'patient' || 
+    user.hospital_role?.role_name === 'patient'
+  );
+  
+  console.log("🔍 DoctorStats - Doctors count:", doctors.length);
+  console.log("🔍 DoctorStats - Patients count:", patients.length);
+
+  // Create stats for custom roles (excluding doctor, patient, and hospital_admin to avoid duplicates)
+  const customRoleStats = customRoles
+    .filter(role => !['doctor', 'patient', 'hospital_admin'].includes(role.role_name))
+    .map(role => {
+      const roleUsers = users.filter(user => 
+        user.hospital_role?.role_name === role.role_name
+      );
+      console.log(`🔍 DoctorStats - ${role.role_name} users:`, roleUsers.length, roleUsers);
+      return {
+        icon: User,
+        bgColor: "bg-purple-50",
+        iconColor: "text-purple-600",
+        label: `Total ${role.role_name.charAt(0).toUpperCase() + role.role_name.slice(1).replace('_', ' ')}s`,
+        value: roleUsers.length,
+      };
+    });
 
   const statsData = [
     {
@@ -88,6 +175,7 @@ const DoctorStats = () => {
       label: "Total Patients",
       value: patients.length,
     },
+    ...customRoleStats,
   ];
 
   // Dynamic grid classes based on number of cards

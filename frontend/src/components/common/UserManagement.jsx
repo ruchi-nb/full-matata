@@ -365,7 +365,10 @@ const UserManagement = ({
           
           // Map available roles to API functions
           availableRoles.forEach(role => {
-            if (role === 'doctor' && apiFunctions.doctors) {
+            // Check if it's a custom role (dynamic API function)
+            if (apiFunctions[role]) {
+              promises.push(apiFunctions[role](hospitalId));
+            } else if (role === 'doctor' && apiFunctions.doctors) {
               promises.push(apiFunctions.doctors(hospitalId));
             } else if (role === 'patient' && apiFunctions.patients) {
               promises.push(apiFunctions.patients(hospitalId));
@@ -384,7 +387,10 @@ const UserManagement = ({
           // Load specific role type
           let apiFunction = null;
           
-          if (roleFilter === 'doctor' && apiFunctions.doctors) {
+          // Check if it's a custom role (dynamic API function)
+          if (apiFunctions[roleFilter]) {
+            apiFunction = apiFunctions[roleFilter];
+          } else if (roleFilter === 'doctor' && apiFunctions.doctors) {
             apiFunction = apiFunctions.doctors;
           } else if (roleFilter === 'patient' && apiFunctions.patients) {
             apiFunction = apiFunctions.patients;
@@ -401,6 +407,7 @@ const UserManagement = ({
           }
         }
 
+        console.log("🔍 Loaded users data:", usersData);
         setUsers(usersData || []);
       } catch (error) {
         console.error("Failed to load users:", error);
@@ -434,11 +441,41 @@ const UserManagement = ({
 
   // Calculate stats
   const stats = useMemo(() => {
-    const doctors = users.filter(u => u.role === 'doctor' || roleFilter === 'doctor' || (roleFilter === 'all' && availableRoles.includes('doctor')));
-    const patients = users.filter(u => u.role === 'patient' || roleFilter === 'patient' || (roleFilter === 'all' && availableRoles.includes('patient')));
-    const nurses = users.filter(u => u.role === 'nurse' || roleFilter === 'nurse' || (roleFilter === 'all' && availableRoles.includes('nurse')));
-    const labTechnicians = users.filter(u => u.role === 'lab_technician' || roleFilter === 'lab_technician' || (roleFilter === 'all' && availableRoles.includes('lab_technician')));
-    const hospitalAdmins = users.filter(u => u.role === 'hospital_admin' || roleFilter === 'hospital_admin' || (roleFilter === 'all' && availableRoles.includes('hospital_admin')));
+    const doctors = users.filter(u => 
+      u.global_role?.role_name === 'doctor' || 
+      u.hospital_role?.role_name === 'doctor' ||
+      u.role === 'doctor' || 
+      roleFilter === 'doctor' || 
+      (roleFilter === 'all' && availableRoles.includes('doctor'))
+    );
+    const patients = users.filter(u => 
+      u.global_role?.role_name === 'patient' || 
+      u.hospital_role?.role_name === 'patient' ||
+      u.role === 'patient' || 
+      roleFilter === 'patient' || 
+      (roleFilter === 'all' && availableRoles.includes('patient'))
+    );
+    const nurses = users.filter(u => 
+      u.global_role?.role_name === 'nurse' || 
+      u.hospital_role?.role_name === 'nurse' ||
+      u.role === 'nurse' || 
+      roleFilter === 'nurse' || 
+      (roleFilter === 'all' && availableRoles.includes('nurse'))
+    );
+    const labTechnicians = users.filter(u => 
+      u.global_role?.role_name === 'lab_technician' || 
+      u.hospital_role?.role_name === 'lab_technician' ||
+      u.role === 'lab_technician' || 
+      roleFilter === 'lab_technician' || 
+      (roleFilter === 'all' && availableRoles.includes('lab_technician'))
+    );
+    const hospitalAdmins = users.filter(u => 
+      u.global_role?.role_name === 'hospital_admin' || 
+      u.hospital_role?.role_name === 'hospital_admin' ||
+      u.role === 'hospital_admin' || 
+      roleFilter === 'hospital_admin' || 
+      (roleFilter === 'all' && availableRoles.includes('hospital_admin'))
+    );
 
     return {
       doctors: doctors.length,

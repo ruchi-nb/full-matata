@@ -41,13 +41,6 @@ const HospitalSidebar = () => {
       sec: "VIEW",
     },
     {
-      id: "MyRoles",
-      label: "My Roles",
-      path: "/Hospital/roles", // Fixed: This should probably point to a roles page
-      icon: <Users className="mr-3 h-5 w-5" />,
-      sec: "VIEW",
-    },
-    {
       id: "MyPlan",
       label: "My Plan",
       path: "/common/commingsoon",

@@ -6,7 +6,7 @@ import {
   SquarePen,
   Trash2,
 } from "lucide-react";
-import { getHospitalUsers, getHospitalUsersDebug, removeDoctorFromHospital } from "@/data/api-hospital-admin.js";
+import { getHospitalUsers, getHospitalUsersDebug, removeDoctorFromHospital, getHospitalRoles } from "@/data/api-hospital-admin.js";
 import { useUser } from "@/data/UserContext";
 import DoctorFilters from "./DoctorFilters";
 import DoctorViewModal from "./DoctorViewModal";
@@ -20,13 +20,51 @@ const DoctorTable = ({ onView, onDelete }) => {
   const [role, setRole] = useState("all");
   const [selectedUser, setSelectedUser] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [customRoles, setCustomRoles] = useState([]);
+  const [availableRoles, setAvailableRoles] = useState([]);
   const { user } = useUser();
 
   useEffect(() => {
+    console.log("🔍 DoctorTable - useEffect called, user:", user);
     // Only load if user is available
     if (user) {
+      console.log("🔍 DoctorTable - User available, calling loadHospitalUsers and loadCustomRoles");
       loadHospitalUsers();
+      loadCustomRoles();
+    } else {
+      console.log("🔍 DoctorTable - No user available, skipping load");
     }
+  }, [user]);
+
+  // Auto-refresh when page becomes visible (for immediate updates after role creation)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user) {
+        console.log("🔄 DoctorTable - Page became visible, refreshing data...");
+        // Reload data when page becomes visible
+        loadHospitalUsers();
+        loadCustomRoles();
+      }
+    };
+
+    const handleFocus = () => {
+      if (user) {
+        console.log("🔄 DoctorTable - Window focused, refreshing data...");
+        // Reload data when window gains focus
+        loadHospitalUsers();
+        loadCustomRoles();
+      }
+    };
+
+    // Add event listeners for visibility and focus changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    // Cleanup event listeners
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [user]);
 
   // Filter users based on search, specialty, and role
@@ -42,10 +80,11 @@ const DoctorTable = ({ onView, onDelete }) => {
       );
     }
 
-    // Role filter
+    // Role filter - check both global role and hospital role
     if (role !== "all") {
       filtered = filtered.filter(user => 
-        user.global_role?.role_name === role
+        user.global_role?.role_name === role ||
+        user.hospital_role?.role_name === role
       );
     }
 
@@ -58,7 +97,7 @@ const DoctorTable = ({ onView, onDelete }) => {
     }
 
     setFilteredUsers(filtered);
-  }, [users, search, specialty, role]);
+  }, [users, search, specialty, role, availableRoles]);
 
   const handleView = (user) => {
     setSelectedUser(user);
@@ -100,9 +139,12 @@ const DoctorTable = ({ onView, onDelete }) => {
   };
 
   const loadHospitalUsers = async () => {
+    console.log("🔍 DoctorTable - loadHospitalUsers called");
     try {
       // Get hospital_id from user context
       const hospitalId = user?.hospital_id || user?.hospital_roles?.[0]?.hospital_id;
+      
+      console.log("🔍 DoctorTable - hospitalId:", hospitalId);
       
       if (!hospitalId) {
         console.error("No hospital ID found for user");
@@ -121,12 +163,68 @@ const DoctorTable = ({ onView, onDelete }) => {
       console.log("Response type:", typeof usersList);
       console.log("Response length:", usersList?.length);
       console.log("First user:", usersList?.[0]);
+      
+      // Debug hospital roles specifically
+      if (usersList && Array.isArray(usersList)) {
+        console.log("🔍 All users detailed info:");
+        usersList.forEach((user, index) => {
+          console.log(`User ${index}:`, {
+            username: user.username,
+            email: user.email,
+            global_role: user.global_role?.role_name,
+            hospital_role: user.hospital_role?.role_name,
+            hospital_role_id: user.hospital_role_id
+          });
+        });
+        
+        const hospitalRoleUsers = usersList.filter(user => user.hospital_role?.role_name);
+        console.log(`🔍 Total users with hospital roles: ${hospitalRoleUsers.length}`);
+        console.log("🔍 Hospital role users:", hospitalRoleUsers);
+        
+        // Check specifically for nurse and receptionist users
+        const nurseUsers = usersList.filter(user => user.hospital_role?.role_name === 'nurse');
+        const receptionistUsers = usersList.filter(user => user.hospital_role?.role_name === 'receptionist');
+        console.log(`🔍 Nurse users found: ${nurseUsers.length}`, nurseUsers);
+        console.log(`🔍 Receptionist users found: ${receptionistUsers.length}`, receptionistUsers);
+      }
+      
       setUsers(usersList || []);
     } catch (error) {
       console.error("Failed to load hospital users:", error);
       setUsers([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadCustomRoles = async () => {
+    try {
+      // Get hospital_id from user context
+      const hospitalId = user?.hospital_id || user?.hospital_roles?.[0]?.hospital_id;
+      
+      if (!hospitalId) {
+        console.error("No hospital ID found for user");
+        return;
+      }
+
+      console.log("🔍 Loading custom roles for hospital ID:", hospitalId);
+      const roles = await getHospitalRoles(hospitalId);
+      console.log("🔍 Loaded custom roles:", roles);
+      
+      setCustomRoles(roles || []);
+      
+      // Create available roles list (global roles + custom roles)
+      // Remove duplicates by using Set
+      const globalRoles = ['doctor', 'patient'];
+      const customRoleNames = (roles || []).map(role => role.role_name);
+      const allRoles = [...new Set([...globalRoles, ...customRoleNames])];
+      setAvailableRoles(allRoles);
+      
+      console.log("🔍 Available roles:", allRoles);
+    } catch (error) {
+      console.error("Failed to load custom roles:", error);
+      setCustomRoles([]);
+      setAvailableRoles(['doctor', 'patient']);
     }
   };
 
@@ -164,6 +262,7 @@ const DoctorTable = ({ onView, onDelete }) => {
         onRoleChange={setRole}
         filteredCount={filteredUsers.length}
         totalCount={users.length}
+        availableRoles={availableRoles}
       />
       
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -218,7 +317,7 @@ const DoctorTable = ({ onView, onDelete }) => {
                 {/* Role */}
                 <td className="py-4 px-6 text-gray-900">
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {user.global_role?.role_name || 'Unknown'}
+                    {user.hospital_role?.role_name || user.global_role?.role_name || 'Unknown'}
                   </span>
                 </td>
 
