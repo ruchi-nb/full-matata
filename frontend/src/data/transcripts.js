@@ -1,0 +1,266 @@
+// file: src/components/DoctorPortal/data/transcripts.js
+export const transcripts = {
+  1: [ // Sarah Johnson's transcripts
+    {
+      id: "t1",
+      date: "Wed, Jan 10, 2024",
+      duration: "20 minutes",
+      doctor: "Dr. Emily Chen",
+      specialty: "Cardiology",
+      entries: [
+        { speaker: "Doctor", text: "Hello Sarah, thank you for coming in today. You mentioned experiencing chest pain?" },
+        { speaker: "Patient", text: "Yes, it started about a week ago. It's a sharp pain that comes and goes, especially when I take deep breaths." },
+        { speaker: "Doctor", text: "Can you describe the pain more specifically? Is it constant or does it occur with certain activities?" },
+        { speaker: "Patient", text: "It's not constant. It seems to happen more when I'm stressed or after physical activity. Sometimes it radiates to my left arm." },
+        { speaker: "Doctor", text: "I see. Any shortness of breath, dizziness, or nausea accompanying the pain?" },
+        { speaker: "Patient", text: "Sometimes I feel a bit short of breath, but no dizziness or nausea." },
+        { speaker: "Doctor", text: "Given your symptoms, I'd like to run an EKG and some blood tests to rule out any cardiac issues. We'll also discuss your family history and current stress levels." },
+        { speaker: "Patient", text: "My father had a heart attack at 55. Should I be worried?" },
+        { speaker: "Doctor", text: "Family history is important, but let's get the test results first. In the meantime, I want you to avoid strenuous activities and monitor your symptoms." },
+      ],
+      summary: "Patient presents with intermittent chest pain radiating to left arm, exacerbated by stress and physical activity. Family history of cardiac issues noted. EKG and blood tests ordered.",
+      followUp: "Schedule stress test and echocardiogram for further evaluation."
+    },
+    {
+      id: "t2",
+      date: "Wed, Feb 21, 2024",
+      duration: "25 minutes",
+      doctor: "Dr. Emily Chen",
+      specialty: "Cardiology",
+      entries: [
+        { speaker: "Doctor", text: "Hi Sarah, welcome back. How have your chest pains been since our last consultation?" },
+        { speaker: "Patient", text: "They're less frequent, but I still feel a sharp pressure during stressful days." },
+        { speaker: "Doctor", text: "That's progress. Did you manage to complete the EKG and blood work I ordered?" },
+        { speaker: "Patient", text: "Yes, I did them last week." },
+        { speaker: "Doctor", text: "Great. Your results came back normal. That suggests the pain may be more stress-related than cardiac." },
+        { speaker: "Patient", text: "So it's not my heart?" },
+        { speaker: "Doctor", text: "Correct, nothing suggests a cardiac cause right now. I recommend stress management techniques and light exercise." },
+        { speaker: "Patient", text: "Okay, I'll try. Should I still avoid strenuous activity?" },
+        { speaker: "Doctor", text: "Yes, for now. We'll reassess in six weeks." },
+      ],
+      summary: "Follow-up visit shows improved symptoms. Test results normal, suggesting non-cardiac etiology. Stress management recommended.",
+      followUp: "Re-evaluate in 6 weeks, consider referral to stress management program."
+    },
+  ],
+  2: [ // Michael Chen's transcripts
+    {
+      id: "t1",
+      date: "Thu, Jan 11, 2024",
+      duration: "18 minutes",
+      doctor: "Dr. Michael Rodriguez",
+      specialty: "Dermatology",
+      entries: [
+        { speaker: "Doctor", text: "Good morning, Michael. I see you're here for a skin lesion examination. Can you tell me about your concerns?" },
+        { speaker: "Patient", text: "Hi Doctor. I noticed a mole on my back that seems to have changed color over the past few months. It's gotten darker and the edges look irregular." },
+        { speaker: "Doctor", text: "I understand your concern. When did you first notice this change?" },
+        { speaker: "Patient", text: "About 3 months ago. My wife pointed it out to me." },
+        { speaker: "Doctor", text: "Let me examine the lesion. I can see what you're referring to. The mole does show some asymmetry and color variation. I'd like to perform a biopsy to rule out any malignancy." },
+        { speaker: "Patient", text: "Is that necessary? I'm a bit worried." },
+        { speaker: "Doctor", text: "It's a precautionary measure. The characteristics you've described warrant further investigation. The procedure is minimally invasive and we'll have results within a week." },
+        { speaker: "Patient", text: "Okay, I understand. What should I expect?" },
+        { speaker: "Doctor", text: "I'll numb the area with local anesthetic, take a small sample, and apply a bandage. You'll need to keep it dry for 24 hours and watch for any signs of infection." },
+      ],
+      summary: "Patient presents with changing mole showing ABCDE characteristics of melanoma. Biopsy scheduled for definitive diagnosis.",
+      followUp: "Biopsy procedure scheduled for next week, results follow-up appointment booked."
+    },
+    {
+      id: "t2",
+      date: "Thu, Jan 18, 2024",
+      duration: "15 minutes",
+      doctor: "Dr. Michael Rodriguez",
+      specialty: "Dermatology",
+      entries: [
+        { speaker: "Doctor", text: "Hello Michael, I have your biopsy results. The good news is that the mole is benign - it's a dysplastic nevus, not melanoma." },
+        { speaker: "Patient", text: "That's a relief! So it's not cancerous?" },
+        { speaker: "Doctor", text: "Correct, it's not cancerous. However, dysplastic nevi have a slightly higher risk of developing into melanoma over time, so we should monitor it." },
+        { speaker: "Patient", text: "What does that mean for me?" },
+        { speaker: "Doctor", text: "I recommend a full skin exam every 6-12 months. You should also perform monthly self-exams and use sun protection regularly." },
+        { speaker: "Patient", text: "I can do that. Thank you for the thorough care." },
+      ],
+      summary: "Biopsy results show benign dysplastic nevus. Patient educated on sun protection and regular monitoring.",
+      followUp: "Schedule full skin exam in 6 months, provide patient education materials on skin self-examination."
+    },
+  ],
+  3: [ // Sarah Jenkins' transcripts
+    {
+      id: "t1",
+      date: "Tue, Jan 16, 2024",
+      duration: "22 minutes",
+      doctor: "Dr. Michael Rodriguez",
+      specialty: "Dermatology",
+      entries: [
+        { speaker: "Doctor", text: "Hello Sarah. Your chart says you're struggling with acne that hasn't responded to over-the-counter treatments. Can you describe your routine and what you're experiencing?" },
+        { speaker: "Patient", text: "Hi. Yes, I've tried salicylic acid and benzoyl peroxide washes, but my skin is still really inflamed. I get large, painful bumps along my jawline and they leave dark spots afterwards." },
+        { speaker: "Doctor", text: "I see some post-inflammatory hyperpigmentation, which is common. The location suggests it might be hormonally influenced. How long have you been dealing with this?" },
+        { speaker: "Patient", text: "It started getting bad about a year ago. It's really affecting my confidence." },
+        { speaker: "Doctor", text: "I understand. Given that topical treatments haven't worked, I'd like to discuss a combination approach. We could try a prescription retinoid cream to unclog pores and an antibiotic to reduce the bacteria and inflammation." },
+        { speaker: "Patient", text: "Are there any side effects I should know about?" },
+        { speaker: "Doctor", text: "The retinoid can cause dryness, peeling, and sun sensitivity, so a good moisturizer and daily sunscreen are essential. The antibiotic may cause some stomach upset." },
+        { speaker: "Patient", text: "Okay, that makes sense. I'm willing to try anything at this point." },
+        { speaker: "Doctor", text: "Let's start you on a low dose and schedule a follow-up in 8 weeks to assess your progress. We'll also discuss how to fade the dark spots once the active inflammation is under control." },
+      ],
+      summary: "Patient with moderate to severe inflammatory acne, likely hormonal. Failed OTC treatments. Prescription regimen initiated.",
+      followUp: "Follow-up in 8 weeks to assess treatment response, consider oral medications if inadequate improvement."
+    },
+  ],
+  4: [ // Maria Garcia's transcripts
+    {
+      id: "t1",
+      date: "Wed, Feb 14, 2024",
+      duration: "19 minutes",
+      doctor: "Dr. Emily Chen",
+      specialty: "Cardiology",
+      entries: [
+        { speaker: "Doctor", text: "Hello Ms. Garcia, I'm Dr. Chen. Your primary doctor referred you because of some chest discomfort. Can you describe what you've been feeling?" },
+        { speaker: "Patient", text: "Yes, Doctor. For the past few weeks, I get a tightness in my chest when I walk up the stairs to my apartment. It goes away after I sit down for a few minutes." },
+        { speaker: "Doctor", text: "Is the pain only in your chest, or does it go anywhere else, like your jaw, neck, or left arm?" },
+        { speaker: "Patient", text: "Now that you mention it, I sometimes feel it in my left shoulder." },
+        { speaker: "Doctor", text: "Thank you, that's very helpful. This sounds classic for angina, which is chest pain caused by reduced blood flow to the heart muscle. Given your symptoms, I'd recommend we do a stress test to see how your heart performs under exertion." },
+        { speaker: "Patient", text: "A stress test? Is that safe?" },
+        { speaker: "Doctor", text: "It is very safe and is the standard of care for symptoms like yours. We'll monitor you closely the entire time. It will give us critical information about your heart's function and help us decide on the best treatment plan." },
+        { speaker: "Patient", text: "Okay, I trust you. Let's schedule it." },
+      ],
+      summary: "Patient presents with exertional chest pain radiating to left shoulder, consistent with angina. Stress test recommended.",
+      followUp: "Schedule cardiac stress test, consider echocardiogram based on results."
+    },
+    {
+      id: "t2",
+      date: "Mon, Feb 26, 2024",
+      duration: "22 minutes",
+      doctor: "Dr. Emily Chen",
+      specialty: "Cardiology",
+      entries: [
+        { speaker: "Doctor", text: "Ms. Garcia, I have your stress test results. The test was positive for ischemia - your heart isn't getting enough blood flow during exertion." },
+        { speaker: "Patient", text: "What does that mean? Is it serious?" },
+        { speaker: "Doctor", text: "It means we've identified the cause of your chest pain. We need to determine the extent of the blockage. I'm recommending a cardiac catheterization to get a detailed look at your coronary arteries." },
+        { speaker: "Patient", text: "Is that a surgery?" },
+        { speaker: "Doctor", text: "It's a minimally invasive procedure where we insert a catheter to visualize the arteries. If we find significant blockages, we can often treat them during the same procedure with angioplasty and stenting." },
+        { speaker: "Patient", text: "I'm nervous, but I want to get this fixed." },
+        { speaker: "Doctor", text: "I understand. This is the best approach to both diagnose and potentially treat the problem. We'll schedule it for next week." },
+      ],
+      summary: "Stress test positive for ischemia. Cardiac catheterization recommended for definitive diagnosis and potential treatment.",
+      followUp: "Schedule cardiac catheterization, pre-procedure instructions provided."
+    },
+  ],
+  5: [ // James O'Malley's transcripts
+    {
+      id: "t1",
+      date: "Fri, Feb 23, 2024",
+      duration: "17 minutes",
+      doctor: "Dr. Tsunade Senju",
+      specialty: "Cardiology",
+      entries: [
+        { speaker: "Doctor", text: "James, good to see you. It's been six weeks since your catheter ablation for atrial fibrillation. How are you doing?" },
+        { speaker: "Patient", text: "Much better, Doctor. The palpitations are completely gone. I have so much more energy now. It's like night and day." },
+        { speaker: "Doctor", text: "That's fantastic news. I've reviewed the data from your wearable monitor, and it confirms what you're saying—no episodes of AFib detected. Your heart rhythm has been perfectly normal." },
+        { speaker: "Patient", text: "That's great to hear. So, what's next? Do I need to stay on the blood thinners?" },
+        { speaker: "Doctor", text: "Given your successful outcome and low stroke risk score, I feel comfortable stopping the blood thinner. We will, however, keep you on the beta-blocker for another few months as a precaution while the heart fully heals." },
+        { speaker: "Patient", text: "I can live with that. Thank you so much." },
+        { speaker: "Doctor", text: "You're very welcome. This is the outcome we hope for. Keep living a heart-healthy lifestyle, and we'll see you for a follow-up in six months." },
+      ],
+      summary: "Post-ablation follow-up shows excellent results with no AFib recurrence. Blood thinners discontinued, beta-blocker continued.",
+      followUp: "Follow-up in 6 months, continue current medication regimen."
+    },
+  ],
+  6: [ // David Miller's transcripts
+    {
+      id: "t1",
+      date: "Fri, Jan 19, 2024",
+      duration: "15 minutes",
+      doctor: "Dr. Michael Rodriguez",
+      specialty: "Dermatology",
+      entries: [
+        { speaker: "Doctor", text: "Good morning, David. What brings you in today?" },
+        { speaker: "Patient", text: "Hi Doctor. I've had these incredibly dry, red, and itchy patches on both my elbows for a few months now. Lotion doesn't seem to help at all." },
+        { speaker: "Doctor", text: "Let me take a look. Yes, I see the thick, scaly plaques. Does the itching interfere with your sleep?" },
+        { speaker: "Patient", text: "Sometimes, yes. It's worse at night. I've been scratching them without realizing it." },
+        { speaker: "Doctor", text: "Based on the appearance and symmetry, this is likely psoriasis, specifically plaque psoriasis. It's an autoimmune condition, not just dry skin." },
+        { speaker: "Patient", text: "Psoriasis? Is that serious? Is it contagious?" },
+        { speaker: "Doctor", text: "It is not contagious at all. It's a chronic condition where the immune system speeds up skin cell growth. It's manageable, but there is no permanent cure. The goal is to control the flares." },
+        { speaker: "Patient", text: "What are the options for management?" },
+        { speaker: "Doctor", text: "We'll start with a high-potency corticosteroid ointment to apply directly to the plaques to reduce inflammation and slow skin cell production. We'll also use a heavy emollient like petroleum jelly to lock in moisture." },
+        { speaker: "Patient", text: "Okay, I can do that. Should I avoid any activities?" },
+        { speaker: "Doctor", text: "Try to avoid hot showers which can dry the skin further. Wear loose-fitting clothing to reduce irritation. Let's see how you respond and go from there." },
+      ],
+      summary: "Patient presents with classic plaque psoriasis on elbows. Topical treatment regimen initiated.",
+      followUp: "Follow-up in 4 weeks to assess treatment response, consider phototherapy if inadequate improvement."
+    },
+    {
+      id: "t2",
+      date: "Fri, Feb 23, 2024",
+      duration: "18 minutes",
+      doctor: "Dr. Michael Rodriguez",
+      specialty: "Dermatology",
+      entries: [
+        { speaker: "Doctor", text: "David, good to see you again. How has your psoriasis been responding to the treatment?" },
+        { speaker: "Patient", text: "Much better! The plaques are thinner and much less red. The itching is almost completely gone." },
+        { speaker: "Doctor", text: "That's excellent progress. I can see the improvement clinically as well. The inflammation has significantly reduced." },
+        { speaker: "Patient", text: "Should I continue with the same treatment?" },
+        { speaker: "Doctor", text: "We'll continue the topical steroid but reduce the frequency to twice weekly for maintenance. Continue the emollient daily. If it remains controlled, we can space out our follow-ups." },
+        { speaker: "Patient", text: "That sounds good. Thank you for your help." },
+      ],
+      summary: "Excellent response to topical psoriasis treatment. Maintenance regimen established.",
+      followUp: "Follow-up in 3 months for maintenance check, patient to contact if flare occurs."
+    },
+  ],
+  7: [ // Robert Williams' transcripts
+    {
+      id: "t1",
+      date: "Mon, Feb 5, 2024",
+      duration: "16 minutes",
+      doctor: "Dr. Emily Chen",
+      specialty: "Cardiology",
+      entries: [
+        { speaker: "Doctor", text: "Good morning, Robert. I see you're here for a follow-up on your blood pressure. How have you been feeling since we last increased your medication?" },
+        { speaker: "Patient", text: "Overall, better, Doctor. I've been checking my pressure at home like you said, and the numbers are lower, but I've been feeling a bit lightheaded sometimes, especially when I stand up." },
+        { speaker: "Doctor", text: "That's important to note. It's possible your dose is now a bit too effective. Can you show me your home blood pressure log?" },
+        { speaker: "Patient", text: "Sure, here it is. You can see the readings are mostly in the 130s over 80s, but a few times it dropped to 110/70." },
+        { speaker: "Doctor", text: "Excellent. This log is very helpful. The 110/70 reading, combined with your symptoms, suggests we should slightly reduce your dosage. We want to control the hypertension without causing hypotension." },
+        { speaker: "Patient", text: "That makes sense. Should I be concerned about the lightheadedness?" },
+        { speaker: "Doctor", text: "It's a common side effect of over-treatment. Make sure you're drinking plenty of water and stand up slowly. We'll adjust your medication and see you back in a month to check your numbers again." },
+      ],
+      summary: "Hypertension follow-up shows over-treatment with symptomatic hypotension. Medication dosage adjusted.",
+      followUp: "Follow-up in 1 month with home BP log, consider additional antihypertensive classes if needed."
+    },
+  ],
+  8: [ // Additional patient - Neurology case
+    {
+      id: "t1",
+      date: "Mon, Mar 4, 2024",
+      duration: "28 minutes",
+      doctor: "Dr. Devangi Patel",
+      specialty: "Neurology",
+      entries: [
+        { speaker: "Doctor", text: "Good morning, I'm Dr. Patel. I understand you've been experiencing headaches. Can you tell me more about them?" },
+        { speaker: "Patient", text: "Yes, Doctor. I've been getting these terrible headaches on the right side of my head for about 3 months now. They're throbbing and make me nauseous." },
+        { speaker: "Doctor", text: "How often do they occur and how long do they typically last?" },
+        { speaker: "Patient", text: "About twice a week, and they last most of the day. Light and sound make them worse." },
+        { speaker: "Doctor", text: "This sounds like migraines. Do you experience any visual changes before the headache starts?" },
+        { speaker: "Patient", text: "Sometimes I see zigzag lines or flashing lights about 30 minutes before the pain begins." },
+        { speaker: "Doctor", text: "That's called an aura, which is common with migraines. I'd like to start you on a preventive medication and also give you something to take when a migraine starts." },
+      ],
+      summary: "Patient presents with classic migraine with aura. Preventive and abortive treatment plan initiated.",
+      followUp: "Follow-up in 4 weeks to assess migraine frequency and treatment efficacy."
+    },
+  ],
+  9: [ // Additional patient - Psychiatry case
+    {
+      id: "t1",
+      date: "Wed, Mar 6, 2024",
+      duration: "45 minutes",
+      doctor: "Dr. Veena Gupta",
+      specialty: "Psychiatry",
+      entries: [
+        { speaker: "Doctor", text: "Thank you for coming in today. I understand you've been feeling down lately. Can you tell me more about what you're experiencing?" },
+        { speaker: "Patient", text: "I just feel sad all the time. I've lost interest in things I used to enjoy, and I'm having trouble sleeping." },
+        { speaker: "Doctor", text: "How long have you been feeling this way?" },
+        { speaker: "Patient", text: "About 2 months. It started after I lost my job." },
+        { speaker: "Doctor", text: "I'm sorry to hear that. Have you had any changes in appetite or energy levels?" },
+        { speaker: "Patient", text: "I'm eating less and I feel tired all the time, even when I do manage to sleep." },
+        { speaker: "Doctor", text: "Based on what you're describing, it sounds like you may be experiencing depression. I'd like to discuss treatment options including therapy and possibly medication." },
+      ],
+      summary: "Patient presents with symptoms consistent with major depressive episode. Comprehensive treatment plan discussed.",
+      followUp: "Schedule therapy sessions, consider antidepressant medication based on patient preference."
+    },
+  ]
+};

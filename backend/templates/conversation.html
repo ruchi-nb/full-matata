@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Enhanced Virtual Doctor Conversation</title>
+  <link rel="stylesheet" href="/static/conversation.css">
+  <style>
+    .analytics-panel {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      width: 300px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 12px;
+      z-index: 1000;
+      display: none;
+    }
+    
+    .analytics-panel.show {
+      display: block;
+    }
+    
+    .analytics-toggle {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: #2196F3;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 1001;
+    }
+    
+    .analytics-item {
+      display: flex;
+      justify-content: space-between;
+      margin: 5px 0;
+    }
+    
+    .analytics-item .label {
+      font-weight: bold;
+    }
+    
+    .analytics-item .value {
+      color: #4CAF50;
+    }
+    
+    .provider-indicator {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      margin-left: 5px;
+    }
+    
+    .provider-deepgram {
+      background: #FF9800;
+      color: white;
+    }
+    
+    .provider-sarvam {
+      background: #9C27B0;
+      color: white;
+    }
+    
+    .status-indicator {
+      position: relative;
+    }
+    
+    .status-indicator.recording {
+      animation: pulse 1s infinite;
+    }
+    
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="video-area">
+    <img src="/static/ai_placeholder.gif" alt="AI Video Placeholder" class="ai-placeholder" />
+    <video id="userVideo" class="user-video" autoplay playsinline muted></video>
+    
+    <div class="language-selector">
+      <label for="providerSelect">STT/TTS Provider:</label>
+      <select id="providerSelect">
+        <option value="deepgram">Deepgram (English optimized)</option>
+        <option value="sarvam">Sarvam (Indic languages)</option>
+      </select>
+      <label for="languageSelect">Language:</label>
+      <select id="languageSelect">
+        <!-- Deepgram supports -->
+        <optgroup label="Deepgram Languages">
+          <option value="en">English</option>
+          <option value="multi">Multi-Language (Auto-detect)</option>
+        </optgroup>
+        <!-- Sarvam supports -->
+        <optgroup label="Sarvam Languages">
+          <option value="hi">Hindi</option>
+          <option value="bn">Bengali</option>
+          <option value="gu">Gujarati</option>
+          <option value="kn">Kannada</option>
+          <option value="ml">Malayalam</option>
+          <option value="mr">Marathi</option>
+          <option value="pa">Punjabi</option>
+          <option value="ta">Tamil</option>
+          <option value="te">Telugu</option>
+        </optgroup>
+      </select>
+    </div>
+    
+    <div class="status-indicator" id="statusIndicator">Ready</div>
+    
+    <div class="controls">
+      <button id="toggleMic">🎤 Start Recording</button>
+      <button id="toggleCam">📷 Camera On</button>
+      <button id="clearSession">🔄 New Session</button>
+      <button id="sessionInfo">ℹ️ Session Info</button>
+      <!-- <button id="forceReady">✅ Force Ready</button> -->
+      <button id="endConversation" style="background:#b71c1c;color:#fff">🛑 End Session</button>
+    </div>
+  </div>
+
+  <div class="chat-section">
+    <div class="chat-messages" id="chatMessages"></div>
+    <!-- Speaker Labels Panel (Deepgram diarization) -->
+    <!-- BEGIN: Speaker Labels Panel (remove to disable) -->
+    <div id="speakerLabels" style="display:none; margin:8px 0; padding:8px; border:1px dashed #000000; border-radius:6px; background:#fd0000; white-space:pre-line;"></div>
+    <!-- END: Speaker Labels Panel -->
+    <div class="chat-input">
+      <input id="chatInput" type="text" placeholder="Type your message..." />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <!-- Analytics Panel -->
+  <button class="analytics-toggle" id="analyticsToggle">📊 Analytics</button>
+  <div class="analytics-panel" id="analyticsPanel">
+    <h3>Real-time Analytics</h3>
+    <div class="analytics-item">
+      <span class="label">Session Duration:</span>
+      <span class="value" id="sessionDuration">0m 0s</span>
+    </div>
+    <div class="analytics-item">
+      <span class="label">Provider:</span>
+      <span class="value" id="currentProvider">Deepgram</span>
+    </div>
+    <div class="analytics-item">
+      <span class="label">Language:</span>
+      <span class="value" id="currentLanguage">Multi</span>
+    </div>
+    <div class="analytics-item">
+      <span class="label">API Calls:</span>
+      <span class="value" id="apiCalls">0</span>
+    </div>
+    <div class="analytics-item">
+      <span class="label">Total Tokens:</span>
+      <span class="value" id="totalTokens">0</span>
+    </div>
+    <div class="analytics-item">
+      <span class="label">Total Cost:</span>
+      <span class="value" id="totalCost">$0.0000</span>
+    </div>
+    <div class="analytics-item">
+      <span class="label">Errors:</span>
+      <span class="value" id="errorCount">0</span>
+    </div>
+    <div class="analytics-item">
+      <span class="label">Recording:</span>
+      <span class="value" id="recordingStatus">Stopped</span>
+    </div>
+    <div class="analytics-item">
+      <span class="label">Camera:</span>
+      <span class="value" id="cameraStatus">Off</span>
+    </div>
+  </div>
+
+  <script>
+    // Extract consultation_id from URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const consultationId = urlParams.get('consultation_id');
+    const provider = urlParams.get('provider') || 'deepgram';
+    const language = urlParams.get('language') || 'multi';
+    
+    if (consultationId) {
+      window.consultationId = consultationId;
+      console.log('Consultation ID:', consultationId);
+    }
+    
+    // Track session start time for duration calculation
+    window.sessionStartTime = Date.now();
+    
+    // Set initial provider and language from URL parameters
+    if (provider) {
+      const providerSelect = document.getElementById('providerSelect');
+      if (providerSelect) {
+        providerSelect.value = provider;
+      }
+    }
+    
+    if (language) {
+      const languageSelect = document.getElementById('languageSelect');
+      if (languageSelect) {
+        languageSelect.value = language;
+      }
+    }
+  </script>
+  
+  <!-- Load enhanced conversation interface -->
+  <script src="/static/enhanced-conversation.js?v=2"></script>
+  
+  <!-- Load original conversation.js for backward compatibility -->
+  <script src="/static/conversation.js?v=2"></script>
+  <script src="/static/websocket-streaming-conversation.js"></script>
+  
+  <script>
+    // Check authentication on page load
+    window.addEventListener('load', () => {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        alert('Authentication required. Please login first.');
+        window.location.href = '/login';
+        return;
+      }
+      
+      // Set token for all API calls
+      window.authToken = token;
+    });
+
+    // Analytics panel toggle
+    document.addEventListener('DOMContentLoaded', () => {
+      const analyticsToggle = document.getElementById('analyticsToggle');
+      const analyticsPanel = document.getElementById('analyticsPanel');
+      
+      if (analyticsToggle && analyticsPanel) {
+        analyticsToggle.addEventListener('click', () => {
+          analyticsPanel.classList.toggle('show');
+        });
+      }
+      
+      // Update analytics display every second
+      setInterval(() => {
+        if (window.conversationInterface) {
+          updateAnalyticsDisplay();
+        }
+      }, 1000);
+    });
+    
+    function updateAnalyticsDisplay() {
+      const interface = window.conversationInterface;
+      if (!interface) return;
+      
+      // Update session duration
+      const duration = Math.floor((Date.now() - interface.analytics.startTime) / 1000);
+      const minutes = Math.floor(duration / 60);
+      const seconds = duration % 60;
+      const sessionDuration = document.getElementById('sessionDuration');
+      if (sessionDuration) {
+        sessionDuration.textContent = `${minutes}m ${seconds}s`;
+      }
+      
+      // Update provider
+      const currentProvider = document.getElementById('currentProvider');
+      if (currentProvider) {
+        currentProvider.textContent = interface.currentProvider;
+        currentProvider.className = `provider-indicator provider-${interface.currentProvider}`;
+      }
+      
+      // Update language
+      const currentLanguage = document.getElementById('currentLanguage');
+      if (currentLanguage) {
+        currentLanguage.textContent = interface.currentLanguage;
+      }
+      
+      // Update analytics values
+      const apiCalls = document.getElementById('apiCalls');
+      if (apiCalls) {
+        apiCalls.textContent = interface.analytics.apiCalls;
+      }
+      
+      const totalTokens = document.getElementById('totalTokens');
+      if (totalTokens) {
+        totalTokens.textContent = interface.analytics.totalTokens;
+      }
+      
+      const totalCost = document.getElementById('totalCost');
+      if (totalCost) {
+        totalCost.textContent = `$${interface.analytics.totalCost.toFixed(4)}`;
+      }
+      
+      const errorCount = document.getElementById('errorCount');
+      if (errorCount) {
+        errorCount.textContent = interface.analytics.errors;
+      }
+      
+      const recordingStatus = document.getElementById('recordingStatus');
+      if (recordingStatus) {
+        recordingStatus.textContent = interface.isRecording ? 'Recording' : 'Stopped';
+        recordingStatus.style.color = interface.isRecording ? '#4CAF50' : '#f44336';
+      }
+      
+      const cameraStatus = document.getElementById('cameraStatus');
+      if (cameraStatus) {
+        cameraStatus.textContent = interface.isCameraOn ? 'On' : 'Off';
+        cameraStatus.style.color = interface.isCameraOn ? '#4CAF50' : '#f44336';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+@import 'tailwindcss';
+
+/* global.css */
+:root {
+  /* Colors */
+  --color-primary: #004dd6;
+  --color-secondary: #3d85c6;
+  --color-dark: #000;
+  --color-muted: #767676;
+  --color-light: #c8c8c8;
+  --color-danger: #9f0202;
+
+  /* Typography */
+  --font-heading: "Poppins", sans-serif;
+  --font-body: "GothamBook", sans-serif;
+
+  --text-h2: 3rem; /* 40px */
+  --text-h4: 1.625rem; /* 26px */
+  --text-p: 1rem; /* 16px */
+
+  /* Spacing */
+  --space-section: 4rem;
+  --space-heading: 2rem;
+  --space-subheading: 1rem;
+
+  /* Line height */
+  --line-height: 1.6;
+}
+
+/* Apply defaults */
+body {
+  font-family: var(--font-body);
+  line-height: var(--line-height);
+  color: var(--color-dark);
+}
+
+/* Utility classes */
+.h2 {
+  font-family: var(--font-heading);
+  font-size: var(--text-h2);
+  font-weight: 500;
+}
+
+.h4 {
+  font-family: var(--font-body);
+  font-size: var(--text-h4);
+  font-weight: 400;
+}
+
+.p {
+  font-family: var(--font-body);
+  font-size: var(--text-p);
+  font-weight: 300;
+  color: var(--color-muted);
+}
+
+.font-gothambook {
+  font-family: var(--font-body);
+  font-weight: 300;
+}
+
+.font-poppins {
+  font-family: var(--font-heading);
+  font-weight: 400;
+}
+
+/* :root {
+  --color-primary: #2563eb; /* blue-600 */
+  /* --color-secondary: #1e40af; blue-800 */
+/* } */
+
+@keyframes bubble {
+  0% {
+    transform: translateY(0) scale(0.8);
+    opacity: 0.2;
+  }
+  30% {
+    transform: translateY(-30vh) translateX(-10px) scale(1);
+    opacity: 0.6;
+  }
+  60% {
+    transform: translateY(-60vh) translateX(10px) scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-100vh) scale(0.7);
+    opacity: 0;
+  }
+}
+
+.animate-bubble {
+  animation-name: bubble;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+select option:hover {
+  background-color: #fbbf24 !important;
+  color: white !important;
+}
+
+select option:checked {
+  background-color: #fbbf24;
+  color: white;
+}

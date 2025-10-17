@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified API Analytics Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #000000 0%, #343a40 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #000000 0%, #343a40 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .controls {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .control-group select, .control-group input {
+            padding: 8px 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .dashboard {
+            padding: 30px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            border-left: 4px solid #28a745;
+            transition: transform 0.2s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .metric-card h3 {
+            color: #495057;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .metric-card .value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .metric-card .unit {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            min-height: 350px;
+        }
+
+        .chart-container h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+        
+        .chart-container canvas {
+            max-height: 300px;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            overflow-x: auto;
+        }
+
+        .table-container h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-success { background: #28a745; }
+        .status-warning { background: #6c757d; }
+        .status-danger { background: #dc3545; }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #6c757d;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+
+        .insights {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .insights h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+
+        .insight-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .insight-item:last-child {
+            border-bottom: none;
+        }
+
+        .insight-label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .insight-value {
+            color: #2c3e50;
+            font-weight: 700;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .control-group {
+                justify-content: space-between;
+            }
+            
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Unified API Analytics</h1>
+            <p>Comprehensive analysis of OpenAI, Deepgram, and Sarvam APIs</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="timeRange">Time Range:</label>
+                <select id="timeRange">
+                    <option value="1">Last 1 Hour</option>
+                    <option value="6">Last 6 Hours</option>
+                    <option value="24" selected>Last 24 Hours</option>
+                    <option value="72">Last 3 Days</option>
+                    <option value="168">Last Week</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="refreshInterval">Auto Refresh:</label>
+                <select id="refreshInterval">
+                    <option value="0">Off</option>
+                    <option value="30">30 seconds</option>
+                    <option value="60" selected>1 minute</option>
+                    <option value="300">5 minutes</option>
+                </select>
+            </div>
+            <button class="btn" onclick="loadAnalytics()">🔄 Refresh</button>
+        </div>
+
+        <div class="dashboard">
+            <div id="loading" class="loading">
+                <h3>Loading analytics...</h3>
+                <p>Please wait while we fetch your data</p>
+            </div>
+
+            <div id="error" class="error" style="display: none;"></div>
+
+            <div id="content" style="display: none;">
+                <!-- Summary Metrics -->
+                <div class="metrics-grid" id="summaryMetrics"></div>
+
+                <!-- Key Insights -->
+                <div class="insights" id="insights"></div>
+
+                <!-- Charts -->
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h3>💰 Cost Breakdown by API</h3>
+                        <canvas id="costChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>⚡ Latency by Operation</h3>
+                        <canvas id="latencyChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>📈 Requests per Hour (by API)</h3>
+                        <canvas id="rateChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>🎯 Accuracy by API</h3>
+                        <canvas id="accuracyChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>🌍 Language Distribution</h3>
+                        <canvas id="languageChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Detailed Tables -->
+                <div class="table-container">
+                    <h3>📊 Recent API Requests</h3>
+                    <table id="recentRequests">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>API</th>
+                                <th>Operation</th>
+                                <th>Language</th>
+                                <th>Latency</th>
+                                <th>Cost (USD)</th>
+                                <th>Cost (INR)</th>
+                                <th>Accuracy</th>
+                                <th>Medical Terms</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let charts = {};
+        let refreshInterval = null;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM Content Loaded');
+            console.log('Chart.js loaded:', typeof Chart !== 'undefined');
+            
+            if (typeof Chart === 'undefined') {
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = 'Error: Chart.js library failed to load. Please check your internet connection.';
+                document.getElementById('loading').style.display = 'none';
+                return;
+            }
+            
+            console.log('Chart.js version:', Chart.version);
+            loadAnalytics();
+            setupAutoRefresh();
+        });
+
+        function setupAutoRefresh() {
+            const refreshSelect = document.getElementById('refreshInterval');
+            refreshSelect.addEventListener('change', function() {
+                if (refreshInterval) {
+                    clearInterval(refreshInterval);
+                }
+                
+                const interval = parseInt(this.value);
+                if (interval > 0) {
+                    refreshInterval = setInterval(loadAnalytics, interval * 1000);
+                }
+            });
+        }
+
+        async function loadAnalytics() {
+            const timeRange = document.getElementById('timeRange').value;
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const content = document.getElementById('content');
+
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            content.style.display = 'none';
+
+            try {
+                console.log('Fetching analytics for', timeRange, 'hours');
+                const response = await fetch(`/api/v1/analytics/comprehensive?hours=${timeRange}`);
+                console.log('Response status:', response.status);
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                if (data.status === 'success') {
+                    console.log('Analytics data:', data.data);
+                    displayAnalytics(data.data);
+                    loading.style.display = 'none';
+                    content.style.display = 'block';
+                } else {
+                    throw new Error(data.detail || 'Failed to load analytics');
+                }
+            } catch (err) {
+                console.error('Analytics error:', err);
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = `Error: ${err.message}. Check console for details.`;
+            }
+        }
+
+        async function displayAnalytics(data) {
+            console.log('Displaying analytics with data:', data);
+            
+            try {
+                console.log('Displaying summary metrics...');
+                displaySummaryMetrics(data.summary || {});
+                
+                console.log('Displaying insights...');
+                displayInsights(data || {});
+                
+                console.log('Creating cost chart with:', data.api_breakdown);
+                createCostChart(data.api_breakdown || []);
+                
+                console.log('Creating accuracy chart...');
+                createAccuracyChart(data.api_breakdown || []);
+                
+                console.log('Loading operation breakdown...');
+                await loadOperationBreakdown();
+                
+                console.log('Loading language breakdown...');
+                await loadLanguageBreakdown();
+                
+                console.log('Loading recent requests...');
+                await loadRecentRequests();
+                
+                console.log('Loading request rates...');
+                loadRequestRates();
+                
+                console.log('All analytics displayed successfully');
+            } catch (err) {
+                console.error('Error displaying analytics:', err);
+                throw err;
+            }
+        }
+
+        function displaySummaryMetrics(summary) {
+            const container = document.getElementById('summaryMetrics');
+            container.innerHTML = `
+                <div class="metric-card">
+                    <h3>Total Requests</h3>
+                    <div class="value">${(summary.total_requests || 0).toLocaleString()}</div>
+                    <div class="unit">API calls</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Total Cost (USD)</h3>
+                    <div class="value">$${(summary.total_cost_usd || 0).toFixed(4)}</div>
+                    <div class="unit">USD</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Total Cost (INR)</h3>
+                    <div class="value">₹${(summary.total_cost_inr || 0).toFixed(2)}</div>
+                    <div class="unit">INR</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Avg Latency</h3>
+                    <div class="value">${(summary.avg_latency_ms || 0).toFixed(0)}</div>
+                    <div class="unit">milliseconds</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Avg Accuracy</h3>
+                    <div class="value">${Number(summary.avg_accuracy || 0).toFixed(1)}%</div>
+                    <div class="unit">accuracy score</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Error Rate</h3>
+                    <div class="value">${((summary.error_rate || 0) * 100).toFixed(1)}%</div>
+                    <div class="unit">error rate</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Medical Terms</h3>
+                    <div class="value">${(summary.total_medical_terms || 0).toLocaleString()}</div>
+                    <div class="unit">terms processed</div>
+                </div>
+            `;
+        }
+
+        function displayInsights(data) {
+            const container = document.getElementById('insights');
+            
+            // Find insights with safe defaults
+            const apiBreakdown = data.api_breakdown || [];
+            
+            let mostExpensive = {api_type: 'N/A', cost_usd: 0};
+            let slowest = {api_type: 'N/A', avg_latency_ms: 0};
+            let mostAccurate = {api_type: 'N/A', avg_accuracy: 0};
+            
+            if (apiBreakdown.length > 0) {
+                mostExpensive = apiBreakdown.reduce((max, api) => 
+                    (api.cost_usd || 0) > (max.cost_usd || 0) ? api : max, apiBreakdown[0]);
+                slowest = apiBreakdown.reduce((max, api) => 
+                    (api.avg_latency_ms || 0) > (max.avg_latency_ms || 0) ? api : max, apiBreakdown[0]);
+                mostAccurate = apiBreakdown.reduce((max, api) => 
+                    (api.avg_accuracy || 0) > (max.avg_accuracy || 0) ? api : max, apiBreakdown[0]);
+            }
+
+            container.innerHTML = `
+                <h3>🔍 Key Insights</h3>
+                <div class="insight-item">
+                    <span class="insight-label">Most Expensive API:</span>
+                    <span class="insight-value">${mostExpensive.api_type || 'N/A'} ($${(mostExpensive.cost_usd || 0).toFixed(4)})</span>
+                </div>
+                <div class="insight-item">
+                    <span class="insight-label">Slowest API:</span>
+                    <span class="insight-value">${slowest.api_type || 'N/A'} (${(slowest.avg_latency_ms || 0).toFixed(0)}ms)</span>
+                </div>
+                <div class="insight-item">
+                    <span class="insight-label">Most Accurate API:</span>
+                    <span class="insight-value">${mostAccurate.api_type || 'N/A'} (${Number(mostAccurate.avg_accuracy || 0).toFixed(1)}%)</span>
+                </div>
+                <div class="insight-item">
+                    <span class="insight-label">Total Languages Used:</span>
+                    <span class="insight-value">${(data.language_breakdown || []).length} languages</span>
+                </div>
+            `;
+        }
+
+        function displayCharts(data) {
+            createCostChart(data.api_breakdown);
+            createLatencyChart(data.operation_breakdown);
+            // rate chart loaded separately
+            createAccuracyChart(data.api_breakdown);
+            createLanguageChart(data.language_breakdown);
+        }
+
+        async function loadRequestRates() {
+            try {
+                const timeRange = document.getElementById('timeRange').value;
+                const res = await fetch(`/api/v1/analytics/request-rates?hours=${timeRange}`);
+                const data = await res.json();
+                if (data.status === 'success') {
+                    createRateChart(data.rates);
+                }
+            } catch (e) {
+                console.warn('Failed to load request rates', e);
+            }
+        }
+
+        function createRateChart(rateData) {
+            console.log('Creating rate chart with data:', rateData);
+            const canvas = document.getElementById('rateChart');
+            if (!canvas) {
+                console.error('Rate chart canvas not found!');
+                return;
+            }
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error('Could not get 2d context for rate chart!');
+                return;
+            }
+            
+            if (charts.rate) charts.rate.destroy();
+            
+            // Handle empty data
+            if (!rateData || rateData.length === 0) {
+                rateData = [{api_type: 'No Data', requests_per_hour: 0, alert: false}];
+            }
+            
+            try {
+                const labels = rateData.map(r => r.api_type || 'Unknown');
+                const values = rateData.map(r => r.requests_per_hour || 0);
+                const colors = rateData.map(r => r.alert ? '#dc3545' : '#28a745');
+                
+                console.log('Rate chart labels:', labels);
+                console.log('Rate chart values:', values);
+
+                charts.rate = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Requests per hour',
+                            data: values,
+                            backgroundColor: colors
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { 
+                            y: { beginAtZero: true } 
+                        }
+                    }
+                });
+                console.log('Rate chart created successfully');
+            } catch (err) {
+                console.error('Error creating rate chart:', err);
+            }
+        }
+
+        function createCostChart(apiData) {
+            console.log('Creating cost chart with data:', apiData);
+            const canvas = document.getElementById('costChart');
+            if (!canvas) {
+                console.error('Cost chart canvas not found!');
+                return;
+            }
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error('Could not get 2d context!');
+                return;
+            }
+            
+            if (charts.cost) {
+                console.log('Destroying existing cost chart');
+                charts.cost.destroy();
+            }
+            
+            // Handle empty data
+            if (!apiData || apiData.length === 0) {
+                console.log('No API data, using placeholder');
+                apiData = [{api_type: 'No Data', cost_usd: 0}];
+            }
+            
+            try {
+                const labels = apiData.map(api => api.api_type || 'Unknown');
+                const values = apiData.map(api => api.cost_usd || 0);
+                
+                console.log('Cost chart labels:', labels);
+                console.log('Cost chart values:', values);
+
+                charts.cost = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: values,
+                            backgroundColor: ['#000000', '#6c757d', '#28a745', '#dc3545', '#ffc107', '#17a2b8', '#6f42c1'],
+                            borderColor: '#ffffff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        label += '$' + (context.parsed || 0).toFixed(4);
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log('Cost chart created successfully');
+            } catch (err) {
+                console.error('Error creating cost chart:', err);
+            }
+        }
+
+        function createLatencyChart(operationData) {
+            console.log('Creating latency chart with data:', operationData);
+            const canvas = document.getElementById('latencyChart');
+            if (!canvas) {
+                console.error('Latency chart canvas not found!');
+                return;
+            }
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error('Could not get 2d context for latency chart!');
+                return;
+            }
+            
+            if (charts.latency) charts.latency.destroy();
+            
+            // Handle empty data
+            if (!operationData || operationData.length === 0) {
+                operationData = [{service_type: 'No Data', avg_response_time: 0}];
+            }
+            
+            try {
+                const labels = operationData.map(op => {
+                    if (op.api_type && op.operation) {
+                        return `${op.api_type} - ${op.operation}`;
+                    }
+                    return op.service_type || op.api_type || 'Unknown';
+                });
+                
+                const values = operationData.map(op => {
+                    if (op.avg_latency_ms != null) return op.avg_latency_ms;
+                    if (op.avg_response_time != null) return op.avg_response_time;
+                    return 0;
+                });
+                
+                console.log('Latency labels:', labels);
+                console.log('Latency values:', values);
+
+                charts.latency = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Avg Latency (ms)',
+                            data: values,
+                            backgroundColor: '#6c757d'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+                console.log('Latency chart created successfully');
+            } catch (err) {
+                console.error('Error creating latency chart:', err);
+            }
+        }
+
+        function createAccuracyChart(apiData) {
+            console.log('Creating accuracy chart with data:', apiData);
+            const canvas = document.getElementById('accuracyChart');
+            if (!canvas) {
+                console.error('Accuracy chart canvas not found!');
+                return;
+            }
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error('Could not get 2d context for accuracy chart!');
+                return;
+            }
+            
+            if (charts.accuracy) charts.accuracy.destroy();
+            
+            // Handle empty data
+            if (!apiData || apiData.length === 0) {
+                apiData = [{api_type: 'No Data', avg_accuracy: 0}];
+            }
+            
+            try {
+                const labels = apiData.map(api => api.api_type || 'Unknown');
+                const values = apiData.map(api => Number(api.avg_accuracy || 0));
+                
+                console.log('Accuracy labels:', labels);
+                console.log('Accuracy values:', values);
+
+                charts.accuracy = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Accuracy (%)',
+                            data: values,
+                            backgroundColor: '#28a745'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+                console.log('Accuracy chart created successfully');
+            } catch (err) {
+                console.error('Error creating accuracy chart:', err);
+            }
+        }
+
+        function createLanguageChart(languageData) {
+            console.log('Creating language chart with data:', languageData);
+            const canvas = document.getElementById('languageChart');
+            if (!canvas) {
+                console.error('Language chart canvas not found!');
+                return;
+            }
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error('Could not get 2d context for language chart!');
+                return;
+            }
+            
+            if (charts.language) charts.language.destroy();
+            
+            // Handle empty data
+            if (!languageData || languageData.length === 0) {
+                languageData = [{language: 'No Data', requests: 0}];
+            }
+            
+            try {
+                const labels = languageData.map(lang => lang.language || 'Unknown');
+                const values = languageData.map(lang => lang.requests || 0);
+                
+                console.log('Language labels:', labels);
+                console.log('Language values:', values);
+
+                charts.language = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: values,
+                            backgroundColor: ['#000000', '#6c757d', '#dc3545', '#28a745', '#ffc107', '#17a2b8', '#6f42c1', '#e83e8c'],
+                            borderColor: '#ffffff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+                console.log('Language chart created successfully');
+            } catch (err) {
+                console.error('Error creating language chart:', err);
+            }
+        }
+
+        function displayRecentRequests(requests) {
+            const tbody = document.querySelector('#recentRequests tbody');
+            tbody.innerHTML = '';
+
+            if (!requests || requests.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 30px;">No recent requests available</td></tr>';
+                return;
+            }
+
+            requests.forEach(req => {
+                const row = document.createElement('tr');
+                const statusClass = req.error_message ? 'status-danger' : 'status-success';
+                const statusText = req.error_message ? 'Error' : 'Success';
+                
+                row.innerHTML = `
+                    <td>${req.timestamp ? new Date(req.timestamp).toLocaleString() : 'N/A'}</td>
+                    <td>${req.api_type || 'Unknown'}</td>
+                    <td>${req.operation || 'N/A'}</td>
+                    <td>${req.language || 'N/A'}</td>
+                    <td>${req.latency_ms || 0}ms</td>
+                    <td>$${(req.cost_usd || 0).toFixed(4)}</td>
+                    <td>₹${(req.cost_inr || 0).toFixed(2)}</td>
+                    <td>${((req.accuracy_score || 0) * 100).toFixed(1)}%</td>
+                    <td>${req.medical_terms_count || 0}</td>
+                    <td><span class="status-indicator ${statusClass}"></span>${statusText}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        async function loadOperationBreakdown() {
+            try {
+                const timeRange = document.getElementById('timeRange').value;
+                const res = await fetch(`/api/v1/analytics/operations?hours=${timeRange}`);
+                const data = await res.json();
+                if (data.status === 'success') {
+                    createLatencyChart(data.operations || []);
+                }
+            } catch (e) {
+                console.warn('Failed to load operation breakdown', e);
+            }
+        }
+
+        async function loadLanguageBreakdown() {
+            try {
+                const timeRange = document.getElementById('timeRange').value;
+                const res = await fetch(`/api/v1/analytics/languages?hours=${timeRange}`);
+                const data = await res.json();
+                if (data.status === 'success') {
+                    createLanguageChart(data.languages || []);
+                }
+            } catch (e) {
+                console.warn('Failed to load language breakdown', e);
+            }
+        }
+
+        async function loadRecentRequests() {
+            try {
+                const res = await fetch(`/api/v1/analytics/recent?limit=20`);
+                const data = await res.json();
+                if (data.status === 'success') {
+                    displayRecentRequests(data.recent_requests || []);
+                }
+            } catch (e) {
+                console.warn('Failed to load recent requests', e);
+            }
+        }
+    </script>
+</body>
+</html>

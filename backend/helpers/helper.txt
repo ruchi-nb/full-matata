@@ -1,0 +1,468 @@
+
+
+
+replace this in dependencies.py 
+# from fastapi.security import HTTPBearer
+# from fastapi import Request, status, Depends
+# from utils.utils import decode_token
+# from fastapi.exceptions import HTTPException
+# from database.redis import token_in_blocklist
+# from typing import Callable, Iterable, Optional, Any, Dict
+
+# class TokenBearer(HTTPBearer):
+#     def __init__(self, auto_error=True):
+#         super().__init__(auto_error=auto_error)
+
+#     async def __call__(self, request: Request) -> Dict[str, Any] | None:
+#         creds = await super().__call__(request)
+#         token = creds.credentials if creds else None
+#         if not token:
+#             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing auth token")
+
+    
+#         token_data = decode_token(token)
+#         if token_data is None:
+#             raise HTTPException(
+#                 status_code=status.HTTP_403_FORBIDDEN,
+#                 detail={
+#                     "error": "This token is invalid or has been revoked",
+#                     "resolution": "Please get a new token"
+#                 }
+#             )
+#         jti = token_data.get("jti")
+#         if jti and await token_in_blocklist(jti):
+#             raise HTTPException(
+#                 status_code=status.HTTP_403_FORBIDDEN,
+#                 detail={
+#                     "error": "This token is invalid or has been revoked",
+#                     "resolution": "Please get a new token"
+#                 }
+#             )
+
+        
+#         self.verify_token_data(token_data)
+#         return token_data
+
+#     def token_valid(self, token: str) -> bool:
+#         token_data = decode_token(token)
+#         return token_data is not None
+
+#     def verify_token_data(self, token_data):
+#         raise NotImplementedError("Please Override this method in child class")
+
+
+# class AccessTokenBearer(TokenBearer):
+#     def verify_token_data(self, token_data: dict) -> None:
+#         if token_data and token_data.get("refresh"):
+#             raise HTTPException(
+#                 status_code=status.HTTP_403_FORBIDDEN,
+#                 detail="Please provide an access token"
+#             )
+
+# class RefreshTokenBearer(TokenBearer):
+#     def verify_token_data(self, token_data: dict) -> None:
+#         if token_data and not token_data.get("refresh"):
+#             raise HTTPException(
+#                 status_code=status.HTTP_403_FORBIDDEN,
+#                 detail="Please provide a refresh token"
+#             )
+
+# async def get_current_user(
+#     token_details: dict = Depends(AccessTokenBearer()),
+# ):
+  
+#     user_payload = token_details.get("user", {}) if token_details else {}
+#     return user_payload
+
+# def require_global_roles(role_names: Optional[Iterable[str]] = None, role_ids: Optional[Iterable[int]] = None) -> Callable:
+#     role_names_set = set(n.lower() for n in (role_names or []))
+#     role_ids_set = set(role_ids or [])
+
+#     async def dependency(user: Dict[str, Any] = Depends(get_current_user)):
+#         if not role_names_set and not role_ids_set:
+#             return user
+#         user_role: Optional[Dict[str, Any]] = user.get("global_role")
+#         if user_role is None:
+#             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+#         if role_ids_set and user_role.get("role_id") in role_ids_set:
+#             return user
+#         if role_names_set and user_role.get("role_name") and str(user_role.get("role_name")).lower() in role_names_set:
+#             return user
+#         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+
+#     return dependency
+"""
+version 2 hai ye, itna kharabh ki poocho maath 
+"""
+# def require_global_roles(role_names: Optional[Iterable[str]] = None, role_ids: Optional[Iterable[int]] = None) -> Callable:
+#     role_names_set = set(n.lower() for n in (role_names or []))
+#     role_ids_set = set(role_ids or [])
+
+#     async def dependency(user: Dict[str, Any] = Depends(get_current_user)):
+#         if not role_names_set and not role_ids_set:
+#             return user
+#         user_role: Optional[Dict[str, Any]] = user.get("global_role")
+#         if user_role is None:
+#             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+#         if role_ids_set and user_role.get("role_id") in role_ids_set:
+#             return user
+#         if role_names_set and user_role.get("role_name") and str(user_role.get("role_name")).lower() in role_names_set:
+#             return user
+#         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+
+#     return dependency
+
+
+# # --- DB-backed permission enforcement dependency ---
+# def require_permissions(
+#     permissions: Sequence[str],
+#     scope: Optional[str] = None,
+#     hospital_id_param: str = "hospital_id",
+#     allow_if_superadmin: bool = True,
+# ) -> Callable:
+#     """
+#     Usage:
+#       @router.get(..., dependencies=[Depends(require_permissions(["hospital.profile.view"]))])
+#     - permissions: list/tuple of permission_name(s) to require (all must be present)
+#     - scope: optional filter ('platform'|'tenant'), if provided will only consider permissions in that scope
+#     - hospital_id_param: path/query param name to pull hospital_id (if applicable)
+#     - allow_if_superadmin: bypass check if user's global role_name == 'superadmin'
+#     """
+
+#     required = set(p.lower() for p in permissions)
+
+#     async def dependency(
+#         request: Request,
+#         user: Dict[str, Any] = Depends(get_current_user),
+#         db: AsyncSession = Depends(get_db),
+#     ):
+#         # quick sanity
+#         if not user:
+#             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthenticated")
+
+#         # 1) check superadmin shortcut (if configured)
+#         global_role = user.get("global_role") or {}
+#         global_role_name = (global_role.get("role_name") or "").lower() if global_role else ""
+#         if allow_if_superadmin and global_role_name == "superadmin":
+#             return user
+
+#         # 2) determine hospital_id for tenant-scoped checks
+#         hospital_id = None
+#         if hospital_id_param in request.path_params:
+#             try:
+#                 hospital_id = int(request.path_params[hospital_id_param])
+#             except Exception:
+#                 hospital_id = None
+#         elif hospital_id_param in request.query_params:
+#             try:
+#                 hospital_id = int(request.query_params[hospital_id_param])
+#             except Exception:
+#                 hospital_id = None
+
+#         # 3) collect candidate permissions from DB
+#         found_perms: set[str] = set()
+
+#         # 3a. direct user_permissions (explicit grants)
+#         # user_permissions table stores permission_name and scope and optional hospital_id
+#         try:
+#             up_q = await db.execute(
+#                 select(UserPermissions).where(UserPermissions.user_id == user.get("user_id"))
+#             )
+#             ups = up_q.scalars().all()
+#             for up in ups:
+#                 pname = (up.permission_name or "").lower()
+#                 pm_scope = (up.scope or "").lower()
+#                 # hospital coalesce handled by the DB; but we filter in python:
+#                 if scope and pm_scope != scope.lower():
+#                     continue
+#                 if hospital_id is not None and up.hospital_id is not None and int(up.hospital_id) != int(hospital_id):
+#                     # only add if hospital matches (or if scope is platform where hospital_id is None)
+#                     continue
+#                 found_perms.add(pname)
+#         except Exception:
+#             # fallthrough: don't crash on permission-table read errors; deny by default soon
+#             pass
+
+#         # 3b. global role permissions (role_permission -> permission_master)
+#         try:
+#             gr_id = global_role.get("role_id")
+#             if gr_id:
+#                 rp_q = await db.execute(
+#                     select(PermissionMaster.permission_name)
+#                     .select_from(RolePermission.__table__.join(PermissionMaster.__table__, RolePermission.permission_id == PermissionMaster.permission_id))
+#                     .where(RolePermission.role_id == gr_id)
+#                 )
+#                 for row in rp_q.scalars().all():
+#                     pname = (row or "").lower()
+#                     if scope and scope.lower() != "platform":
+#                         # if caller requested 'tenant' scope specifically, don't include platform perms
+#                         continue
+#                     found_perms.add(pname)
+#         except Exception:
+#             pass
+
+#         # 3c. hospital role permissions (hospital_user_roles -> hospital_role_permission -> permission_master)
+#         try:
+#             # we want hospital roles for this user; some token payloads include hospital roles
+#             # first attempt: check token user payload for hospital role list
+#             token_hospital_roles = user.get("hospital_roles") or []  # expected shape: [{ "hospital_id": X, "hospital_role_id": Y, "role_name": "doctor" }, ...]
+#             hospital_role_pairs: List[Dict[str, Any]] = []
+#             if token_hospital_roles:
+#                 hospital_role_pairs = token_hospital_roles
+#             else:
+#                 # fallback: query DB for hospital_user_roles entries
+#                 hur_q = await db.execute(select(HospitalUserRoles).where(HospitalUserRoles.user_id == user.get("user_id")))
+#                 hospital_role_pairs = [
+#                     {"hospital_id": hur.hospital_id, "hospital_role_id": hur.hospital_role_id}
+#                     for hur in hur_q.scalars().all()
+#                 ]
+
+#             for hr in hospital_role_pairs:
+#                 hr_hospital_id = hr.get("hospital_id")
+#                 hr_role_id = hr.get("hospital_role_id")
+#                 # if a hospital_id was supplied in the request, only consider matching hospital or global perms
+#                 if hospital_id is not None and hr_hospital_id is not None and int(hr_hospital_id) != int(hospital_id):
+#                     continue
+#                 # fetch permissions for this hospital_role
+#                 hrp_q = await db.execute(
+#                     select(PermissionMaster.permission_name)
+#                     .select_from(HospitalRolePermission.__table__.join(PermissionMaster.__table__, HospitalRolePermission.permission_id == PermissionMaster.permission_id))
+#                     .where(HospitalRolePermission.hospital_role_id == hr_role_id)
+#                 )
+#                 for row in hrp_q.scalars().all():
+#                     pname = (row or "").lower()
+#                     if scope and scope.lower() != "tenant":
+#                         # caller asked specifically for platform perms only; skip tenant perms
+#                         continue
+#                     found_perms.add(pname)
+#         except Exception:
+#             pass
+
+#         # 4) final check: required subset present in found_perms
+#         if required.issubset(found_perms):
+#             return user
+
+#         # failed - raise 403
+#         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+#     return dependency
+
+
+
+
+
+
+
+from typing import List, Dict, Any, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from models import (
+    Users,
+    RoleMaster,
+    HospitalUserRoles,
+    HospitalRole,
+    UserPermissions,
+    RolePermission,
+    PermissionMaster,
+    HospitalRolePermission,
+)
+from collections import defaultdict
+
+async def get_global_role_for_user(db: AsyncSession, user: Users) -> Optional[Dict[str, Any]]:
+    """Return {role_id, role_name} for user's global_role_id (if present)."""
+    if not user or not user.global_role_id:
+        return None
+    rm = await db.get(RoleMaster, int(user.global_role_id))
+    if not rm:
+        return None
+    return {"role_id": int(rm.role_id), "role_name": rm.role_name}
+
+async def get_hospital_roles_for_user(db: AsyncSession, user_id: int) -> List[Dict[str, Any]]:
+    """Return list like [{'hospital_id':7,'hospital_role_id':101,'role_name':'doctor'}, ...]"""
+    out = []
+    q = select(HospitalUserRoles).where(HospitalUserRoles.user_id == user_id)
+    res = await db.execute(q)
+    for hur in res.scalars().all():
+        # fetch role name
+        hr = await db.get(HospitalRole, int(hur.hospital_role_id))
+        role_name = hr.role_name if hr else None
+        out.append({
+            "hospital_id": int(hur.hospital_id),
+            "hospital_role_id": int(hur.hospital_role_id),
+            "role_name": role_name,
+        })
+    return out
+
+async def build_permissions_snapshot(db: AsyncSession, user: Users) -> List[Dict[str, Any]]:
+    """
+    Build the grouped 'permissions' token claim:
+    [
+      {"scope":"tenant","hospital_id":7,"permissions":[... ]},
+      {"scope":"platform","hospital_id":None,"permissions":[... ]}
+    ]
+    """
+    platform_perms = set()
+    tenant_map = defaultdict(set)  # hospital_id -> set(perms)
+
+    user_id = int(user.user_id)
+
+    # 1) direct user_permissions
+    try:
+        q = select(UserPermissions).where(UserPermissions.user_id == user_id)
+        res = await db.execute(q)
+        for up in res.scalars().all():
+            pname = (up.permission_name or "").strip()
+            if not pname:
+                continue
+            p_scope = (up.scope or "").strip().lower()
+            if p_scope == "tenant":
+                if up.hospital_id is not None:
+                    tenant_map[int(up.hospital_id)].add(pname)
+            else:
+                platform_perms.add(pname)
+    except Exception:
+        # swallow here; token snapshot is best-effort
+        pass
+
+    # 2) global role permissions (role_permission -> permission_master)
+    if user.global_role_id:
+        try:
+            role_id = int(user.global_role_id)
+            rp_q = (
+                select(PermissionMaster.permission_name)
+                .join(RolePermission, RolePermission.permission_id == PermissionMaster.permission_id)
+                .where(RolePermission.role_id == role_id)
+            )
+            rp_res = await db.execute(rp_q)
+            for perm_name in rp_res.scalars().all():
+                if perm_name:
+                    platform_perms.add(perm_name.strip())
+        except Exception:
+            pass
+
+    # 3) hospital role permissions (find hospital roles and then gather their permissions)
+    try:
+        # first get hospital roles mapping (token may not exist yet)
+        q = select(HospitalUserRoles).where(HospitalUserRoles.user_id == user_id)
+        res = await db.execute(q)
+        hospital_roles = res.scalars().all()
+        for hur in hospital_roles:
+            hid = int(hur.hospital_id)
+            hrole_id = int(hur.hospital_role_id)
+            hrp_q = (
+                select(PermissionMaster.permission_name)
+                .join(HospitalRolePermission, HospitalRolePermission.permission_id == PermissionMaster.permission_id)
+                .where(HospitalRolePermission.hospital_role_id == hrole_id)
+            )
+            hrp_res = await db.execute(hrp_q)
+            for perm_name in hrp_res.scalars().all():
+                if perm_name:
+                    tenant_map[hid].add(perm_name.strip())
+    except Exception:
+        pass
+
+    # Build result list
+    out: List[Dict[str, Any]] = []
+    if platform_perms:
+        out.append({"scope": "platform", "hospital_id": None, "permissions": sorted(platform_perms)})
+    for hid, perms in tenant_map.items():
+        out.append({"scope": "tenant", "hospital_id": int(hid), "permissions": sorted(perms)})
+
+    return out
+
+
+async def build_token_user_payload(db: AsyncSession, user: Users) -> Dict[str, Any]:
+    """
+    Compose the inner 'user' claim for JWT:
+    { user_id, username, global_role, hospital_roles, permissions }
+    """
+    global_role = await get_global_role_for_user(db, user)
+    hospital_roles = await get_hospital_roles_for_user(db, user.user_id)
+    permissions_snapshot = await build_permissions_snapshot(db, user)
+
+    return {
+        "user_id": int(user.user_id),
+        "username": user.username,
+        "global_role": global_role,
+        "hospital_roles": hospital_roles,
+        "permissions": permissions_snapshot,
+    }
+
+
+
+
+# # redis.py — robust: prefer real redis, fallback to fakeredis for dev
+# from config.config import Config
+# import traceback, time
+# _exception_info = None
+# _redis_client = None
+
+# # JTI expiry default
+# JTI_EXPIRY = getattr(Config, "JTI_EXPIRY_SECONDS", 3600)
+
+# def _init_real_redis():
+#     import importlib
+#     redis_asyncio = importlib.import_module("redis.asyncio")
+#     host = getattr(Config, "REDIS_HOST", "localhost")
+#     port = int(getattr(Config, "REDIS_PORT", 6379))
+#     # decode_responses False to get bytes (consistent with previous code)
+#     return redis_asyncio.Redis(host=host, port=port, db=0, decode_responses=False)
+
+# def _init_fakeredis():
+#     # fakeredis implements redis.asyncio API
+#     import importlib
+#     fr = importlib.import_module("fakeredis.aioredis")  # fakeredis v2+ aioredis shim
+#     # create a server-backed fake client
+#     return fr.FakeRedis()
+
+# # Try real redis, else fakeredis, else fallback to None (in-memory fallback used below)
+# try:
+#     try:
+#         _redis_client = _init_real_redis()
+#         # Optional: test connection (non-blocking call may still raise on first command)
+#     except Exception:
+#         # try fakeredis
+#         _redis_client = _init_fakeredis()
+# except Exception:
+#     _redis_client = None
+#     _exception_info = traceback.format_exc()
+
+# # In-memory fallback for JTI blocklist when redis not available
+# _memory_blocklist: dict[str, int] = {}
+
+# # Async helpers (same behavior as your previous file)
+# async def add_jti_to_blocklist(jti: str) -> None:
+#     if not jti:
+#         return
+#     if _redis_client is not None:
+#         try:
+#             # redis/fakeredis async .set
+#             await _redis_client.set(name=jti, value="1", ex=JTI_EXPIRY)
+#             return
+#         except Exception:
+#             # fall through to memory fallback
+#             pass
+#     _memory_blocklist[jti] = int(time.time()) + JTI_EXPIRY
+
+# async def token_in_blocklist(jti: str) -> bool:
+#     if not jti:
+#         return False
+#     if _redis_client is not None:
+#         try:
+#             val = await _redis_client.get(jti)
+#             return val is not None
+#         except Exception:
+#             pass
+#     exp_ts = _memory_blocklist.get(jti)
+#     if exp_ts is None:
+#         return False
+#     if exp_ts < int(time.time()):
+#         try:
+#             del _memory_blocklist[jti]
+#         except KeyError:
+#             pass
+#         return False
+#     return True
+
+# def get_redis_init_error() -> str | None:
+#     return _exception_info

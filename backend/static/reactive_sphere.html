@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reactive Audio Waves</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: linear-gradient(to bottom, #0a0a1a, #000814);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: rgba(10, 20, 40, 0.8);
+            padding: 15px 25px;
+            border-radius: 50px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 123, 255, 0.3);
+            box-shadow: 0 4px 20px rgba(0, 123, 255, 0.2);
+        }
+
+        button {
+            background: linear-gradient(135deg, #0066ff, #00ccff);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.5);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: linear-gradient(135deg, #333, #555);
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .status {
+            color: #00ccff;
+            font-size: 14px;
+            font-weight: 500;
+            text-shadow: 0 0 10px rgba(0, 204, 255, 0.5);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-label {
+            background: linear-gradient(135deg, #6600ff, #00ccff);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 0, 255, 0.3);
+        }
+
+        .file-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 0, 255, 0.5);
+        }
+
+        .info {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 13px;
+            text-align: center;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div class="controls">
+        <button id="micBtn">🎤 Start Microphone</button>
+        <label for="audioFile" class="file-label">📁 Load Audio</label>
+        <input type="file" id="audioFile" accept="audio/*">
+        <span class="status" id="status">Click to start</span>
+    </div>
+
+    <div class="info">
+        🎵 Waves pulse inward & outward with audio • Microphone or upload audio file
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const micBtn = document.getElementById('micBtn');
+        const audioFile = document.getElementById('audioFile');
+        const status = document.getElementById('status');
+
+        let audioContext;
+        let analyser;
+        let dataArray;
+        let bufferLength;
+        let source;
+        let isActive = false;
+        let mediaStream;
+
+        // Canvas setup
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Wave properties
+        const waves = [];
+        const numWaves = 12;
+        const dotsPerWave = 60;
+        const baseRadius = 180;
+        const waveSpeed = 0.02;
+
+        // Create waves of dots
+        function createWaves() {
+            waves.length = 0;
+            for (let w = 0; w < numWaves; w++) {
+                const wave = {
+                    dots: [],
+                    phase: (w / numWaves) * Math.PI * 2,
+                    offset: 0
+                };
+
+                for (let i = 0; i < dotsPerWave; i++) {
+                    const angle = (i / dotsPerWave) * Math.PI * 2;
+                    wave.dots.push({
+                        angle: angle,
+                        baseRadius: baseRadius + (w * 25),
+                        radiusOffset: 0
+                    });
+                }
+                waves.push(wave);
+            }
+        }
+        createWaves();
+
+        // Start microphone
+        micBtn.addEventListener('click', async () => {
+            if (isActive) {
+                stopAudio();
+                return;
+            }
+
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 512;
+                bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                source = audioContext.createMediaStreamSource(mediaStream);
+                source.connect(analyser);
+
+                isActive = true;
+                micBtn.textContent = '🛑 Stop Microphone';
+                status.textContent = 'Listening...';
+                animate();
+            } catch (err) {
+                status.textContent = 'Microphone access denied';
+                console.error('Error accessing microphone:', err);
+            }
+        });
+
+        // Load audio file
+        audioFile.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            stopAudio();
+
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 512;
+                bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+
+                const arrayBuffer = await file.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+                source.start(0);
+
+                isActive = true;
+                micBtn.disabled = true;
+                status.textContent = 'Playing: ' + file.name;
+                animate();
+
+                source.onended = () => {
+                    stopAudio();
+                };
+            } catch (err) {
+                status.textContent = 'Error loading audio';
+                console.error('Error loading audio:', err);
+            }
+        });
+
+        function stopAudio() {
+            if (source) {
+                try {
+                    source.disconnect();
+                } catch (e) {}
+            }
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+            }
+            isActive = false;
+            micBtn.textContent = '🎤 Start Microphone';
+            micBtn.disabled = false;
+            status.textContent = 'Stopped';
+        }
+
+        // Animation loop
+        function animate() {
+            if (!isActive) return;
+
+            ctx.fillStyle = 'rgba(10, 10, 26, 0.2)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            // Get audio data
+            analyser.getByteFrequencyData(dataArray);
+            
+            // Calculate frequency bands
+            let sum = 0;
+            let bass = 0;
+            let mid = 0;
+            let high = 0;
+            
+            for (let i = 0; i < bufferLength; i++) {
+                sum += dataArray[i];
+                if (i < bufferLength / 4) bass += dataArray[i];
+                else if (i < bufferLength / 2) mid += dataArray[i];
+                else high += dataArray[i];
+            }
+            
+            const average = sum / bufferLength;
+            bass = bass / (bufferLength / 4);
+            mid = mid / (bufferLength / 4);
+            high = high / (bufferLength / 2);
+
+            // Pulsating intensity
+            const pulseIntensity = 0.3 + (average / 255) * 0.7;
+            const waveAmplitude = 30 + (bass / 255) * 50;
+
+            // Draw outer glow
+            const glowGradient = ctx.createRadialGradient(
+                centerX, centerY, 0,
+                centerX, centerY, baseRadius * 2.5
+            );
+            glowGradient.addColorStop(0, `rgba(0, 123, 255, ${pulseIntensity * 0.4})`);
+            glowGradient.addColorStop(0.4, `rgba(0, 204, 255, ${pulseIntensity * 0.2})`);
+            glowGradient.addColorStop(1, 'rgba(0, 204, 255, 0)');
+            
+            ctx.fillStyle = glowGradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, baseRadius * 2.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw waves
+            waves.forEach((wave, waveIndex) => {
+                // Update wave phase for pulsing effect
+                wave.offset += waveSpeed + (average / 255) * 0.03;
+                
+                // Calculate wave pulse (inward/outward motion)
+                const wavePulse = Math.sin(wave.offset + wave.phase) * waveAmplitude;
+                
+                // Get frequency for this wave
+                const freqIndex = Math.floor((waveIndex / numWaves) * bufferLength);
+                const waveIntensity = (dataArray[freqIndex] / 255);
+
+                wave.dots.forEach((dot, dotIndex) => {
+                    // Calculate position
+                    const currentRadius = dot.baseRadius + wavePulse + (waveIntensity * 20);
+                    const x = centerX + Math.cos(dot.angle) * currentRadius;
+                    const y = centerY + Math.sin(dot.angle) * currentRadius;
+
+                    // Calculate brightness based on wave position and audio
+                    const distanceFromCenter = currentRadius / (baseRadius * 2);
+                    const brightness = (1 - Math.abs(distanceFromCenter - 0.5) * 2) * 0.5 + waveIntensity * 0.5;
+                    const alpha = Math.max(0.2, brightness);
+
+                    // Dot size varies with audio
+                    const dotSize = 2 + waveIntensity * 3;
+
+                    // Draw glow around dot
+                    const dotGlow = ctx.createRadialGradient(x, y, 0, x, y, dotSize * 4);
+                    dotGlow.addColorStop(0, `rgba(100, 200, 255, ${alpha * 0.8})`);
+                    dotGlow.addColorStop(0.3, `rgba(0, 204, 255, ${alpha * 0.5})`);
+                    dotGlow.addColorStop(1, 'rgba(0, 150, 255, 0)');
+                    
+                    ctx.fillStyle = dotGlow;
+                    ctx.beginPath();
+                    ctx.arc(x, y, dotSize * 4, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Draw core dot
+                    ctx.fillStyle = `rgba(200, 230, 255, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Draw bright center
+                    ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.6})`;
+                    ctx.beginPath();
+                    ctx.arc(x, y, dotSize * 0.5, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            });
+
+            // Draw bright center core
+            const coreSize = 60 + (bass / 255) * 40;
+            const coreGradient = ctx.createRadialGradient(
+                centerX, centerY, 0,
+                centerX, centerY, coreSize
+            );
+            coreGradient.addColorStop(0, `rgba(255, 255, 255, ${pulseIntensity * 0.9})`);
+            coreGradient.addColorStop(0.3, `rgba(150, 220, 255, ${pulseIntensity * 0.7})`);
+            coreGradient.addColorStop(0.6, `rgba(0, 204, 255, ${pulseIntensity * 0.4})`);
+            coreGradient.addColorStop(1, 'rgba(0, 150, 255, 0)');
+            
+            ctx.fillStyle = coreGradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, coreSize, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Bright white center point
+            const centerGlow = ctx.createRadialGradient(
+                centerX, centerY, 0,
+                centerX, centerY, 20
+            );
+            centerGlow.addColorStop(0, `rgba(255, 255, 255, ${pulseIntensity})`);
+            centerGlow.addColorStop(0.5, `rgba(200, 230, 255, ${pulseIntensity * 0.6})`);
+            centerGlow.addColorStop(1, 'rgba(100, 200, 255, 0)');
+            
+            ctx.fillStyle = centerGlow;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 20, 0, Math.PI * 2);
+            ctx.fill();
+
+            requestAnimationFrame(animate);
+        }
+
+        // Idle animation when no audio
+        function idleAnimation() {
+            ctx.fillStyle = 'rgba(10, 10, 26, 0.2)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const time = Date.now() * 0.001;
+
+            // Gentle pulsing
+            const pulseIntensity = 0.3 + Math.sin(time) * 0.2;
+            const waveAmplitude = 20 + Math.sin(time * 0.5) * 10;
+
+            // Draw outer glow
+            const glowGradient = ctx.createRadialGradient(
+                centerX, centerY, 0,
+                centerX, centerY, baseRadius * 2.5
+            );
+            glowGradient.addColorStop(0, `rgba(0, 123, 255, ${pulseIntensity * 0.3})`);
+            glowGradient.addColorStop(0.4, `rgba(0, 204, 255, ${pulseIntensity * 0.15})`);
+            glowGradient.addColorStop(1, 'rgba(0, 204, 255, 0)');
+            
+            ctx.fillStyle = glowGradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, baseRadius * 2.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw waves
+            waves.forEach((wave, waveIndex) => {
+                wave.offset += waveSpeed * 0.5;
+                
+                const wavePulse = Math.sin(wave.offset + wave.phase) * waveAmplitude;
+
+                wave.dots.forEach((dot) => {
+                    const currentRadius = dot.baseRadius + wavePulse;
+                    const x = centerX + Math.cos(dot.angle) * currentRadius;
+                    const y = centerY + Math.sin(dot.angle) * currentRadius;
+
+                    const distanceFromCenter = currentRadius / (baseRadius * 2);
+                    const brightness = (1 - Math.abs(distanceFromCenter - 0.5) * 2) * 0.4;
+                    const alpha = Math.max(0.15, brightness);
+
+                    const dotSize = 2;
+
+                    // Draw glow
+                    const dotGlow = ctx.createRadialGradient(x, y, 0, x, y, dotSize * 4);
+                    dotGlow.addColorStop(0, `rgba(100, 200, 255, ${alpha * 0.6})`);
+                    dotGlow.addColorStop(0.3, `rgba(0, 204, 255, ${alpha * 0.4})`);
+                    dotGlow.addColorStop(1, 'rgba(0, 150, 255, 0)');
+                    
+                    ctx.fillStyle = dotGlow;
+                    ctx.beginPath();
+                    ctx.arc(x, y, dotSize * 4, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Draw core dot
+                    ctx.fillStyle = `rgba(200, 230, 255, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            });
+
+            // Draw center core
+            const coreSize = 60 + Math.sin(time * 2) * 10;
+            const coreGradient = ctx.createRadialGradient(
+                centerX, centerY, 0,
+                centerX, centerY, coreSize
+            );
+            coreGradient.addColorStop(0, `rgba(255, 255, 255, ${pulseIntensity * 0.7})`);
+            coreGradient.addColorStop(0.3, `rgba(150, 220, 255, ${pulseIntensity * 0.5})`);
+            coreGradient.addColorStop(0.6, `rgba(0, 204, 255, ${pulseIntensity * 0.3})`);
+            coreGradient.addColorStop(1, 'rgba(0, 150, 255, 0)');
+            
+            ctx.fillStyle = coreGradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, coreSize, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Center point
+            const centerGlow = ctx.createRadialGradient(
+                centerX, centerY, 0,
+                centerX, centerY, 15
+            );
+            centerGlow.addColorStop(0, `rgba(255, 255, 255, ${pulseIntensity * 0.8})`);
+            centerGlow.addColorStop(0.5, `rgba(200, 230, 255, ${pulseIntensity * 0.4})`);
+            centerGlow.addColorStop(1, 'rgba(100, 200, 255, 0)');
+            
+            ctx.fillStyle = centerGlow;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 15, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (!isActive) {
+                requestAnimationFrame(idleAnimation);
+            }
+        }
+
+        // Start idle animation
+        idleAnimation();
+    </script>
+</body>
+</html>
