@@ -294,7 +294,27 @@ export async function getUsersWithRole(hospitalId, roleId) {
  * Get all hospitals
  */
 export async function getAllHospitals() {
-  return request("/search/hospitals", { method: "GET" });
+  const response = await request("/search/hospitals", { method: "GET" });
+  
+  // Handle different response formats
+  if (response && typeof response === 'object') {
+    // If response has 'value' property (actual API format)
+    if (response.value && Array.isArray(response.value)) {
+      return response.value;
+    }
+    // If response has 'hospitals' property (expected format)
+    if (response.hospitals && Array.isArray(response.hospitals)) {
+      return response.hospitals;
+    }
+    // If response is already an array
+    if (Array.isArray(response)) {
+      return response;
+    }
+  }
+  
+  // Fallback: return empty array if format is unexpected
+  console.warn('Unexpected API response format:', response);
+  return [];
 }
 
 /**
@@ -336,20 +356,51 @@ export async function listHospitals() {
  * Transform hospital data for frontend display
  */
 export function transformHospitalData(hospital) {
+  // Generate a consistent color based on hospital ID
+  const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-red-500', 'bg-yellow-500', 'bg-indigo-500', 'bg-pink-500', 'bg-teal-500'];
+  const colorIndex = (hospital.hospital_id || hospital.id) % colors.length;
+  
+  // Build location string from available fields
+  const locationParts = [];
+  if (hospital.city) locationParts.push(hospital.city);
+  if (hospital.state) locationParts.push(hospital.state);
+  const location = locationParts.length > 0 ? locationParts.join(', ') : 'Location not specified';
+  
+  // Get primary specialty (first one or "Multi-specialty" if multiple)
+  const specialty = hospital.specialties && hospital.specialties.length > 0 
+    ? (hospital.specialties.length === 1 ? hospital.specialties[0] : 'Multi-specialty')
+    : 'General Hospital';
+  
+  // Determine status
+  const status = hospital.is_active === true || hospital.is_active === 1 ? 'Active' : 'Inactive';
+  
   return {
     id: hospital.hospital_id || hospital.id,
     name: hospital.hospital_name || hospital.name,
+    email: hospital.email || hospital.hospital_email || 'No email provided',
+    phone: hospital.phone || hospital.admin_contact || 'No phone provided',
+    location: location,
+    specialty: specialty,
+    status: status,
+    color: colors[colorIndex],
+    
+    // Stats - use actual data when available, fallback to defaults
+    doctors: hospital.doctor_count || 0,
+    consultations: hospital.consultation_count || 0, // This might need to be fetched separately
+    
+    // Additional fields for completeness
     address: hospital.address,
     city: hospital.city,
     state: hospital.state,
     pincode: hospital.pincode,
-    phone: hospital.phone,
-    email: hospital.email,
     website: hospital.website,
     description: hospital.description,
     is_active: hospital.is_active,
     created_at: hospital.created_at,
-    updated_at: hospital.updated_at
+    updated_at: hospital.updated_at,
+    
+    // Keep specialties array for detailed view
+    specialties: hospital.specialties || []
   };
 }
 

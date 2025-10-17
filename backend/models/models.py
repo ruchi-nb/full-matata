@@ -81,7 +81,6 @@ class Specialties(Base):
     name: Mapped[str] = mapped_column(String(200, 'utf8mb4_unicode_ci'), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text(collation='utf8mb4_unicode_ci'))
     status: Mapped[Optional[str]] = mapped_column(String(50, 'utf8mb4_unicode_ci'), server_default=text("'active'"))
-    default_training_template: Mapped[Optional[dict]] = mapped_column(JSON)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'))
 

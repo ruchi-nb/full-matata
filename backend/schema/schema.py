@@ -216,17 +216,7 @@ class DoctorProfileRead(BaseModel):
 
 class DoctorSpecialtiesUpdateIn(BaseModel):
     specialty_ids: List[int]
-class OnboardHospitalAdminIn(BaseModel):
-    hospital_name: str
-    hospital_email: Optional[EmailStr] = None
-    admin_email: EmailStr
-    admin_password: str = Field(..., min_length=8)
-    admin_username: Optional[str] = None
-    admin_first_name: Optional[str] = None
-    admin_last_name: Optional[str] = None
-    admin_phone: Optional[str] = None
-    auto_login: Optional[bool] = True
-    specialties: Optional[List[int]] = None
+# OnboardHospitalAdminIn moved to line 1160 to avoid duplication
 
 class OnboardHospitalAdminOut(BaseModel):
     hospital_id: int
@@ -1168,6 +1158,7 @@ class OnboardHospitalAdminIn(BaseModel):
     admin_last_name: Optional[str] = Field(None, description="Admin last name")
     admin_phone: Optional[str] = Field(None, description="Admin phone number")
     auto_login: Optional[bool] = Field(False, description="If true, ask for token creation (MVP: ignored)")
+    specialties: Optional[List[int]] = Field(None, description="List of specialty IDs to associate with the hospital")
 
     model_config = ConfigDict(extra="forbid")
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, Pencil, Trash2, Loader2, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Eye, Pencil, Trash2, Loader2, Search, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import * as hospitalApiService from "@/data/api-hospital-admin";
 import ViewModal from "./ViewModal";
@@ -22,6 +22,18 @@ export default function HospitalCards() {
   // Load hospitals on component mount
   useEffect(() => {
     loadHospitals();
+  }, []);
+
+  // Refresh hospitals when component becomes visible (useful when returning from AddHospitalPage)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadHospitals();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   const loadHospitals = async () => {
@@ -235,6 +247,16 @@ export default function HospitalCards() {
 
             {/* Controls */}
             <div className="flex items-center gap-4">
+              {/* Refresh Button */}
+              <button
+                onClick={loadHospitals}
+                disabled={loading}
+                className="flex items-center gap-1 px-3 py-1 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+              
               {/* Page Size Dropdown */}
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium text-gray-700">Show:</label>

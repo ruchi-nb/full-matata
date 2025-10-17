@@ -7,7 +7,7 @@ from sqlalchemy.exc import (
     DisconnectionError,
     InvalidRequestError
 )
-from models.models import HospitalMaster, Specialties, Users, HospitalUserRoles, DoctorSpecialties, HospitalSpecialties
+from models.models import HospitalMaster, Specialties, Users, HospitalUserRoles, DoctorSpecialties, HospitalSpecialties, RoleMaster
 from centralisedErrorHandling.ErrorHandling import (
     DatabaseError,
     ValidationError,
@@ -688,10 +688,11 @@ async def search_hospitals_public(
             doctor_count_result = await db.execute(
                 select(func.count(Users.user_id))
                 .join(HospitalUserRoles, Users.user_id == HospitalUserRoles.user_id)
+                .join(RoleMaster, Users.global_role_id == RoleMaster.role_id)
                 .where(
                     and_(
                         HospitalUserRoles.hospital_id == hospital.hospital_id,
-                        Users.role == "doctor"
+                        RoleMaster.role_name == "doctor"
                     )
                 )
             )
