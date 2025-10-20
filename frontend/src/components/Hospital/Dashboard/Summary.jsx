@@ -11,13 +11,13 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('weekly');
   const [showDropdown, setShowDropdown] = useState(false);
-  const { user } = useUser();
+  const { user, getHospitalId } = useUser();
 
   useEffect(() => {
     async function loadHospitalDoctors() {
       try {
-        // Get hospital_id from user context
-        const hospitalId = user?.hospital_id || user?.hospital_roles?.[0]?.hospital_id;
+        // Get hospital_id using the enhanced getHospitalId function
+        const hospitalId = getHospitalId();
         
         if (!hospitalId) {
           console.error("No hospital ID found for user");
@@ -39,7 +39,7 @@ const Dashboard = () => {
     if (user) {
       loadHospitalDoctors();
     }
-  }, [user]);
+  }, [user, getHospitalId]);
 
   // Get current date information
   const getCurrentDateInfo = () => {

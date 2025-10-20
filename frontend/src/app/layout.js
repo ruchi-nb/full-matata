@@ -37,9 +37,6 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
-  // Debug environment variable
-  console.log('🔍 NEXT_PUBLIC_GOOGLE_CLIENT_ID:', process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
-  console.log('🔍 All env vars:', process.env);
   
   return (
     <html lang="en">

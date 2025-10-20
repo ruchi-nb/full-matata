@@ -50,8 +50,9 @@ export async function getProfile() {
             const profile = await getPatientProfile();
             return { ...profile, _detectedRole: 'patient' };
           } catch (error) {
-            if (error.status === 404) {
-              console.log("Patient profile not found, creating from JWT");
+            // Handle both 404 and network errors by creating profile from JWT
+            if (error.status === 404 || error.message.includes('Failed to fetch') || error.message.includes('Network error')) {
+              console.log("Patient profile not available, creating from JWT data");
               return {
                 user_id: userData.user_id,
                 username: userData.username,
@@ -59,7 +60,7 @@ export async function getProfile() {
                 first_name: userData.first_name || userData.username || "User",
                 last_name: userData.last_name || "",
                 _detectedRole: 'patient',
-                _warning: "Patient profile created from JWT - profile endpoint returned 404"
+                _warning: "Patient profile created from JWT - backend profile endpoint unavailable"
               };
             }
             throw error;
@@ -81,10 +82,40 @@ export async function getProfile() {
             // For hospital admin, we need to get the user profile, not hospital profile
             // The JWT already contains the user information we need
             console.log("Hospital admin detected, using JWT data");
+            console.log("🔍 Hospital Admin JWT Data:", {
+              userData,
+              hospital_id: userData.hospital_id,
+              hospital_roles: userData.hospital_roles,
+              extracted_hospital_id: userData.hospital_roles?.[0]?.hospital_id || userData.hospital_id
+            });
+            
+            // If JWT doesn't contain hospital_id, try to fetch it from backend
+            let hospitalId = userData.hospital_roles?.[0]?.hospital_id || userData.hospital_id;
+            
+            if (!hospitalId) {
+              console.log("🏥 No hospital ID in JWT, attempting to fetch from backend...");
+              try {
+                // Try to get hospital profile to extract hospital ID
+                const hospitalProfile = await getHospitalProfile();
+                hospitalId = hospitalProfile?.hospital_id;
+                console.log("🏥 Fetched hospital ID from backend:", hospitalId);
+              } catch (error) {
+                console.log("⚠️ Failed to fetch hospital profile:", error.message);
+                // Try alternative approach - get user profile from hospital admin endpoint
+                try {
+                  const userProfile = await request('/hospital-admin/profile', { method: 'GET' });
+                  hospitalId = userProfile?.hospital_id;
+                  console.log("🏥 Fetched hospital ID from user profile:", hospitalId);
+                } catch (profileError) {
+                  console.log("⚠️ Failed to fetch user profile:", profileError.message);
+                }
+              }
+            }
+            
             return { 
               ...userData, 
               _detectedRole: 'hospital_admin',
-              hospital_id: userData.hospital_roles?.[0]?.hospital_id || userData.hospital_id
+              hospital_id: hospitalId
             };
           } catch (error) {
             console.log("Hospital admin profile failed, using JWT data");
@@ -158,7 +189,10 @@ export async function getProfile() {
     };
     
   } catch (error) {
-    console.error("Critical error in getProfile:", error);
+    // Only log detailed errors in development
+    if (process.env.NODE_ENV === 'development') {
+      console.error("Critical error in getProfile:", error);
+    }
     throw new Error(`Failed to load user profile: ${error.message}`);
   }
 }

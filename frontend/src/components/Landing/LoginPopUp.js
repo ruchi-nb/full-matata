@@ -246,8 +246,24 @@ export default function LoginPopup({ open, onClose, onLogin, onRegisterClick }) 
         hasRefreshToken: !!tokens.refreshToken
       });
       
-      const profile = await getProfile();
-      console.log("✅ [DEBUG] Google login successful, profile:", profile);
+      let profile;
+      try {
+        profile = await getProfile();
+        console.log("✅ [DEBUG] Google login successful, profile:", profile);
+      } catch (profileError) {
+        console.log("⚠️ [DEBUG] Profile fetch failed, using fallback:", profileError.message);
+        // Create a basic profile from JWT data as fallback
+        const userData = JSON.parse(atob(tokens.accessToken.split('.')[1]));
+        profile = {
+          user_id: userData.user_id,
+          username: userData.username,
+          email: userData.email,
+          first_name: userData.first_name || userData.username || "User",
+          last_name: userData.last_name || "",
+          _detectedRole: 'patient',
+          _warning: "Profile created from JWT due to backend error"
+        };
+      }
       
       onLogin && onLogin(profile);
       

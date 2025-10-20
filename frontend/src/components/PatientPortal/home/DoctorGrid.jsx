@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { specialties } from "../../../data/Specialties.js";
+import { specialties } from "@/data/Specialties.js";
 
 const DoctorCard = ({ doctor }) => (
   <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100">

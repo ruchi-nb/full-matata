@@ -96,6 +96,14 @@ export function UserProvider({ children }) {
           refreshTokenLength: tokens.refreshToken?.length
         });
         
+        // Early return if no tokens at all
+        if (!tokens.accessToken && !tokens.refreshToken) {
+          console.log("🔄 No tokens found, user not authenticated");
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+        
         // Strategy 1: Try refresh if we have a refresh token AND access token is expired
         if (tokens.refreshToken && tokens.accessToken) {
           // Check if access token is expired before trying refresh
@@ -173,6 +181,8 @@ export function UserProvider({ children }) {
             // Token is invalid, clear all possible tokens
             clearAllTokens();
           }
+        } else {
+          console.log("🔄 No access token available, skipping profile fetch");
         }
         
         // If we get here, no valid authentication exists
@@ -180,7 +190,10 @@ export function UserProvider({ children }) {
         setUser(null);
         
       } catch (e) {
-        console.error("❌ Failed to initialize user:", e);
+        // Only log detailed errors in development
+        if (process.env.NODE_ENV === 'development') {
+          console.error("❌ Failed to initialize user:", e);
+        }
         setError(e.message);
         setUser(null);
         clearAllTokens();
@@ -329,14 +342,47 @@ export function UserProvider({ children }) {
   const getHospitalId = useCallback(() => {
     if (!user) return null;
     
+    console.log("🔍 getHospitalId Debug:", {
+      user: user ? {
+        user_id: user.user_id,
+        hospital_id: user.hospital_id,
+        hospital_roles: user.hospital_roles,
+        global_role: user.global_role
+      } : null,
+      localStorage_hospital_id: typeof window !== "undefined" ? localStorage.getItem("hospital_id") : "N/A"
+    });
+    
     // Check if hospital_id is directly available
-    if (user.hospital_id) return user.hospital_id;
+    if (user.hospital_id) {
+      console.log("✅ Found hospital_id directly:", user.hospital_id);
+      // Store in localStorage for future use
+      if (typeof window !== "undefined") {
+        localStorage.setItem("hospital_id", user.hospital_id);
+      }
+      return user.hospital_id;
+    }
     
     // Check hospital_roles array
     if (user.hospital_roles && user.hospital_roles.length > 0) {
-      return user.hospital_roles[0].hospital_id;
+      const hospitalId = user.hospital_roles[0].hospital_id;
+      console.log("✅ Found hospital_id in hospital_roles:", hospitalId);
+      // Store in localStorage for future use
+      if (typeof window !== "undefined" && hospitalId) {
+        localStorage.setItem("hospital_id", hospitalId);
+      }
+      return hospitalId;
     }
     
+    // Fallback: Check localStorage for hospital_id
+    if (typeof window !== "undefined") {
+      const storedHospitalId = localStorage.getItem("hospital_id");
+      if (storedHospitalId) {
+        console.log("🏥 Using hospital ID from localStorage:", storedHospitalId);
+        return storedHospitalId;
+      }
+    }
+    
+    console.log("❌ No hospital ID found anywhere");
     return null;
   }, [user]);
 

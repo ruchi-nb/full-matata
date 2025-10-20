@@ -208,12 +208,9 @@ const SetupModal1 = () => {
                   name="phone"
                   value={form.phone}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 text-black border rounded-lg focus:outline-none focus:ring-2 ${
-                    errors.phone ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-blue-500"
-                  }`}
+                  className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="5551234567"
                 />
-                {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
               </div>
 
               {/* Email */}

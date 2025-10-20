@@ -69,12 +69,6 @@ export default function DoctorPortalPage() {
         icon: FileText,
         iconColor: "text-[#ecab1c]",
       },
-      {
-        title: "Specialties",
-        value: Math.max(0, specialties.length - 1),
-        icon: Layers,
-        iconColor: "text-[#ecab1c]",
-      },
     ],
     [doctorPatients, specialties]
   );

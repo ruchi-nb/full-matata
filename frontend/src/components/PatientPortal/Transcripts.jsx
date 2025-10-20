@@ -1,9 +1,9 @@
 // File: components/PatientPortal/Transcripts.jsx
 "use client";
 import React, { useState, useEffect } from 'react';
-import TranscriptModal from '../DoctorPortal/home/TranscriptModal';
-import { patients } from '../../data/patients';
-import { doctors } from '../../data/doctors';
+import TranscriptModal from '@/components/DoctorPortal/home/TranscriptModal';
+import { patients } from '@/data/patients';
+import { doctors } from '@/data/doctors';
 import { transcripts } from '@/data/transcripts';
 
 const Transcripts = () => {

@@ -620,7 +620,7 @@ const Consult = ({ doctor, onBack }) => {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       {/* Enhanced status bar */}
-      <div className="bg-gray-800 px-4 py-2 flex justify-between items-center text-xs border-b border-gray-700">
+      {/* <div className="bg-gray-800 px-4 py-2 flex justify-between items-center text-xs border-b border-gray-700">
         <ConnectionStatus />
         <VolumeIndicator />
         <div className="text-gray-300 flex items-center gap-2">
@@ -634,7 +634,7 @@ const Consult = ({ doctor, onBack }) => {
             </>
           )}
         </div>
-      </div>
+      </div> */}
 
       {/* Header */}
       <div className="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center">
@@ -787,7 +787,7 @@ const Consult = ({ doctor, onBack }) => {
         </div>
 
         {/* Chat Section */}
-        <div className="lg:w-1/3 bg-gray-800 border-l border-gray-700 flex flex-col h-96 lg:h-auto">
+        <div className="lg:w-[30rem] flex-shrink-0 bg-gray-800 border-l border-gray-700 flex flex-col h-96 lg:h-auto">
           <div className="p-4 border-b border-gray-700 bg-gray-900">
             <h3 className="font-medium text-white text-lg flex items-center gap-2">
               <span>💬 Conversation</span>

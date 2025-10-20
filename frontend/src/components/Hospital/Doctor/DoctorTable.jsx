@@ -14,13 +14,13 @@ import { useUser } from "@/data/UserContext";
 const DoctorTable = ({ onView, onPause, onDelete }) => {
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useUser();
+  const { user, getHospitalId } = useUser();
 
   useEffect(() => {
     async function loadHospitalDoctors() {
       try {
-        // Get hospital_id from user context
-        const hospitalId = user?.hospital_id || user?.hospital_roles?.[0]?.hospital_id;
+        // Get hospital_id using the enhanced getHospitalId function
+        const hospitalId = getHospitalId();
         
         if (!hospitalId) {
           console.error("No hospital ID found for user");
@@ -42,13 +42,13 @@ const DoctorTable = ({ onView, onPause, onDelete }) => {
     if (user) {
       loadHospitalDoctors();
     }
-  }, [user]);
+  }, [user, getHospitalId]);
 
   const handleDelete = async (doctor) => {
     if (window.confirm(`Are you sure you want to remove ${doctor.username} from the hospital?`)) {
       try {
-        // Get hospital_id from user context
-        const hospitalId = user?.hospital_id || user?.hospital_roles?.[0]?.hospital_id;
+        // Get hospital_id using the enhanced getHospitalId function
+        const hospitalId = getHospitalId();
         
         if (!hospitalId) {
           alert("No hospital ID found for user");

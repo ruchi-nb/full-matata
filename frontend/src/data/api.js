@@ -118,9 +118,12 @@ async function request(path, options = {}, { withAuth = true } = {}) {
     }
     return handleResponse(res);
   } catch (error) {
-    console.error("Request failed:", error);
-    console.error("Request URL:", url);
-    console.error("Request options:", options);
+    // Only log detailed error info in development
+    if (process.env.NODE_ENV === 'development') {
+      console.error("Request failed:", error);
+      console.error("Request URL:", url);
+      console.error("Request options:", options);
+    }
     throw new Error(`Network error: ${error.message}`);
   }
 }

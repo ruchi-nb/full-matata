@@ -2,9 +2,9 @@
 import { useUser } from "@/data/UserContext";
 
 export function useHospitalId() {
-  const { user } = useUser();
+  const { user, getHospitalId } = useUser();
   
-  const hospitalId = user?.hospital_id || user?.hospital_roles?.[0]?.hospital_id;
+  const hospitalId = getHospitalId();
   
   return {
     hospitalId,

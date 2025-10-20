@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, User, ArrowRight } from 'lucide-react';
-import InvertedGradientButton from '../common/InvertedGradientButton';
+import InvertedGradientButton from '@/components/common/InvertedGradientButton';
 
 const PatientLogin = () => {
   const router = useRouter();

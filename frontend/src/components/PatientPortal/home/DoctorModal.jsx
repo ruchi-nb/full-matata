@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { doctors } from '@/data/doctors';
-import Consult from './Consult';
+import Consult from '@/components/PatientPortal/home/Consult';
 import InvertedGradientButton from '@/components/common/InvertedGradientButton';
 import OutlineButton from '@/components/common/OutlineButton';
 

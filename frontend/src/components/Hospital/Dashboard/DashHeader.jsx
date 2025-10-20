@@ -8,14 +8,14 @@ import { useRouter } from "next/navigation";
 export default function DashboardHeader() {
   const [hospital, setHospital] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { user, logout } = useUser();
+  const { user, logout, getHospitalId } = useUser();
   const router = useRouter();
 
   useEffect(() => {
     async function loadHospitalProfile() {
       try {
-        // Get hospital_id from user context
-        const hospitalId = user?.hospital_id || user?.hospital_roles?.[0]?.hospital_id;
+        // Get hospital_id using the enhanced getHospitalId function
+        const hospitalId = getHospitalId();
         
         if (!hospitalId) {
           console.error("No hospital ID found for user");
@@ -36,7 +36,7 @@ export default function DashboardHeader() {
     if (user) {
       loadHospitalProfile();
     }
-  }, [user]);
+  }, [user, getHospitalId]);
 
   const handleLogout = () => {
     logout();

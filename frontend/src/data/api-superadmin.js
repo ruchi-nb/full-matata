@@ -181,9 +181,6 @@ export function validateUserPayload(payload) {
     errors.push("username must be at least 3 characters long");
   }
   
-  if (payload.phone && !/^[\+]?[0-9\s\-\(\)]+$/.test(payload.phone)) {
-    errors.push("phone must be a valid phone number");
-  }
   
   return {
     isValid: errors.length === 0,

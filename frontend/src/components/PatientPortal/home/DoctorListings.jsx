@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { doctors } from '../../../data/doctors.js';
+import { doctors } from '@/data/doctors.js';
 
 const DoctorListings = ({ doctor }) => {
   const router = useRouter();

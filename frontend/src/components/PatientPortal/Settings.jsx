@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { getPatientProfile, updatePatientProfile, uploadPatientAvatar } from "@/data/api-patient";
 import { useUser } from '@/data/UserContext';
 import { Save, MapPin, Mail, User, Image } from "lucide-react";
-import InvertedGradientButton from "../common/InvertedGradientButton";
+import InvertedGradientButton from "@/components/common/InvertedGradientButton";
 
 export default function ProfileForm() {
   const { user, updateUser } = useUser();

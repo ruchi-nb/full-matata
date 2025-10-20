@@ -1,5 +1,5 @@
 import React from 'react';
-import doctorsData from '../../../data/doctors.js'
+import doctorsData from '@/data/doctors.js'
 
 const DoctorCard = ({ doctor }) => {
   return (
