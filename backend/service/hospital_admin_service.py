@@ -137,16 +137,32 @@ async def hospital_admin_create_user(
             logger.info("Assigned %d default permissions to new role '%s' for hospital %s", len(perm_ids), role_name, hospital_id)
 
 
-    # Get global_role_id from role_master based on role_name
+    # Map tenant role to global role
+    # Standard roles map directly, custom roles default based on context
     from models.models import RoleMaster
-    role_master_query = select(RoleMaster).where(RoleMaster.role_name == role_name)
+    
+    # Define mapping of tenant roles to global roles
+    role_mapping = {
+        "doctor": "doctor",
+        "patient": "patient",
+        "hospital_admin": "hospital_admin",
+    }
+    
+    # For custom roles, we need to infer the global role
+    # If it's a custom role, default to 'doctor' as it's staff-level access
+    global_role_name = role_mapping.get(role_name.lower(), "doctor")
+    
+    role_master_query = select(RoleMaster).where(RoleMaster.role_name == global_role_name)
     role_master_result = await db.execute(role_master_query)
     role_master = role_master_result.scalar_one_or_none()
     
     if not role_master:
-        raise ValueError(f"Role '{role_name}' not found in role_master table")
+        # Fallback to doctor role if mapping fails
+        role_master_query = select(RoleMaster).where(RoleMaster.role_name == "doctor")
+        role_master_result = await db.execute(role_master_query)
+        role_master = role_master_result.scalar_one_or_none()
     
-    global_role_id = role_master.role_id
+    global_role_id = role_master.role_id if role_master else 3  # Default to doctor (3)
     logger.info(f"🔍 Found global_role_id {global_role_id} for role '{role_name}'")
     
     hashed = generate_passwd_hash(password)

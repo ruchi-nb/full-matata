@@ -369,7 +369,8 @@ async def list_hospital_doctors(db: AsyncSession, *, hospital_id: int, limit: in
         
         logger.info(f"🔍 Listing doctors for hospital_id: {hospital_id}")
         
-        # First get the user IDs who have doctor role in this hospital
+        # Get user IDs with doctor role OR custom roles (excluding patient and hospital_admin)
+        # Custom roles are treated as staff/doctor-level access
         user_ids_query = (
             select(HospitalUserRoles.user_id)
             .join(HospitalRole, HospitalRole.hospital_role_id == HospitalUserRoles.hospital_role_id)
@@ -377,7 +378,8 @@ async def list_hospital_doctors(db: AsyncSession, *, hospital_id: int, limit: in
                 and_(
                     HospitalUserRoles.hospital_id == int(hospital_id),
                     HospitalUserRoles.is_active == 1,
-                    HospitalRole.role_name == 'doctor'
+                    # Include 'doctor' role and custom roles (exclude patient and hospital_admin)
+                    HospitalRole.role_name.notin_(['patient', 'hospital_admin'])
                 )
             )
             .distinct()

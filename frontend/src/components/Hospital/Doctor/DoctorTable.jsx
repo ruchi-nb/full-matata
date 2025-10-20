@@ -3,66 +3,57 @@
 import React, { useState, useEffect } from "react";
 import {
   Mail,
-  Phone,
   SquarePen,
-  Pause,
   Trash2,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { listHospitalDoctors, removeDoctorFromHospital } from "@/data/api-hospital-admin.js";
 import { useUser } from "@/data/UserContext";
 
-const DoctorTable = ({ onView, onPause, onDelete }) => {
-  const [doctors, setDoctors] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const { user, getHospitalId } = useUser();
+const DoctorTable = ({ doctors = [], loading = false, onView, onPause, onDelete }) => {
+  const { getHospitalId } = useUser();
+  const router = useRouter();
 
-  useEffect(() => {
-    async function loadHospitalDoctors() {
-      try {
-        // Get hospital_id using the enhanced getHospitalId function
-        const hospitalId = getHospitalId();
-        
-        if (!hospitalId) {
-          console.error("No hospital ID found for user");
-          setLoading(false);
-          return;
-        }
-
-        const doctorsList = await listHospitalDoctors(hospitalId);
-        setDoctors(doctorsList || []);
-      } catch (error) {
-        console.error("Failed to load hospital doctors:", error);
-        setDoctors([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    // Only load if user is available
-    if (user) {
-      loadHospitalDoctors();
-    }
-  }, [user, getHospitalId]);
+  const handleEdit = (doctor) => {
+    router.push(`/Hospital/editUser?userId=${doctor.user_id}`);
+  };
 
   const handleDelete = async (doctor) => {
-    if (window.confirm(`Are you sure you want to remove ${doctor.username} from the hospital?`)) {
+    const userName = doctor.first_name && doctor.last_name 
+      ? `${doctor.first_name} ${doctor.last_name}` 
+      : doctor.username || `User ${doctor.user_id}`;
+      
+    if (window.confirm(`Are you sure you want to deactivate ${userName}? They will no longer have access to the hospital.`)) {
       try {
-        // Get hospital_id using the enhanced getHospitalId function
         const hospitalId = getHospitalId();
         
         if (!hospitalId) {
-          alert("No hospital ID found for user");
+          alert("No hospital ID found");
           return;
         }
 
-        await removeDoctorFromHospital(hospitalId, doctor.user_id);
-        // Reload the doctors list
-        const doctorsList = await listHospitalDoctors(hospitalId);
-        setDoctors(doctorsList || []);
-        onDelete?.(doctor);
+        // Soft delete - deactivate user in hospital_user_roles
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+        const accessToken = document.cookie.split('accessToken=')[1]?.split(';')[0];
+        
+        const response = await fetch(`${backendUrl}/hospital-admin/hospitals/${hospitalId}/users/${doctor.user_id}/deactivate`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          alert("User deactivated successfully");
+          onDelete?.(doctor);
+        } else {
+          const error = await response.json();
+          alert(`Failed to deactivate user: ${error.detail || 'Unknown error'}`);
+        }
       } catch (error) {
-        console.error("Failed to remove doctor:", error);
-        alert("Failed to remove doctor. Please try again.");
+        console.error("Failed to deactivate user:", error);
+        alert("Failed to deactivate user. Please try again.");
       }
     }
   };
@@ -97,7 +88,7 @@ const DoctorTable = ({ onView, onPause, onDelete }) => {
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="text-left py-4 px-6 font-medium text-gray-900">
-                Doctor
+                All Users
               </th>
               <th className="text-left py-4 px-6 font-medium text-gray-900">
                 Email
@@ -116,18 +107,25 @@ const DoctorTable = ({ onView, onPause, onDelete }) => {
                 key={doctor.user_id}
                 className="border-b border-gray-100 hover:bg-gray-50"
               >
-                {/* Doctor Info */}
+                {/* User Info */}
                 <td className="py-4 px-6">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
-                      {doctor.username?.charAt(0)?.toUpperCase() || 'D'}
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium ${
+                      doctor.roleType === 'Patient' ? 'bg-green-500' :
+                      doctor.roleType === 'Nurse' ? 'bg-purple-500' :
+                      'bg-blue-500'
+                    }`}>
+                      {doctor.username?.charAt(0)?.toUpperCase() || doctor.first_name?.charAt(0)?.toUpperCase() || 'U'}
                     </div>
                     <div>
                       <div className="font-medium text-gray-900">
-                        {doctor.username || `Doctor ${doctor.user_id}`}
+                        {doctor.first_name && doctor.last_name 
+                          ? `${doctor.first_name} ${doctor.last_name}`
+                          : doctor.username || `User ${doctor.user_id}`
+                        }
                       </div>
                       <div className="text-sm text-gray-500">
-                        ID: {doctor.user_id}
+                        {doctor.roleType || 'User'} • ID: {doctor.user_id}
                       </div>
                     </div>
                   </div>
@@ -150,23 +148,16 @@ const DoctorTable = ({ onView, onPause, onDelete }) => {
                 <td className="py-4 px-6">
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => onView?.(doctor)}
+                      onClick={() => handleEdit(doctor)}
                       className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="View Profile"
+                      title="Edit User"
                     >
                       <SquarePen className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => onPause?.(doctor)}
-                      className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                      title="Pause"
-                    >
-                      <Pause className="h-4 w-4" />
-                    </button>
-                    <button
                       onClick={() => handleDelete(doctor)}
                       className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Remove from Hospital"
+                      title="Deactivate User"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Building, Users } from "lucide-react";
+import { Building, Users, Stethoscope } from "lucide-react";
 
 const navItems = [
   {
@@ -10,19 +10,14 @@ const navItems = [
     path: "/Hospital/settings",
   },
   {
-    name: "Hospital Profile & Branding",
+    name: "Hospital Details",
     icon: Building,
-    path: "/Hospital/settings/adprofile",
+    path: "/Hospital/settings/hospital",
   },
   {
-    name: "Security",
-    icon: Users,
-    path: "/Hospital/settings/admin",
-  },
-  {
-    name: "Departments",
-    icon: Building,
-    path: "/Hospital/settings/department",
+    name: "Specialities",
+    icon: Stethoscope,
+    path: "/Hospital/settings/specialities",
   },
 ];
 

@@ -1,9 +1,9 @@
 import HosSidebar from "@/components/Hospital/Sidebar";
 import SettingsHead from "@/components/settings/SettingHead";
 import SidebarNav from "@/components/settings/SidebarNav";
-import AdminProfile from "@/components/settings/AdminProfile";
+import HospitalDetails from "@/components/settings/HospitalDetails";
 
-export default function AdminSettingsPage(){
+export default function HospitalDetailsPage(){
     return(
         <div className="flex h-screen bg-[#e6eef8]">
             <div className="h-full w-[17rem] flex-shrink-0">
@@ -18,7 +18,7 @@ export default function AdminSettingsPage(){
                                 <SidebarNav />
                             </div>
                             <div className="flex-1">
-                                <AdminProfile />
+                                <HospitalDetails />
                             </div>
                         </div>
                     </div>
@@ -27,3 +27,4 @@ export default function AdminSettingsPage(){
         </div> 
     );
 }
+

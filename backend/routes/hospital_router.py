@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
+from sqlalchemy import text, select, and_
 from database.database import get_db
 from dependencies.dependencies import require_permissions, ensure_hospital_exists, ensure_hospital_role_belongs_to_hospital
 from schema.schema import (
@@ -545,6 +545,126 @@ async def list_doctors(
         logger = logging.getLogger(__name__)
         logger.error(f"❌ API: Database error listing doctors: {de}")
         raise HTTPException(status_code=500, detail="Failed to list doctors") from de
+
+
+@router.get("/nurses", response_model=List[HospitalDoctorOut])
+async def list_nurses(
+    caller: Dict[str, Any] = Depends(require_permissions(["hospital.doctors.list"], hospital_id_param="hospital_id")),
+    hospital_id: int = Depends(ensure_hospital_exists),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List all nurses for a specific hospital.
+    """
+    try:
+        from models.models import HospitalRole, HospitalUserRoles, UserDetails, Users
+        
+        # Get user IDs with nurse role
+        user_ids_query = (
+            select(HospitalUserRoles.user_id)
+            .join(HospitalRole, HospitalRole.hospital_role_id == HospitalUserRoles.hospital_role_id)
+            .where(
+                and_(
+                    HospitalUserRoles.hospital_id == hospital_id,
+                    HospitalUserRoles.is_active == 1,
+                    HospitalRole.role_name == 'nurse'
+                )
+            )
+            .distinct()
+        )
+        
+        user_ids_res = await db.execute(user_ids_query)
+        user_ids = [row[0] for row in user_ids_res.fetchall()]
+        
+        if not user_ids:
+            return []
+        
+        # Fetch Users
+        users_query = select(Users).where(Users.user_id.in_(user_ids))
+        users_res = await db.execute(users_query)
+        users = users_res.scalars().all()
+        
+        result = []
+        for user in users:
+            user_details_query = select(UserDetails).where(UserDetails.user_id == user.user_id)
+            user_details_res = await db.execute(user_details_query)
+            user_details = user_details_res.scalar_one_or_none()
+            
+            result.append(
+                HospitalDoctorOut(
+                    user_id=int(user.user_id),
+                    username=user.username,
+                    email=user.email,
+                    first_name=user_details.first_name if user_details else None,
+                    last_name=user_details.last_name if user_details else None,
+                    global_role_id=int(user.global_role_id) if user.global_role_id is not None else None,
+                    specialties=[]
+                )
+            )
+        
+        return result
+    except DatabaseError as de:
+        raise HTTPException(status_code=500, detail="Failed to list nurses") from de
+
+
+@router.get("/patients", response_model=List[HospitalDoctorOut])
+async def list_patients(
+    caller: Dict[str, Any] = Depends(require_permissions(["hospital.patients.list"], hospital_id_param="hospital_id")),
+    hospital_id: int = Depends(ensure_hospital_exists),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List all patients for a specific hospital.
+    """
+    try:
+        from models.models import HospitalRole, HospitalUserRoles, UserDetails, Users
+        
+        # Get user IDs with patient role
+        user_ids_query = (
+            select(HospitalUserRoles.user_id)
+            .join(HospitalRole, HospitalRole.hospital_role_id == HospitalUserRoles.hospital_role_id)
+            .where(
+                and_(
+                    HospitalUserRoles.hospital_id == hospital_id,
+                    HospitalUserRoles.is_active == 1,
+                    HospitalRole.role_name == 'patient'
+                )
+            )
+            .distinct()
+        )
+        
+        user_ids_res = await db.execute(user_ids_query)
+        user_ids = [row[0] for row in user_ids_res.fetchall()]
+        
+        if not user_ids:
+            return []
+        
+        # Fetch Users
+        users_query = select(Users).where(Users.user_id.in_(user_ids))
+        users_res = await db.execute(users_query)
+        users = users_res.scalars().all()
+        
+        result = []
+        for user in users:
+            user_details_query = select(UserDetails).where(UserDetails.user_id == user.user_id)
+            user_details_res = await db.execute(user_details_query)
+            user_details = user_details_res.scalar_one_or_none()
+            
+            result.append(
+                HospitalDoctorOut(
+                    user_id=int(user.user_id),
+                    username=user.username,
+                    email=user.email,
+                    first_name=user_details.first_name if user_details else None,
+                    last_name=user_details.last_name if user_details else None,
+                    global_role_id=int(user.global_role_id) if user.global_role_id is not None else None,
+                    specialties=[]
+                )
+            )
+        
+        return result
+    except DatabaseError as de:
+        raise HTTPException(status_code=500, detail="Failed to list patients") from de
 
 
 @router.get("/{hospital_id}/roles", response_model=List[Dict[str, Any]])

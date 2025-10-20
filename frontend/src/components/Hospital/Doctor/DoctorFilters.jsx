@@ -1,5 +1,5 @@
 'use client';
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Search, Funnel } from "lucide-react";
 
 const DoctorFilters = ({
@@ -25,6 +25,41 @@ const DoctorFilters = ({
   };
 
   const selectedRoleDisplay = getRoleDisplayName(role);
+
+  // Load specialties from backend
+  const [specialties, setSpecialties] = useState([]);
+  const [loadingSpecialties, setLoadingSpecialties] = useState(true);
+
+  useEffect(() => {
+    async function loadSpecialties() {
+      try {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+        const accessToken = document.cookie.split('accessToken=')[1]?.split(';')[0];
+        
+        const response = await fetch(`${backendUrl}/hospitals/specialities`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setSpecialties(data || []);
+        } else {
+          console.error("Failed to load specialties:", response.status);
+          setSpecialties([]);
+        }
+      } catch (error) {
+        console.error("Error loading specialties:", error);
+        setSpecialties([]);
+      } finally {
+        setLoadingSpecialties(false);
+      }
+    }
+
+    loadSpecialties();
+  }, []);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
@@ -57,14 +92,21 @@ const DoctorFilters = ({
             <select
               value={specialty}
               onChange={(e) => onSpecialtyChange(e.target.value)}
-              className="px-4 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={loadingSpecialties}
+              className="px-4 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
             >
-              <option value="all">All Specialties</option>
-              <option value="Cardiology">Cardiology</option>
-              <option value="Neurology">Neurology</option>
-              <option value="Pediatrics">Pediatrics</option>
-              <option value="Orthopedics">Orthopedics</option>
-              <option value="Dermatology">Dermatology</option>
+              <option value="all">
+                {loadingSpecialties ? "Loading specialties..." : "All Specialties"}
+              </option>
+              {specialties.length > 0 ? (
+                specialties.map((s) => (
+                  <option key={s.specialty_id} value={s.name}>
+                    {s.name}
+                  </option>
+                ))
+              ) : (
+                !loadingSpecialties && <option value="" disabled>No specialties available</option>
+              )}
             </select>
         </div>
         

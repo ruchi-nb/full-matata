@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, Path, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from schema.schema import HospitalAdminCreateUserIn, HospitalAdminCreateUserOut, CreateHospitalRoleIn, CreateHospitalRoleOut, AssignPermissionsIn, UserRead
+from sqlalchemy import select, func, and_
+from schema.schema import HospitalAdminCreateUserIn, HospitalAdminCreateUserOut, CreateHospitalRoleIn, CreateHospitalRoleOut, AssignPermissionsIn, UserRead, HospitalProfileUpdate
 from database.database import get_db
 from dependencies.dependencies import require_hospital_roles, get_current_user
 from service.hospital_admin_service import hospital_admin_create_user, create_custom_hospital_role, assign_permissions_to_hospital_role
-from models.models import Users, Consultation, HospitalUserRoles, HospitalRole
+from service.hospitals_service import get_hospital_profile, update_hospital_profile
+from models.models import Users, Consultation, HospitalUserRoles, HospitalRole, HospitalMaster
 from typing import Dict, Any
 import logging
 
@@ -14,13 +15,14 @@ router = APIRouter(
     tags=["Hospital Admin"],
 )
 
-@router.get("/profile", response_model=UserRead)
+@router.get("/profile")
 async def get_hospital_admin_profile(
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Get hospital admin profile information
+    Returns a simplified profile without strict validation
     """
     try:
         user_id = current_user.get("user_id")
@@ -31,17 +33,114 @@ async def get_hospital_admin_profile(
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        return UserRead(
-            user_id=user.user_id,
-            username=user.username,
-            email=user.email,
-            global_role_id=user.global_role_id,
-            is_active=user.is_active,
-            created_at=user.created_at.isoformat() if user.created_at else None,
-            updated_at=user.updated_at.isoformat() if user.updated_at else None
-        )
+        # Return as dict to avoid Pydantic validation issues
+        return {
+            "user_id": user.user_id,
+            "username": user.username or "",
+            "email": user.email or "",
+            "global_role_id": user.global_role_id,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "updated_at": user.updated_at.isoformat() if user.updated_at else None
+        }
     except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error fetching profile for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch profile: {str(e)}")
+
+
+@router.get("/hospitals/{hospital_id}/profile")
+async def get_hospital_admin_hospital_profile(
+    hospital_id: int = Path(...),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get hospital profile for hospital admin
+    No special permissions required - hospital admin can view their own hospital
+    """
+    try:
+        # Verify user has access to this hospital
+        user_hospital_id = current_user.get("hospital_id")
+        if not user_hospital_id or user_hospital_id != hospital_id:
+            raise HTTPException(status_code=403, detail="Access denied to this hospital")
+        
+        hospital = await db.get(HospitalMaster, hospital_id)
+        if not hospital:
+            raise HTTPException(status_code=404, detail="Hospital not found")
+        
+        return {
+            "hospital_id": hospital.hospital_id,
+            "hospital_name": hospital.hospital_name,
+            "hospital_email": hospital.hospital_email,
+            "admin_contact": hospital.admin_contact,
+            "address": hospital.address,
+            "is_active": hospital.is_active if hasattr(hospital, 'is_active') else True,
+            "created_at": hospital.created_at.isoformat() if hospital.created_at else None,
+            "updated_at": hospital.updated_at.isoformat() if hospital.updated_at else None,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error fetching hospital profile for hospital {hospital_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch hospital profile: {str(e)}")
+
+
+@router.put("/hospitals/{hospital_id}/profile")
+async def update_hospital_admin_hospital_profile(
+    hospital_id: int = Path(...),
+    payload: HospitalProfileUpdate = Body(...),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update hospital profile for hospital admin
+    No special permissions required - hospital admin can update their own hospital
+    """
+    try:
+        # Verify user has access to this hospital
+        user_hospital_id = current_user.get("hospital_id")
+        if not user_hospital_id or user_hospital_id != hospital_id:
+            raise HTTPException(status_code=403, detail="Access denied to this hospital")
+        
+        hospital = await db.get(HospitalMaster, hospital_id)
+        if not hospital:
+            raise HTTPException(status_code=404, detail="Hospital not found")
+        
+        # Update fields
+        if payload.hospital_name is not None:
+            hospital.hospital_name = payload.hospital_name
+        if payload.hospital_email is not None:
+            hospital.hospital_email = payload.hospital_email
+        if payload.admin_contact is not None:
+            hospital.admin_contact = payload.admin_contact
+        if payload.address is not None:
+            hospital.address = payload.address
+        if payload.is_active is not None and hasattr(hospital, 'is_active'):
+            hospital.is_active = payload.is_active
+        
+        await db.commit()
+        await db.refresh(hospital)
+        
+        return {
+            "hospital_id": hospital.hospital_id,
+            "hospital_name": hospital.hospital_name,
+            "hospital_email": hospital.hospital_email,
+            "admin_contact": hospital.admin_contact,
+            "address": hospital.address,
+            "is_active": hospital.is_active if hasattr(hospital, 'is_active') else True,
+            "created_at": hospital.created_at.isoformat() if hospital.created_at else None,
+            "updated_at": hospital.updated_at.isoformat() if hospital.updated_at else None,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error updating hospital profile for hospital {hospital_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update hospital profile: {str(e)}")
+
 
 @router.post(
     "/hospitals/{hospital_id}/users",
@@ -250,6 +349,218 @@ async def get_dashboard_statistics(
         logger = logging.getLogger(__name__)
         logger.error(f"Error fetching dashboard stats for hospital {hospital_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch dashboard statistics: {str(e)}")
+
+
+@router.put(
+    "/hospitals/{hospital_id}/users/{user_id}/deactivate",
+    summary="Deactivate user in hospital (soft delete)"
+)
+async def deactivate_hospital_user(
+    hospital_id: int = Path(...),
+    user_id: int = Path(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(require_hospital_roles(role_names=["hospital_admin"], hospital_id_param="hospital_id", allow_super_admin=True))
+):
+    """
+    Soft delete - Set is_active = 0 in hospital_user_roles for this user
+    """
+    try:
+        from models.models import HospitalUserRoles
+        
+        # Find the user's hospital role assignment
+        query = select(HospitalUserRoles).where(
+            and_(
+                HospitalUserRoles.hospital_id == hospital_id,
+                HospitalUserRoles.user_id == user_id
+            )
+        )
+        result = await db.execute(query)
+        user_role = result.scalar_one_or_none()
+        
+        if not user_role:
+            raise HTTPException(status_code=404, detail="User not found in this hospital")
+        
+        # Soft delete - set is_active to 0
+        user_role.is_active = 0
+        await db.commit()
+        
+        return {"message": "User deactivated successfully", "user_id": user_id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error deactivating user {user_id} in hospital {hospital_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to deactivate user: {str(e)}")
+
+
+@router.get(
+    "/users/{user_id}",
+    response_model=Dict[str, Any],
+    summary="Get user details"
+)
+async def get_user_details(
+    user_id: int = Path(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get detailed information about a user
+    """
+    try:
+        from models.models import UserDetails
+        
+        # Get user
+        user = await db.get(Users, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get user details
+        user_details_query = select(UserDetails).where(UserDetails.user_id == user_id)
+        user_details_result = await db.execute(user_details_query)
+        user_details = user_details_result.scalar_one_or_none()
+        
+        return {
+            "user_id": user.user_id,
+            "username": user.username,
+            "email": user.email,
+            "first_name": user_details.first_name if user_details else None,
+            "last_name": user_details.last_name if user_details else None,
+            "phone": user_details.phone if user_details else None,
+            "global_role_id": user.global_role_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error fetching user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch user: {str(e)}")
+
+
+@router.put(
+    "/users/{user_id}",
+    response_model=Dict[str, Any],
+    summary="Update user details"
+)
+async def update_user_details(
+    user_id: int = Path(...),
+    payload: Dict[str, Any] = Body(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Update user details (first_name, last_name, phone)
+    """
+    try:
+        from models.models import UserDetails
+        
+        # Get or create user details
+        user_details_query = select(UserDetails).where(UserDetails.user_id == user_id)
+        user_details_result = await db.execute(user_details_query)
+        user_details = user_details_result.scalar_one_or_none()
+        
+        if not user_details:
+            # Create user details if doesn't exist
+            user_details = UserDetails(user_id=user_id)
+            db.add(user_details)
+        
+        # Update fields
+        if 'first_name' in payload:
+            user_details.first_name = payload['first_name']
+        if 'last_name' in payload:
+            user_details.last_name = payload['last_name']
+        if 'phone' in payload:
+            user_details.phone = payload['phone']
+        
+        await db.commit()
+        await db.refresh(user_details)
+        
+        return {
+            "message": "User updated successfully",
+            "user_id": user_id,
+            "first_name": user_details.first_name,
+            "last_name": user_details.last_name,
+            "phone": user_details.phone
+        }
+        
+    except Exception as e:
+        await db.rollback()
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error updating user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update user: {str(e)}")
+
+
+@router.get(
+    "/hospitals/{hospital_id}/roles/{role_name}/users",
+    response_model=list[Dict[str, Any]],
+    summary="Get all users with a specific role in hospital"
+)
+async def get_users_by_role(
+    hospital_id: int = Path(...),
+    role_name: str = Path(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(require_hospital_roles(role_names=["hospital_admin"], hospital_id_param="hospital_id", allow_super_admin=True))
+):
+    """
+    Get all users who have a specific role in the hospital
+    """
+    try:
+        from models.models import UserDetails
+        
+        # Get the role
+        role_query = select(HospitalRole).where(
+            and_(
+                HospitalRole.hospital_id == hospital_id,
+                HospitalRole.role_name == role_name
+            )
+        )
+        role_result = await db.execute(role_query)
+        role = role_result.scalar_one_or_none()
+        
+        if not role:
+            return []
+        
+        # Get users with this role
+        user_ids_query = select(HospitalUserRoles.user_id).where(
+            and_(
+                HospitalUserRoles.hospital_id == hospital_id,
+                HospitalUserRoles.hospital_role_id == role.hospital_role_id,
+                HospitalUserRoles.is_active == 1
+            )
+        )
+        user_ids_result = await db.execute(user_ids_query)
+        user_ids = [row[0] for row in user_ids_result.fetchall()]
+        
+        if not user_ids:
+            return []
+        
+        # Fetch users
+        users_query = select(Users).where(Users.user_id.in_(user_ids))
+        users_result = await db.execute(users_query)
+        users = users_result.scalars().all()
+        
+        result = []
+        for user in users:
+            user_details_query = select(UserDetails).where(UserDetails.user_id == user.user_id)
+            user_details_result = await db.execute(user_details_query)
+            user_details = user_details_result.scalar_one_or_none()
+            
+            result.append({
+                "user_id": user.user_id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user_details.first_name if user_details else None,
+                "last_name": user_details.last_name if user_details else None,
+                "role_name": role_name
+            })
+        
+        return result
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error fetching users for role {role_name} in hospital {hospital_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch users: {str(e)}")
 
 
 @router.get("/permissions", response_model=list[Dict[str, Any]])

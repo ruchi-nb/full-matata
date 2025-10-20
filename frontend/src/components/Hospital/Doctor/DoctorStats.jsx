@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { User, Users, Stethoscope, Microscope } from "lucide-react";
-import { listHospitalDoctors, listHospitalNurses, listHospitalPatients, listHospitalLabTechnicians } from "@/data/api-hospital-admin.js";
+import { User, Stethoscope } from "lucide-react";
+import { listHospitalDoctors, listHospitalPatients } from "@/data/api-hospital-admin.js";
 import { useUser } from "@/data/UserContext";
 
 const StatsCard = ({ icon: Icon, bgColor, iconColor, label, value }) => (
@@ -21,9 +21,7 @@ const StatsCard = ({ icon: Icon, bgColor, iconColor, label, value }) => (
 
 const DoctorStats = () => {
   const [doctors, setDoctors] = useState([]);
-  const [nurses, setNurses] = useState([]);
   const [patients, setPatients] = useState([]);
-  const [labTechnicians, setLabTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useUser();
 
@@ -39,25 +37,19 @@ const DoctorStats = () => {
           return;
         }
 
-        // Load all data in parallel
-        const [doctorsList, nursesList, patientsList, labTechniciansList] = await Promise.all([
+        // Load doctors and patients in parallel
+        const [doctorsList, patientsList] = await Promise.all([
           listHospitalDoctors(hospitalId),
-          listHospitalNurses(hospitalId),
-          listHospitalPatients(hospitalId),
-          listHospitalLabTechnicians(hospitalId)
+          listHospitalPatients(hospitalId)
         ]);
 
         setDoctors(doctorsList || []);
-        setNurses(nursesList || []);
         setPatients(patientsList || []);
-        setLabTechnicians(labTechniciansList || []);
       } catch (error) {
         console.error("Failed to load hospital data:", error);
         // Set empty arrays for all data on error
         setDoctors([]);
-        setNurses([]);
         setPatients([]);
-        setLabTechnicians([]);
       } finally {
         setLoading(false);
       }
@@ -71,8 +63,8 @@ const DoctorStats = () => {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {[1, 2].map((i) => (
           <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="opacity-50">
               <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
@@ -97,30 +89,16 @@ const DoctorStats = () => {
       value: doctors.length,
     },
     {
-      icon: Users,
-      bgColor: "bg-purple-50",
-      iconColor: "text-purple-600",
-      label: "Total Nurses",
-      value: nurses.length,
-    },
-    {
       icon: Stethoscope,
       bgColor: "bg-green-50",
       iconColor: "text-green-600",
       label: "Total Patients",
       value: patients.length,
     },
-    {
-      icon: Microscope,
-      bgColor: "bg-orange-50",
-      iconColor: "text-orange-600",
-      label: "Lab Technicians",
-      value: labTechnicians.length,
-    },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
       {statsData.map((stat, index) => (
         <StatsCard
           key={index}
