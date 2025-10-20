@@ -39,6 +39,9 @@ from config import settings
 # Import unified services for backward compatibility
 from integrations.unified_services import sarvam_service, openai_service, deepgram_service
 
+# Import monitoring health check router
+from monitoring import health_check_router
+
 app = FastAPI(
     title="AI Avatar Doctor Backend",
     version="1.0.0",
@@ -173,6 +176,9 @@ app.include_router(doctors_router.router)
 app.include_router(search_router.router)
 app.include_router(superadmin_router.router)
 app.include_router(hospital_admin_routers.router)
+
+# Include monitoring health check router
+app.include_router(health_check_router, prefix="/api/v1", tags=["Monitoring"])
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")

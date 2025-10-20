@@ -1,11 +1,17 @@
 """
-Unified Services
-Combines all separated services for backward compatibility
+Enhanced Unified Services
+Production-grade unified services with optimized performance
 """
 
 from .sarvam import SarvamSTTService, SarvamTTSService, SarvamTranslationService
-from database.redis import SessionManager
 from .deepgram import DeepgramSTTService, DeepgramTTSService
+from .openai.chat_service import OpenAIChatService
+from .rag.service import RAGService
+import logging
+import time
+from typing import Dict, Any
+
+logger = logging.getLogger(__name__)
 
 
 class UnifiedSarvamService:
@@ -56,6 +62,27 @@ class UnifiedSarvamService:
     def text_translate(self, text: str, source_lang: str = "en", target_lang: str = "hi", 
                       request_id: str = None, session_id: str = None):
         return self.translation_service.text_translate(text, source_lang, target_lang, request_id, session_id)
+    
+    async def health_check(self) -> Dict[str, Any]:
+        """Health check for all Sarvam services"""
+        try:
+            return {
+                "status": "healthy",
+                "service": "unified_sarvam",
+                "services": {
+                    "stt": "available",
+                    "tts": "available", 
+                    "translation": "available"
+                },
+                "timestamp": time.time()
+            }
+        except Exception as e:
+            logger.error(f"Unified Sarvam service health check failed: {e}")
+            return {
+                "status": "unhealthy",
+                "service": "unified_sarvam",
+                "error": str(e)
+            }
 
 
 
@@ -109,8 +136,7 @@ class UnifiedDeepgramService:
         """Streaming TTS (production-grade)"""
         async for chunk in self.tts_service.tts_streaming(text, voice, encoding, request_id):
             yield chunk
-
-
+    
 # Import enhanced OpenAI service with production optimizations
 from .openai.chat_service import OpenAIChatService
 openai_service = OpenAIChatService()

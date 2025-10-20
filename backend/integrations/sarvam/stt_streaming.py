@@ -7,15 +7,19 @@ import logging
 import time
 import asyncio
 import base64
-from typing import Optional
+from typing import Optional, Dict, Any
 from sarvamai import AsyncSarvamAI
 from config import settings
+from ..base_service import BaseService
+from monitoring.monitoring import monitoring
 
 logger = logging.getLogger(__name__)
 
 
-class SarvamSTTService:
+class SarvamSTTService(BaseService):
     def __init__(self):
+        super().__init__('sarvam')
+        
         self.api_key = settings.SARVAM_API_KEY
 
     def _convert_lang_code(self, lang_code: str) -> str:
@@ -35,12 +39,17 @@ class SarvamSTTService:
         }
         return lang_map.get(lang_code, f"{lang_code}-IN")
 
+
     def speech_to_text(self, audio_file_path: str, language: str = "hi", request_id: str = None, session_id: str = None) -> Optional[str]:
         """Convert audio speech to text (STT only, no translation)"""
         start_time = time.time()
         request_id = request_id or f"stt-{int(time.time()*1000)}"
         
         try:
+            # Check if request should be skipped
+            if self._should_skip_request():
+                return None
+            
             import requests
             base_url = settings.SARVAM_BASE_URL
             url = f"{base_url}/speech-to-text"
@@ -70,6 +79,8 @@ class SarvamSTTService:
             except Exception as log_error:
                 logger.warning(f"Analytics logging failed: {log_error}")
             
+            latency_ms = int((time.time() - start_time) * 1000)
+            self._record_success(latency_ms)  # Record success
             return transcribed_text
 
         except Exception as e:
@@ -89,6 +100,7 @@ class SarvamSTTService:
             except Exception as log_error:
                 logger.warning(f"Analytics logging failed: {log_error}")
             
+            self._record_failure()  # Record failure for circuit breaker
             return None
 
     async def speech_to_text_streaming(
@@ -110,6 +122,15 @@ class SarvamSTTService:
         request_id = request_id or f"stt-{int(time.time()*1000)}"
         
         try:
+            # Input validation
+            if not self._validate_audio_input(audio_bytes, language_code or "hi"):
+                return None
+            
+            # Check circuit breaker
+            if not self._check_circuit_breaker():
+                logger.warning("STT Circuit breaker open, returning None")
+                return None
+            
             language_code = self._convert_lang_code(language_code or "hi")
             model = model or settings.SARVAM_STT_MODEL
             
@@ -248,6 +269,7 @@ class SarvamSTTService:
                     logger.warning(f"Analytics logging failed: {log_error}")
                 
                 logger.info(f"[Sarvam STT] Final result: '{final_text}'")
+                self._record_success()  # Record success for circuit breaker
                 return final_text if final_text else None
                 
         except Exception as e:
@@ -261,4 +283,5 @@ class SarvamSTTService:
             except Exception as log_error:
                 logger.warning(f"Analytics logging failed: {log_error}")
             
+            self._record_failure()  # Record failure for circuit breaker
             return None

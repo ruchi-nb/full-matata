@@ -8,18 +8,24 @@ import time
 import asyncio
 import base64
 import tempfile
-from typing import Optional, AsyncGenerator
-from sarvamai import AsyncSarvamAI
+from typing import Optional, AsyncGenerator, Dict, Any
+try:
+    from sarvamai import AsyncSarvamAI
+except ImportError:
+    AsyncSarvamAI = None
 from config import settings
 from typing import cast
+from ..base_service import BaseService
 
 logger = logging.getLogger(__name__)
 
 
-class SarvamTTSService:
+class SarvamTTSService(BaseService):
     """Production-grade Sarvam TTS service with optimized streaming"""
     
     def __init__(self):
+        super().__init__('sarvam')
+        
         self.api_key = settings.SARVAM_API_KEY
         
         # ULTRA-EXTREME Performance tuning for instant streaming
@@ -27,7 +33,7 @@ class SarvamTTSService:
         self._convert_timeout = 0.05  # Ultra-extreme text conversion timeout
         self._flush_timeout = 0.02  # Ultra-extreme flush timeout
         self._chunk_timeout = 0.01  # 10ms per chunk (ultra-extreme low latency)
-        self._stream_timeout = 60.0  # Extended overall stream timeout for complete audio
+        self._stream_timeout = 60.0  # Default timeout, will be updated when config is loaded
         self._inactivity_threshold = 3  # 3 × 10ms = 30ms inactivity detection
         
         # INSTANT first chunk delivery - zero buffering delays
@@ -55,6 +61,7 @@ class SarvamTTSService:
             "en": "en-IN"
         }
         return lang_map.get(lang_code, lang_code)
+
 
     async def warmup_connection(self, language_code: str = "hi-IN", speaker: str = None):
         """Warmup a connection to reduce first request latency"""
@@ -112,6 +119,15 @@ class SarvamTTSService:
         request_id = request_id or f"sarvam-tts-{int(time.time()*1000)}"
         
         try:
+            # Check if SarvamAI is available
+            if AsyncSarvamAI is None:
+                logger.error("SarvamAI not available - please install sarvamai package")
+                return None
+                
+            # Check if request should be skipped
+            if self._should_skip_request(text=text):
+                return None
+            
             speaker = speaker or settings.SARVAM_TTS_SPEAKER
             language_code = self._convert_lang_code(language.split("-")[0])
             logger.info(f"Sarvam TTS Batch: text_len={len(text)}, lang={language_code}, speaker={speaker}")
@@ -206,14 +222,17 @@ class SarvamTTSService:
                     combined_audio = b''.join(audio_chunks)
                     latency_ms = int((time.time() - start_time) * 1000)
                     logger.info(f"Sarvam TTS Batch: {len(audio_chunks)} chunks, {len(combined_audio)} bytes, {latency_ms}ms")
+                    self._record_success(latency_ms)  # Record success
                     return combined_audio
                 else:
                     logger.warning("Sarvam TTS: No audio data received")
+                    self._record_failure("no_audio_data")  # Record failure
                     return None
                     
         except Exception as e:
             latency_ms = int((time.time() - start_time) * 1000)
             logger.error(f"Sarvam TTS Batch Error: {e} (after {latency_ms}ms)", exc_info=True)
+            self._record_failure("exception")  # Record failure
             return None
 
     async def text_to_speech_streaming_chunks(
@@ -246,6 +265,10 @@ class SarvamTTSService:
         request_id = request_id or f"sarvam-tts-stream-{int(time.time()*1000)}"
         
         try:
+            # Check if request should be skipped
+            if self._should_skip_request(text=text):
+                return
+            
             speaker = speaker or settings.SARVAM_TTS_SPEAKER
             language_code = self._convert_lang_code(language.split("-")[0])
             
@@ -466,3 +489,31 @@ class SarvamTTSService:
         except Exception as e:
             logger.error(f"TTS file generation error: {e}")
             return None
+    
+    async def health_check(self) -> Dict[str, Any]:
+        """Health check for TTS service"""
+        try:
+            # Test TTS with a simple request
+            test_text = "Hello"
+            test_result = await self.text_to_speech_streaming(test_text, "en-IN", "karun")
+            
+            return {
+                "status": "healthy",
+                "service": "sarvam_tts",
+                "test_tts": test_result is not None,
+                "circuit_breaker": {
+                    "is_open": self._failure_count >= self.service_config.max_failures,
+                    "failure_count": self._failure_count
+                },
+                "rate_limiting": {
+                    "current_requests": len(self._request_times),
+                    "rate_limit": self.service_config.rate_limit
+                }
+            }
+        except Exception as e:
+            logger.error(f"TTS service health check failed: {e}")
+            return {
+                "status": "unhealthy",
+                "service": "sarvam_tts",
+                "error": str(e)
+            }
