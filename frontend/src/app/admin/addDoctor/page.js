@@ -7,6 +7,12 @@ import { request } from '@/data/api';
 import { Search, Building2, User, Mail, Phone, Key, RefreshCw, Save, X, FileText, Eye, EyeOff } from 'lucide-react';
 import AdminLayout from "../layout";
 import Sidebar from "@/components/Admin/Sidebar";
+import {
+  validateEmail,
+  validatePhone,
+  validatePassword,
+  validateRequired
+} from "@/utils/validation";
 
 // Will fetch specialties from backend dynamically
 
@@ -50,6 +56,7 @@ export default function SuperAdminAddDoctorPage() {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState('');
     const [formError, setFormError] = useState('');
+    const [validationErrors, setValidationErrors] = useState({});
     const [showPassword, setShowPassword] = useState(false);
 
     // Fetch hospitals from database

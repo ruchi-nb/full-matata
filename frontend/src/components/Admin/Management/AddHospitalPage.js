@@ -4,6 +4,12 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { onboardHospitalAdmin } from "@/data/api-superadmin";
+import {
+  validateEmail,
+  validatePhone,
+  validatePassword,
+  validateHospitalName
+} from "@/utils/validation";
 
 // Utility function for random string generation
 function randFrom(chars, n) {
@@ -19,6 +25,7 @@ export default function AddHospitalPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [validationErrors, setValidationErrors] = useState({});
   const [form, setForm] = useState({
     hospital_name: "",
     hospital_email: "",
@@ -51,33 +58,51 @@ export default function AddHospitalPage() {
     setForm((f) => ({ ...f, admin_password: base || randFrom("abcdefghijkmnpqrstuvwxyz23456789", 8) }));
   };
 
+  const validateAllFields = () => {
+    const errors = {};
+
+    // Validate hospital name
+    const hospitalNameError = validateHospitalName(form.hospital_name);
+    if (hospitalNameError) errors.hospital_name = hospitalNameError;
+
+    // Validate hospital email (optional)
+    if (form.hospital_email) {
+      const hospitalEmailError = validateEmail(form.hospital_email);
+      if (hospitalEmailError) errors.hospital_email = hospitalEmailError;
+    }
+
+    // Validate admin email (required)
+    const adminEmailError = validateEmail(form.admin_email);
+    if (adminEmailError) errors.admin_email = adminEmailError;
+
+    // Validate admin password
+    const passwordError = validatePassword(form.admin_password);
+    if (passwordError) errors.admin_password = passwordError;
+
+    // Validate admin phone (optional)
+    if (form.admin_phone) {
+      const phoneError = validatePhone(form.admin_phone);
+      if (phoneError) errors.admin_phone = phoneError;
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     setSuccess("");
 
+    // Validate all fields
+    if (!validateAllFields()) {
+      setError("Please fix the validation errors before submitting");
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Validate required fields
-      if (!form.hospital_name || !form.admin_email || !form.admin_password) {
-        throw new Error("Please fill in all required fields (Hospital Name, Admin Email, Admin Password)");
-      }
-
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(form.admin_email)) {
-        throw new Error("Please enter a valid admin email address");
-      }
-      
-      // Validate hospital email if provided
-      if (form.hospital_email && !emailRegex.test(form.hospital_email)) {
-        throw new Error("Please enter a valid hospital email address");
-      }
-
-      // Validate password strength
-      if (form.admin_password.length < 8) {
-        throw new Error("Password must be at least 8 characters long");
-      }
 
       console.log("Creating hospital with admin:", form);
 
@@ -131,11 +156,70 @@ export default function AddHospitalPage() {
   const handleChange = (field) => (e) => {
     const value = e.target.value;
     setForm(prev => ({ ...prev, [field]: value }));
+    
     // Clear messages when user starts typing
     if (error || success) {
       setError("");
       setSuccess("");
     }
+
+    // Real-time validation for specific fields
+    const errors = { ...validationErrors };
+    
+    switch (field) {
+      case 'hospital_name':
+        const nameError = validateHospitalName(value);
+        if (nameError) {
+          errors.hospital_name = nameError;
+        } else {
+          delete errors.hospital_name;
+        }
+        break;
+      case 'hospital_email':
+        if (value) {
+          const hospitalEmailError = validateEmail(value);
+          if (hospitalEmailError) {
+            errors.hospital_email = hospitalEmailError;
+          } else {
+            delete errors.hospital_email;
+          }
+        } else {
+          delete errors.hospital_email;
+        }
+        break;
+      case 'admin_email':
+        const adminEmailError = validateEmail(value);
+        if (adminEmailError) {
+          errors.admin_email = adminEmailError;
+        } else {
+          delete errors.admin_email;
+        }
+        break;
+      case 'admin_password':
+        const passwordError = validatePassword(value);
+        if (passwordError) {
+          errors.admin_password = passwordError;
+        } else {
+          delete errors.admin_password;
+        }
+        break;
+      case 'admin_phone':
+        if (value) {
+          const phoneError = validatePhone(value);
+          if (phoneError) {
+            errors.admin_phone = phoneError;
+          } else {
+            delete errors.admin_phone;
+          }
+        } else {
+          delete errors.admin_phone;
+        }
+        break;
+      default:
+        break;
+    }
+    
+    setValidationErrors(errors);
   };
 
   return (
@@ -180,10 +264,13 @@ export default function AddHospitalPage() {
                   type="text"
                   value={form.hospital_name}
                   onChange={handleChange('hospital_name')}
-                  className="text-gray-700 block w-full rounded-md border border-slate-300 shadow-sm px-3 py-2 focus:border-teal-500 focus:ring focus:ring-teal-200"
+                  className={`text-gray-700 block w-full rounded-md border ${validationErrors.hospital_name ? 'border-red-500' : 'border-slate-300'} shadow-sm px-3 py-2 focus:border-teal-500 focus:ring focus:ring-teal-200`}
                   placeholder="Enter hospital name"
                   required
                 />
+                {validationErrors.hospital_name && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.hospital_name}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -193,9 +280,12 @@ export default function AddHospitalPage() {
                   type="email"
                   value={form.hospital_email}
                   onChange={handleChange('hospital_email')}
-                  className="text-gray-700 block w-full rounded-md border border-slate-300 shadow-sm px-3 py-2 focus:border-teal-500 focus:ring focus:ring-teal-200"
+                  className={`text-gray-700 block w-full rounded-md border ${validationErrors.hospital_email ? 'border-red-500' : 'border-slate-300'} shadow-sm px-3 py-2 focus:border-teal-500 focus:ring focus:ring-teal-200`}
                   placeholder="Enter hospital contact email"
                 />
+                {validationErrors.hospital_email && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.hospital_email}</p>
+                )}
               </div>
             </div>
           </div>
@@ -212,10 +302,13 @@ export default function AddHospitalPage() {
                   type="email"
                   value={form.admin_email}
                   onChange={handleChange('admin_email')}
-                  className="text-gray-700 block w-full rounded-md border border-slate-300 shadow-sm px-3 py-2 focus:border-teal-500 focus:ring focus:ring-teal-200"
+                  className={`text-gray-700 block w-full rounded-md border ${validationErrors.admin_email ? 'border-red-500' : 'border-slate-300'} shadow-sm px-3 py-2 focus:border-teal-500 focus:ring focus:ring-teal-200`}
                   placeholder="Enter admin email address"
                   required
                 />
+                {validationErrors.admin_email && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.admin_email}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -225,9 +318,12 @@ export default function AddHospitalPage() {
                   type="tel"
                   value={form.admin_phone}
                   onChange={handleChange('admin_phone')}
-                  className="text-gray-700 block w-full rounded-md border border-slate-300 shadow-sm px-3 py-2 focus:border-teal-500 focus:ring focus:ring-teal-200"
+                  className={`text-gray-700 block w-full rounded-md border ${validationErrors.admin_phone ? 'border-red-500' : 'border-slate-300'} shadow-sm px-3 py-2 focus:border-teal-500 focus:ring focus:ring-teal-200`}
                   placeholder="Enter admin phone number"
                 />
+                {validationErrors.admin_phone && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.admin_phone}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -283,8 +379,11 @@ export default function AddHospitalPage() {
                   value={form.admin_password}
                   onChange={handleChange('admin_password')}
                   disabled={loading}
-                  className="text-gray-700 block w-full rounded-md border border-slate-300 shadow-sm px-3 py-2 focus:border-teal-500 focus:ring focus:ring-teal-200 disabled:bg-gray-50 disabled:text-gray-500"
+                  className={`text-gray-700 block w-full rounded-md border ${validationErrors.admin_password ? 'border-red-500' : 'border-slate-300'} shadow-sm px-3 py-2 focus:border-teal-500 focus:ring focus:ring-teal-200 disabled:bg-gray-50 disabled:text-gray-500`}
                 />
+                {validationErrors.admin_password && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.admin_password}</p>
+                )}
               </div>
               <div className="md:col-span-3">
                 <label className="block text-sm font-medium text-slate-700 mb-2">
