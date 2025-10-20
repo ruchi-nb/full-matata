@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 from database.database import get_db
 from dependencies.dependencies import require_permissions, ensure_hospital_exists, ensure_hospital_role_belongs_to_hospital
 from schema.schema import (
@@ -41,6 +42,7 @@ async def list_hospitals(
                 hospital_email=h.hospital_email,
                 admin_contact=h.admin_contact,
                 address=h.address,
+                is_active=bool(h.is_active) if hasattr(h, 'is_active') else True,
                 created_at=h.created_at.isoformat() if h.created_at else None,
                 updated_at=h.updated_at.isoformat() if h.updated_at else None,
             ) for h in rows
@@ -168,6 +170,90 @@ async def delete_hospital(
         return {"status": "deleted"}
     except DatabaseError as de:
         raise HTTPException(status_code=500, detail="Failed to delete hospital") from de
+
+
+@router.get("/{hospital_id}/statistics", response_model=Dict[str, Any])
+async def get_hospital_statistics(
+    hospital_id: int,
+    caller: Dict[str, Any] = Depends(require_permissions(["hospital.statistics.view"], hospital_id_param="hospital_id")),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get statistics for a specific hospital including:
+    - Total consultations
+    - Active consultations
+    - Completed consultations
+    - Total doctors
+    - Active doctors (with avatars)
+    """
+    try:
+        from sqlalchemy import select, func
+        from models.models import Consultation, HospitalMaster, DoctorAvatars, t_doctor_hospitals
+        
+        # Verify hospital exists
+        hospital_query = select(HospitalMaster).where(HospitalMaster.hospital_id == hospital_id)
+        hospital_result = await db.execute(hospital_query)
+        hospital = hospital_result.scalar_one_or_none()
+        
+        if not hospital:
+            raise HTTPException(status_code=404, detail="Hospital not found")
+        
+        # Get total consultations
+        total_consultations_query = select(func.count(Consultation.consultation_id)).where(
+            Consultation.hospital_id == hospital_id
+        )
+        total_consultations_result = await db.execute(total_consultations_query)
+        total_consultations = total_consultations_result.scalar() or 0
+        
+        # Get active consultations
+        active_consultations_query = select(func.count(Consultation.consultation_id)).where(
+            Consultation.hospital_id == hospital_id,
+            Consultation.status.in_(["scheduled", "in_progress", "active"])
+        )
+        active_consultations_result = await db.execute(active_consultations_query)
+        active_consultations = active_consultations_result.scalar() or 0
+        
+        # Get completed consultations
+        completed_consultations_query = select(func.count(Consultation.consultation_id)).where(
+            Consultation.hospital_id == hospital_id,
+            Consultation.status == "completed"
+        )
+        completed_consultations_result = await db.execute(completed_consultations_query)
+        completed_consultations = completed_consultations_result.scalar() or 0
+        
+        # Get total doctors for this hospital
+        total_doctors_query = select(func.count(t_doctor_hospitals.c.user_id)).where(
+            t_doctor_hospitals.c.hospital_id == hospital_id
+        )
+        total_doctors_result = await db.execute(total_doctors_query)
+        total_doctors = total_doctors_result.scalar() or 0
+        
+        # Get doctors with active avatars
+        active_avatars_query = select(func.count(func.distinct(DoctorAvatars.doctor_id))).select_from(
+            t_doctor_hospitals
+        ).join(
+            DoctorAvatars, t_doctor_hospitals.c.user_id == DoctorAvatars.doctor_id
+        ).where(
+            t_doctor_hospitals.c.hospital_id == hospital_id,
+            DoctorAvatars.is_active == 1
+        )
+        active_avatars_result = await db.execute(active_avatars_query)
+        active_avatars = active_avatars_result.scalar() or 0
+        
+        return {
+            "hospital_id": hospital_id,
+            "hospital_name": hospital.hospital_name,
+            "total_consultations": int(total_consultations),
+            "active_consultations": int(active_consultations),
+            "completed_consultations": int(completed_consultations),
+            "total_doctors": int(total_doctors),
+            "active_avatars": int(active_avatars),
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch hospital statistics: {str(e)}") from e
 
 
 @router.get("/specialities", response_model=list[SpecialityOut])
@@ -382,16 +468,142 @@ async def list_doctors(
     hospital_id: int = Depends(ensure_hospital_exists),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    List all doctors for a specific hospital based on RBAC (hospital_user_roles with 'doctor' role).
+    Returns doctor details including name and specialties.
+    """
     try:
-        rows = await list_hospital_doctors(db, hospital_id=hospital_id)
-        return [
-            HospitalDoctorOut(
-                user_id=int(u.user_id),
-                username=u.username,
-                email=u.email,
-                global_role_id=int(u.global_role_id) if u.global_role_id is not None else None,
-            ) for u in rows
-        ]
+        import logging
+        logger = logging.getLogger(__name__)
+        from sqlalchemy import select as _select
+        from models.models import DoctorSpecialties, Specialties
+        
+        logger.info(f"🔍 API: Listing doctors for hospital_id: {hospital_id}")
+        
+        # First, let's check the raw data
+        raw_query = text("""
+            SELECT u.user_id, u.email, ud.first_name, ud.last_name, hr.role_name, hur.is_active
+            FROM users u
+            LEFT JOIN user_details ud ON u.user_id = ud.user_id
+            JOIN hospital_user_roles hur ON u.user_id = hur.user_id
+            JOIN hospital_role hr ON hur.hospital_role_id = hr.hospital_role_id
+            WHERE hur.hospital_id = :hospital_id
+        """)
+        raw_result = await db.execute(raw_query, {"hospital_id": hospital_id})
+        raw_rows = raw_result.fetchall()
+        logger.info(f"🔍 API: Raw query found {len(raw_rows)} total users in hospital")
+        for row in raw_rows:
+            logger.info(f"  - User {row.user_id} ({row.email}): role='{row.role_name}', active={row.is_active}")
+        
+        doctors = await list_hospital_doctors(db, hospital_id=hospital_id)
+        logger.info(f"🔍 API: Found {len(doctors)} doctors from service")
+        
+        result = []
+        for doctor in doctors:
+            logger.info(f"🔍 API: Processing doctor {doctor.user_id}: {doctor.username}")
+            
+            # Fetch user details for this doctor
+            from models.models import UserDetails
+            user_details_query = _select(UserDetails).where(UserDetails.user_id == doctor.user_id)
+            user_details_res = await db.execute(user_details_query)
+            user_details = user_details_res.scalar_one_or_none()
+            
+            # Fetch specialties for this doctor
+            specialties_query = (
+                _select(Specialties)
+                .join(DoctorSpecialties, DoctorSpecialties.specialty_id == Specialties.specialty_id)
+                .where(DoctorSpecialties.user_id == doctor.user_id)
+            )
+            specialties_res = await db.execute(specialties_query)
+            specialties = specialties_res.scalars().all()
+            
+            result.append(
+                HospitalDoctorOut(
+                    user_id=int(doctor.user_id),
+                    username=doctor.username,
+                    email=doctor.email,
+                    first_name=user_details.first_name if user_details else None,
+                    last_name=user_details.last_name if user_details else None,
+                    global_role_id=int(doctor.global_role_id) if doctor.global_role_id is not None else None,
+                    specialties=[
+                        {
+                            "specialty_id": int(s.specialty_id),
+                            "name": s.name,
+                            "description": s.description
+                        } for s in specialties
+                    ] if specialties else []
+                )
+            )
+        
+        logger.info(f"🔍 API: Returning {len(result)} doctors")
+        return result
     except DatabaseError as de:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"❌ API: Database error listing doctors: {de}")
         raise HTTPException(status_code=500, detail="Failed to list doctors") from de
+
+
+@router.get("/{hospital_id}/debug/roles", response_model=Dict[str, Any])
+async def debug_hospital_roles(
+    hospital_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Debug endpoint to check hospital roles and user assignments.
+    """
+    try:
+        import logging
+        logger = logging.getLogger(__name__)
+        from sqlalchemy import select as _select
+        from models.models import HospitalRole, HospitalUserRoles, Users
+        
+        logger.info(f"🔍 DEBUG: Checking roles for hospital_id: {hospital_id}")
+        
+        # Get all hospital roles
+        roles_query = _select(HospitalRole).where(HospitalRole.hospital_id == hospital_id)
+        roles_res = await db.execute(roles_query)
+        roles = roles_res.scalars().all()
+        
+        # Get all user role assignments
+        user_roles_query = (
+            _select(HospitalUserRoles, HospitalRole, Users)
+            .join(HospitalRole, HospitalRole.hospital_role_id == HospitalUserRoles.hospital_role_id)
+            .join(Users, Users.user_id == HospitalUserRoles.user_id)
+            .where(HospitalUserRoles.hospital_id == hospital_id)
+        )
+        user_roles_res = await db.execute(user_roles_query)
+        user_roles = user_roles_res.all()
+        
+        result = {
+            "hospital_id": hospital_id,
+            "roles": [
+                {
+                    "role_id": r.hospital_role_id,
+                    "role_name": r.role_name,
+                    "description": r.description
+                } for r in roles
+            ],
+            "user_assignments": [
+                {
+                    "user_id": ur.Users.user_id,
+                    "username": ur.Users.username,
+                    "email": ur.Users.email,
+                    "first_name": getattr(ur.Users, 'first_name', None),
+                    "last_name": getattr(ur.Users, 'last_name', None),
+                    "role_id": ur.HospitalUserRoles.hospital_role_id,
+                    "role_name": ur.HospitalRole.role_name,
+                    "is_active": ur.HospitalUserRoles.is_active
+                } for ur in user_roles
+            ]
+        }
+        
+        logger.info(f"🔍 DEBUG: Found {len(roles)} roles and {len(user_roles)} user assignments")
+        return result
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"❌ DEBUG: Error checking hospital roles: {e}")
+        raise HTTPException(status_code=500, detail=f"Debug failed: {str(e)}")
 

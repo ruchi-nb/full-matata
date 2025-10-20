@@ -2,10 +2,12 @@ from typing import Optional
 import datetime
 import decimal
 
-from sqlalchemy import BigInteger, Column, Computed, DECIMAL, Date, DateTime, ForeignKeyConstraint, Index, Integer, JSON, String, Table, Text, text
-from sqlalchemy.dialects.mysql import LONGTEXT, TINYINT
+from sqlalchemy import BigInteger, Column, Computed, DECIMAL, Date, DateTime, ForeignKeyConstraint, TIMESTAMP, Index, Integer, JSON, String, Table, Text, text
+from sqlalchemy.dialects.mysql import LONGTEXT, TINYINT, BIGINT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database.database import Base
+
+
 
 
 class HospitalMaster(Base):
@@ -21,6 +23,7 @@ class HospitalMaster(Base):
     address: Mapped[Optional[str]] = mapped_column(String(1024, 'utf8mb4_unicode_ci'))
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'))
+    is_active: Mapped[Optional[int]] = mapped_column(TINYINT(1), server_default=text("'1'"))
 
     user: Mapped[list['Users']] = relationship('Users', secondary='doctor_hospitals', back_populates='hospital')
     hospital_role: Mapped[list['HospitalRole']] = relationship('HospitalRole', back_populates='hospital')
@@ -46,6 +49,18 @@ class PermissionMaster(Base):
     hospital_role_permission: Mapped[list['HospitalRolePermission']] = relationship('HospitalRolePermission', back_populates='permission')
     user_permissions: Mapped[list['UserPermissions']] = relationship('UserPermissions', back_populates='permission')
     user_direct_permissions: Mapped[list['UserDirectPermissions']] = relationship('UserDirectPermissions', back_populates='permission')
+
+class HospitalSpecialties(Base):
+    __tablename__ = 'hospital_specialties'
+    __table_args__ = (
+        Index('id', 'id', unique=True),
+    )
+
+    id: Mapped[int] = mapped_column(BIGINT, primary_key=True)
+    hospital_id: Mapped[Optional[int]] = mapped_column(Integer)
+    specialty_id: Mapped[Optional[int]] = mapped_column(Integer)
+    is_primary: Mapped[Optional[int]] = mapped_column(TINYINT(1), server_default=text("'0'"))
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
 
 class RoleMaster(Base):
     __tablename__ = 'role_master'

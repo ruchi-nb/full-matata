@@ -216,3 +216,5 @@ async def get_doctor_permissions_status_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred while getting permissions status.",
         )
+
+        

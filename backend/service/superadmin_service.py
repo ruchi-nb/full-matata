@@ -339,6 +339,8 @@ async def create_user_for_hospital_by_superadmin(
             await db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                                 detail=f"Failed to create tenant role '{user_type}' for hospital {hospital_id}")
+        
+        logger.info(f"🔍 Created tenant role for {user_type}: {tenant_hr.role_name} (ID: {tenant_hr.hospital_role_id})")
 
         # Create user
         hashed_pwd = generate_passwd_hash(password)
@@ -370,12 +372,38 @@ async def create_user_for_hospital_by_superadmin(
         )
         db.add(hur)
         await db.flush()
+        
+        logger.info(f"🔍 Created HospitalUserRoles: user_id={user.user_id}, hospital_id={hospital_id}, role_id={tenant_hr.hospital_role_id}, role_name={tenant_hr.role_name}")
 
         # Add specific table mapping (doctor_hospitals / patient_hospitals)
         if user_type == "doctor":
             from sqlalchemy import insert
             stmt = insert(t_doctor_hospitals).values(user_id=int(user.user_id), hospital_id=hospital_id)
             await db.execute(stmt)
+            
+            # Handle specialty assignment for doctors
+            specialty_ids = payload.get("specialty_ids")
+            if specialty_ids and isinstance(specialty_ids, list) and len(specialty_ids) > 0:
+                from models.models import DoctorSpecialties, Specialties
+                
+                # Validate that specialties exist
+                for spec_id in specialty_ids:
+                    spec_q = await db.execute(select(Specialties).where(Specialties.specialty_id == spec_id))
+                    spec = spec_q.scalar_one_or_none()
+                    if not spec:
+                        logger.warning(f"Specialty ID {spec_id} not found, skipping")
+                        continue
+                    
+                    # Create doctor_specialties entry
+                    doc_spec = DoctorSpecialties(
+                        user_id=int(user.user_id),
+                        specialty_id=spec_id
+                    )
+                    db.add(doc_spec)
+                
+                await db.flush()
+                logger.info(f"Assigned {len(specialty_ids)} specialties to doctor {user.email}")
+            
         elif user_type == "patient":
             patient_entry = PatientHospitals(user_id=int(user.user_id), hospital_id=hospital_id)
             db.add(patient_entry)

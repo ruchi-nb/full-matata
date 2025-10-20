@@ -8,18 +8,7 @@ import { Search, Building2, User, Mail, Phone, Key, RefreshCw, Save, X, FileText
 import AdminLayout from "../layout";
 import Sidebar from "@/components/Admin/Sidebar";
 
-// Constants from DoctorForm
-const SPECIALTIES = [
-    { id: "cardiology", name: "Cardiology" },
-    { id: "neurology", name: "Neurology" },
-    { id: "pediatrics", name: "Pediatrics" },
-    { id: "orthopedics", name: "Orthopedics" },
-    { id: "dermatology", name: "Dermatology" },
-    { id: "psychiatry", name: "Psychiatry" },
-    { id: "radiology", name: "Radiology" },
-    { id: "internal-medicine", name: "Internal Medicine" },
-    { id: "general-surgery", name: "General Surgery" },
-];
+// Will fetch specialties from backend dynamically
 
 const INDIAN_LANGUAGES = [
     "Hindi",
@@ -38,6 +27,8 @@ export default function SuperAdminAddDoctorPage() {
     const [hospitals, setHospitals] = useState([]);
     const [filteredHospitals, setFilteredHospitals] = useState([]);
     const [loadingHospitals, setLoadingHospitals] = useState(true);
+    const [specialties, setSpecialties] = useState([]);
+    const [loadingSpecialties, setLoadingSpecialties] = useState(false);
     const [error, setError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedHospital, setSelectedHospital] = useState(null);
@@ -53,7 +44,7 @@ export default function SuperAdminAddDoctorPage() {
         username: '',
         password: '',
         genMode: 'pattern',
-        specialty: '',
+        specialty_id: '', // Changed from specialty string to specialty_id
         languages: []
     });
     const [loading, setLoading] = useState(false);
@@ -82,6 +73,25 @@ export default function SuperAdminAddDoctorPage() {
         };
 
         fetchHospitals();
+    }, []);
+
+    // Fetch specialties from backend
+    useEffect(() => {
+        const fetchSpecialties = async () => {
+            try {
+                setLoadingSpecialties(true);
+                const response = await request('/hospitals/specialities', { method: 'GET' });
+                console.log('Fetched specialties:', response);
+                setSpecialties(response || []);
+            } catch (error) {
+                console.error('Failed to fetch specialties:', error);
+                setSpecialties([]);
+            } finally {
+                setLoadingSpecialties(false);
+            }
+        };
+
+        fetchSpecialties();
     }, []);
 
     // Filter hospitals based on search term
@@ -148,7 +158,7 @@ export default function SuperAdminAddDoctorPage() {
             }
 
             // Validate specialty for doctors
-            if (formData.role === 'doctor' && !formData.specialty) {
+            if (formData.role === 'doctor' && !formData.specialty_id) {
                 throw new Error("Please select a specialty for doctors");
             }
 
@@ -169,8 +179,8 @@ export default function SuperAdminAddDoctorPage() {
                 
                 // Professional details for doctors
                 ...(formData.role === 'doctor' && {
-                    specialty: formData.specialty,
-                    languages: formData.languages
+                    specialty_ids: formData.specialty_id ? [parseInt(formData.specialty_id)] : null,
+                    // languages field is not yet supported by backend - will add later
                 })
             };
 
@@ -192,7 +202,7 @@ export default function SuperAdminAddDoctorPage() {
                 username: '',
                 password: '',
                 genMode: 'pattern',
-                specialty: '',
+                specialty_id: '',
                 languages: []
             });
             setSelectedHospital(null);
@@ -215,7 +225,7 @@ export default function SuperAdminAddDoctorPage() {
             username: '',
             password: '',
             genMode: 'pattern',
-            specialty: '',
+            specialty_id: '',
             languages: []
         });
         setSelectedHospital(null);
@@ -533,17 +543,25 @@ export default function SuperAdminAddDoctorPage() {
                                             </label>
                                             <select
                                                 required
-                                                value={formData.specialty}
-                                                onChange={(e) => setFormData(prev => ({ ...prev, specialty: e.target.value }))}
+                                                value={formData.specialty_id}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, specialty_id: e.target.value }))}
                                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                disabled={loadingSpecialties}
                                             >
-                                                <option value="">Select specialty</option>
-                                                {SPECIALTIES.map((s) => (
-                                                    <option key={s.id} value={s.name}>
+                                                <option value="">
+                                                    {loadingSpecialties ? 'Loading specialties...' : 'Select specialty'}
+                                                </option>
+                                                {specialties.map((s) => (
+                                                    <option key={s.specialty_id} value={s.specialty_id}>
                                                         {s.name}
                                                     </option>
                                                 ))}
                                             </select>
+                                            {specialties.length === 0 && !loadingSpecialties && (
+                                                <p className="text-xs text-amber-600 mt-1">
+                                                    No specialties available. Please add specialties first.
+                                                </p>
+                                            )}
                                         </div>
 
                                         <div className="md:col-span-2">

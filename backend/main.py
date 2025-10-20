@@ -103,21 +103,37 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         logger.info(
             f"REQ {request.method} {request.url.path} query={dict(request.query_params)} content_length={content_length}"
         )
-        response = await call_next(request)
+        
+        try:
+            response = await call_next(request)
+        except Exception as e:
+            logger.error(f"Error processing request: {e}")
+            # Ensure CORS headers are set even on error
+            from fastapi.responses import JSONResponse
+            response = JSONResponse(
+                status_code=500,
+                content={"detail": str(e)},
+                headers={
+                    "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+                    "Access-Control-Allow-Credentials": "true",
+                }
+            )
+            
         duration_ms = int((time.time() - start) * 1000)
         logger.info(
             f"RES {request.method} {request.url.path} status={response.status_code} duration_ms={duration_ms}"
         )
         return response
 
-# CORS
+# CORS - Must be added FIRST before other middleware
 origins = getattr(settings, "CORS_ORIGINS", ["*"])
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],  # Explicit origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # HTTP compression (helps on JSON responses and static assets)

@@ -10,8 +10,9 @@ export default function EditHospitalModal({ hospital, isOpen, onClose, onUpdate 
     phone: "",
     location: "",
     status: "Active",
-    subscription: "",
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   // Pre-fill form when modal opens
   useEffect(() => {
@@ -22,7 +23,6 @@ export default function EditHospitalModal({ hospital, isOpen, onClose, onUpdate 
         phone: hospital.phone || "",
         location: hospital.location || "",
         status: hospital.status || "Active",
-        subscription: hospital.subscription || "",
       });
     }
   }, [hospital]);
@@ -34,11 +34,21 @@ export default function EditHospitalModal({ hospital, isOpen, onClose, onUpdate 
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Call parent callback to update hospital
-    onUpdate({ ...hospital, ...formData });
-    onClose();
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Call parent callback to update hospital
+      await onUpdate({ ...hospital, ...formData });
+      onClose();
+    } catch (err) {
+      console.error('Failed to update hospital:', err);
+      setError(err.message || 'Failed to update hospital');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -117,31 +127,29 @@ export default function EditHospitalModal({ hospital, isOpen, onClose, onUpdate 
             </select>
           </div>
 
-          <div>
-            <label className="block font-medium text-slate-700">Subscription Plan</label>
-            <input
-              type="text"
-              name="subscription"
-              value={formData.subscription}
-              disabled
-              className="w-full text-black border rounded-md px-3 py-2 bg-gray-100"
-            />
-          </div>
+          {/* Error Message */}
+          {error && (
+            <div className="p-3 bg-red-100 border border-red-300 text-red-800 rounded-md text-sm">
+              {error}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-3 mt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+              disabled={loading}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Update Hospital
+              {loading ? 'Updating...' : 'Update Hospital'}
             </button>
           </div>
         </form>

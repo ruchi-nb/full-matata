@@ -170,6 +170,7 @@ class HospitalProfileOut(BaseModel):
     hospital_email: Optional[EmailStr] = None
     admin_contact: Optional[str] = None
     address: Optional[str] = None
+    is_active: Optional[bool] = True
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -178,6 +179,7 @@ class HospitalProfileUpdate(BaseModel):
     hospital_email: Optional[EmailStr] = None
     admin_contact: Optional[str] = None
     address: Optional[str] = None
+    is_active: Optional[bool] = None
 
 # -------------------------
 # Speciality schemas
@@ -254,7 +256,10 @@ class HospitalDoctorOut(BaseModel):
     user_id: int
     username: str
     email: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     global_role_id: Optional[int] = None
+    specialties: Optional[List[Dict[str, Any]]] = None  # [{specialty_id, name}, ...]
 
 # -------------------------
 # Patient output schema
@@ -1073,6 +1078,7 @@ class HospitalProfileOut(BaseModel):
     hospital_email: Optional[EmailStr] = None
     admin_contact: Optional[str] = None
     address: Optional[str] = None
+    is_active: Optional[bool] = True
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -1084,6 +1090,7 @@ class HospitalProfileUpdate(BaseModel):
     hospital_email: Optional[EmailStr] = None
     admin_contact: Optional[str] = None
     address: Optional[str] = None
+    is_active: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1171,6 +1178,7 @@ class SuperAdminCreateUserIn(BaseModel):
     first_name: Optional[str] = Field(None, description="User first name")
     last_name: Optional[str] = Field(None, description="User last name")
     phone: Optional[str] = Field(None, description="Phone number")
+    specialty_ids: Optional[List[int]] = Field(None, description="List of specialty IDs for doctors")
 
     class Config:
         extra = "forbid"

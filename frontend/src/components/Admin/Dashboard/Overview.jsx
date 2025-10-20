@@ -29,11 +29,32 @@ const Overview = () => {
           getAllDoctors()
         ]);
 
-        // Calculate stats
+        console.log('📊 Fetched hospitals data:', hospitalsData);
+        console.log('📊 Fetched doctors data:', doctorsData);
+
+        // Calculate stats - handle both backend and transformed formats
         const totalHospitals = hospitalsData?.length || 0;
-        const activeHospitals = totalHospitals; // Assuming all hospitals are active for now
+        
+        // Handle both is_active (backend) and status (transformed) formats
+        const activeHospitals = hospitalsData?.filter(h => {
+          if (h.is_active !== undefined) return h.is_active;
+          if (h.status !== undefined) return h.status === 'Active';
+          return true; // Default to active if no status field
+        }).length || 0;
+        
         const totalDoctors = doctorsData?.length || 0;
-        const activeAvatars = totalDoctors; // Assuming all doctors have avatars
+        
+        // Calculate active avatars by summing from all hospitals
+        const activeAvatars = hospitalsData?.reduce((sum, hospital) => {
+          return sum + (hospital.active_avatars || 0);
+        }, 0) || 0;
+
+        console.log('📊 Calculated stats:', {
+          totalHospitals,
+          activeHospitals,
+          totalDoctors,
+          activeAvatars
+        });
 
         setStats({
           totalHospitals,

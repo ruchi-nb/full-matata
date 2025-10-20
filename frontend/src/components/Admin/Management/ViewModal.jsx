@@ -1,10 +1,84 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X } from "lucide-react";
+import { hospitalApiService } from "@/services/hospitalApiService";
 
 export default function ViewModal({ hospital, isOpen, onClose }) {
     const [activeTab, setActiveTab] = useState("doctors");
+    const [doctors, setDoctors] = useState([]);
+    const [statistics, setStatistics] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+  
+    // Fetch hospital details when modal opens
+    useEffect(() => {
+        if (isOpen && hospital?.id) {
+            fetchHospitalDetails();
+        }
+    }, [isOpen, hospital?.id]);
+
+    const fetchHospitalDetails = async () => {
+        if (!hospital?.id) return;
+        
+        try {
+            setLoading(true);
+            setError(null);
+            
+            console.log('🔍 Fetching hospital details for hospital ID:', hospital.id);
+            
+            // Check authentication first
+            const { getStoredTokens } = await import('@/data/api');
+            const { accessToken, refreshToken } = getStoredTokens();
+            console.log('🔍 Auth check - Access token exists:', !!accessToken);
+            console.log('🔍 Auth check - Refresh token exists:', !!refreshToken);
+            
+            if (!accessToken) {
+                setError('You are not logged in. Please log in to view hospital details.');
+                setLoading(false);
+                return;
+            }
+            
+            // First, let's debug the roles
+            try {
+                const debugData = await hospitalApiService.requestWithRetry(`/hospitals/${hospital.id}/debug/roles`, {
+                    method: 'GET'
+                });
+                console.log('🔍 DEBUG: Hospital roles data:', debugData);
+            } catch (debugErr) {
+                console.error('❌ Failed to fetch debug data:', debugErr);
+            }
+            
+            // Fetch doctors and statistics in parallel
+            const [doctorsData, statsData] = await Promise.all([
+                hospitalApiService.listHospitalDoctors(hospital.id).catch((err) => {
+                    console.error('❌ Failed to fetch doctors:', err);
+                    // Check if it's an auth error
+                    if (err.message && err.message.includes('authentication')) {
+                        throw new Error('Authentication required. Please log in again.');
+                    }
+                    return [];
+                }),
+                hospitalApiService.requestWithRetry(`/hospitals/${hospital.id}/statistics`, {
+                    method: 'GET'
+                }).catch((err) => {
+                    console.error('❌ Failed to fetch statistics:', err);
+                    return null;
+                })
+            ]);
+            
+            console.log('📊 Fetched doctors data:', doctorsData);
+            console.log('📊 Fetched statistics data:', statsData);
+            
+            setDoctors(doctorsData || []);
+            setStatistics(statsData);
+        } catch (err) {
+            console.error('Failed to fetch hospital details:', err);
+            setError('Failed to load hospital details');
+        } finally {
+            setLoading(false);
+        }
+    };
   
     if (!isOpen || !hospital) return null;
   
@@ -88,58 +162,80 @@ export default function ViewModal({ hospital, isOpen, onClose }) {
             {activeTab === "doctors" && (
               <div>
                 <h3 className="text-slate-800 font-semibold mb-4">Medical Staff</h3>
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 text-sm text-slate-600">
-                      <th className="p-2">Doctor Name</th>
-                      <th className="p-2">Specialty</th>
-                      <th className="p-2">Experience</th>
-                      <th className="p-2">Avatar Status</th>
-                      <th className="p-2">Consultations</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hospital.doctorsData?.map((doc, idx) => (
-                      <tr key={idx} className="border-b text-sm">
-                        <td className="p-2">
-                          <div className="font-medium text-black">{doc.name}</div>
-                          <div className="text-xs text-slate-500">{doc.role}</div>
-                        </td>
-                        <td className="p-2 text-black">{doc.specialty}</td>
-                        <td className="p-2 text-black">{doc.experience}</td>
-                        <td className="p-2">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              doc.avatarStatus === "Live"
-                                ? "bg-green-100 text-green-600"
-                                : "bg-amber-100 text-amber-600"
-                            }`}
-                          >
-                            {doc.avatarStatus === "Live" ? "● Active" : "● Inactive"}
-                          </span>
-                        </td>
-                        <td className="p-2 text-black">{doc.consultations}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                {loading ? (
+                  <div className="text-center py-8 text-slate-500">Loading doctors...</div>
+                ) : error ? (
+                  <div className="text-center py-8 text-red-500">{error}</div>
+                ) : doctors.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">No doctors found for this hospital</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 text-sm text-slate-600">
+                          <th className="p-2">Doctor Name</th>
+                          <th className="p-2">Email</th>
+                          <th className="p-2">Specialties</th>
+                          <th className="p-2">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {doctors.map((doc) => (
+                          <tr key={doc.user_id} className="border-b text-sm">
+                            <td className="p-2">
+                              <div className="font-medium text-black">
+                                {doc.first_name} {doc.last_name}
+                              </div>
+                              <div className="text-xs text-slate-500">ID: {doc.user_id}</div>
+                            </td>
+                            <td className="p-2 text-black">{doc.email}</td>
+                            <td className="p-2 text-black">
+                              {doc.specialties?.length > 0 
+                                ? doc.specialties.map(s => s.name).join(', ')
+                                : 'Not specified'}
+                            </td>
+                            <td className="p-2">
+                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
+                                ● Active
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
   
             {/* Specialties Tab */}
             {activeTab === "specialties" && (
               <div>
-                <h3 className="text-slate-800 font-semibold mb-4">Available Specialties</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {hospital.specialties?.map((spec, idx) => (
-                    <div key={idx} className="bg-slate-50 rounded-lg p-4">
-                      <h4 className="text-slate-800 font-medium mb-1">{spec.name}</h4>
-                      <p className="text-slate-500 text-sm">
-                        {spec.doctors} doctors • {spec.consultations} consultations
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <h3 className="text-slate-800 font-semibold mb-4">Doctor Specialties</h3>
+                {loading ? (
+                  <div className="text-center py-8 text-slate-500">Loading specialties...</div>
+                ) : doctors.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">No specialties data available</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Extract unique specialties from doctors */}
+                    {Array.from(new Set(
+                      doctors.flatMap(doc => doc.specialties || []).map(s => s.name)
+                    )).map((specName, idx) => {
+                      const specDoctors = doctors.filter(doc => 
+                        doc.specialties?.some(s => s.name === specName)
+                      );
+                      return (
+                        <div key={idx} className="bg-slate-50 rounded-lg p-4">
+                          <h4 className="text-slate-800 font-medium mb-1">{specName}</h4>
+                          <p className="text-slate-500 text-sm">
+                            {specDoctors.length} {specDoctors.length === 1 ? 'doctor' : 'doctors'}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
   
@@ -147,16 +243,38 @@ export default function ViewModal({ hospital, isOpen, onClose }) {
             {activeTab === "stats" && (
               <div>
                 <h3 className="text-slate-800 font-semibold mb-4">Hospital Statistics</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {hospital.stats?.map((stat, idx) => (
-                    <div key={idx} className="p-6 rounded-xl text-center" style={{ background: stat.bg }}>
-                      <div className="text-2xl font-bold" style={{ color: stat.color }}>
-                        {stat.value}
+                {loading ? (
+                  <div className="text-center py-8 text-slate-500">Loading statistics...</div>
+                ) : statistics ? (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="p-6 rounded-xl text-center bg-blue-50">
+                      <div className="text-3xl font-bold text-blue-600">
+                        {statistics.total_doctors}
                       </div>
-                      <div className="text-slate-600 text-sm">{stat.label}</div>
+                      <div className="text-slate-600 text-sm mt-2">Total Doctors</div>
                     </div>
-                  ))}
-                </div>
+                    <div className="p-6 rounded-xl text-center bg-green-50">
+                      <div className="text-3xl font-bold text-green-600">
+                        {statistics.total_consultations}
+                      </div>
+                      <div className="text-slate-600 text-sm mt-2">Total Consultations</div>
+                    </div>
+                    <div className="p-6 rounded-xl text-center bg-amber-50">
+                      <div className="text-3xl font-bold text-amber-600">
+                        {statistics.active_consultations}
+                      </div>
+                      <div className="text-slate-600 text-sm mt-2">Active Consultations</div>
+                    </div>
+                    <div className="p-6 rounded-xl text-center bg-purple-50">
+                      <div className="text-3xl font-bold text-purple-600">
+                        {statistics.active_avatars}
+                      </div>
+                      <div className="text-slate-600 text-sm mt-2">Active Avatars</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-slate-500">No statistics available</div>
+                )}
               </div>
             )}
           </div>

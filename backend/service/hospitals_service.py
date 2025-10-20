@@ -358,20 +358,52 @@ async def remove_doctor_from_hospital(db: AsyncSession, *, hospital_id: int, doc
 
 
 async def list_hospital_doctors(db: AsyncSession, *, hospital_id: int, limit: int = 500) -> List[Users]:
+    """
+    List doctors for a specific hospital using the RBAC system (hospital_user_roles + hospital_role).
+    Only returns users who have the 'doctor' role assigned in hospital_user_roles.
+    """
     try:
-        q = (
-            select(Users)
-            .join(HospitalUserRoles, HospitalUserRoles.user_id == Users.user_id)
+        from models.models import HospitalRole
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"🔍 Listing doctors for hospital_id: {hospital_id}")
+        
+        # First get the user IDs who have doctor role in this hospital
+        user_ids_query = (
+            select(HospitalUserRoles.user_id)
+            .join(HospitalRole, HospitalRole.hospital_role_id == HospitalUserRoles.hospital_role_id)
             .where(
                 and_(
                     HospitalUserRoles.hospital_id == int(hospital_id),
                     HospitalUserRoles.is_active == 1,
+                    HospitalRole.role_name == 'doctor'
                 )
             )
-            .limit(int(limit))
+            .distinct()
         )
-        res = await db.execute(q)
-        return list(res.scalars().all())
+        
+        logger.info(f"🔍 Executing user_ids query for hospital_id: {hospital_id}")
+        user_ids_res = await db.execute(user_ids_query)
+        user_ids = [row[0] for row in user_ids_res.fetchall()]
+        
+        if not user_ids:
+            logger.info(f"🔍 No doctor user IDs found for hospital_id: {hospital_id}")
+            return []
+        
+        logger.info(f"🔍 Found doctor user IDs: {user_ids}")
+        
+        # Now get the Users objects for these IDs
+        users_query = select(Users).where(Users.user_id.in_(user_ids)).limit(int(limit))
+        users_res = await db.execute(users_query)
+        doctors = list(users_res.scalars().all())
+        
+        logger.info(f"🔍 Found {len(doctors)} doctors for hospital_id: {hospital_id}")
+        
+        return doctors
     except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"❌ Error listing hospital doctors for hospital_id {hospital_id}: {e}")
         raise DatabaseError("Failed to list hospital doctors", operation="select", table="users/hospital_user_roles", original_error=e)
 

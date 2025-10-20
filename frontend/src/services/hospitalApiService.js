@@ -123,20 +123,31 @@ class HospitalApiService {
       timeout: 10000
     });
     
-    // Enhance each hospital with doctor count
+    // Enhance each hospital with statistics
     const enhancedHospitals = await Promise.all(
       hospitals.map(async (hospital) => {
         try {
-          const doctors = await this.listHospitalDoctors(hospital.hospital_id);
+          // Fetch hospital statistics (includes doctor count, consultations, etc.)
+          const stats = await this.requestWithRetry(`/hospitals/${hospital.hospital_id}/statistics`, {
+            method: 'GET',
+            timeout: 10000
+          });
+          
           return {
             ...hospital,
-            doctor_count: doctors.length
+            doctor_count: stats.total_doctors || 0,
+            total_consultations: stats.total_consultations || 0,
+            active_consultations: stats.active_consultations || 0,
+            active_avatars: stats.active_avatars || 0
           };
         } catch (error) {
-          console.warn(`Failed to fetch doctors for hospital ${hospital.hospital_id}:`, error);
+          console.warn(`Failed to fetch statistics for hospital ${hospital.hospital_id}:`, error);
           return {
             ...hospital,
-            doctor_count: 0
+            doctor_count: 0,
+            total_consultations: 0,
+            active_consultations: 0,
+            active_avatars: 0
           };
         }
       })
@@ -257,7 +268,11 @@ class HospitalApiService {
 
   // List hospital doctors
   async listHospitalDoctors(hospitalId) {
-    return this.requestWithRetry(`/hospitals/doctors?hospital_id=${hospitalId}`, {
+    console.log('🔍 Calling listHospitalDoctors with hospitalId:', hospitalId);
+    const endpoint = `/hospitals/doctors?hospital_id=${hospitalId}`;
+    console.log('🔍 Endpoint:', endpoint);
+    
+    return this.requestWithRetry(endpoint, {
       method: 'GET',
       timeout: 10000
     });
@@ -271,11 +286,11 @@ class HospitalApiService {
       email: backendData.hospital_email,
       location: backendData.address || 'Not specified',
       phone: backendData.admin_contact || 'Not specified',
-      status: 'Active', // Default status since backend doesn't have status field
+      status: backendData.is_active ? 'Active' : 'Inactive', // Use real status from backend
       color: 'bg-blue-500', // Default color
       specialty: 'Multi-specialty', // Default specialty
       doctors: backendData.doctor_count || 0, // Use real doctor count from API
-      consultations: 0, // TODO: Implement consultation count when available
+      consultations: backendData.total_consultations || 0, // Use real consultation count
       created_at: backendData.created_at,
       updated_at: backendData.updated_at
     };
@@ -283,12 +298,19 @@ class HospitalApiService {
 
   // Helper method to transform frontend data to backend format
   transformToBackendFormat(frontendData) {
-    return {
+    const backendData = {
       hospital_name: frontendData.name,
       hospital_email: frontendData.email,
       admin_contact: frontendData.phone,
       address: frontendData.location
     };
+    
+    // Handle status conversion (Active/Inactive -> true/false)
+    if (frontendData.status !== undefined) {
+      backendData.is_active = frontendData.status === 'Active';
+    }
+    
+    return backendData;
   }
 }
 

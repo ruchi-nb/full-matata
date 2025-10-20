@@ -82,7 +82,7 @@ export function deleteSpeciality(hospitalId, id) {
  * Get all doctors (for admin purposes)
  */
 export async function getAllDoctors() {
-  return request('/doctors', { method: "GET" });
+  return request('/search/doctors', { method: "GET" });
 }
 
 /**
@@ -270,7 +270,7 @@ export async function getUsersWithRole(hospitalId, roleId) {
 // =============================================
 
 /**
- * Get all hospitals
+ * Get all hospitals with enhanced statistics
  */
 export async function getAllHospitals() {
   return request("/search/hospitals", { method: "GET" });

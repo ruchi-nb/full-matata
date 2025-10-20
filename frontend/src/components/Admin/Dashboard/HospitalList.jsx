@@ -4,31 +4,49 @@ import React, { useState, useEffect } from "react";
 import { Eye, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getAllHospitals } from "@/data/api";
+import { hospitalApiService } from "@/services/hospitalApiService";
 
 const HospitalList = () => {
   const router = useRouter();
   const [hospitals, setHospitals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(null);
 
   useEffect(() => {
-    const fetchHospitals = async () => {
-      try {
-        setLoading(true);
-        const hospitalsData = await getAllHospitals();
-        setHospitals(hospitalsData || []);
-      } catch (error) {
-        console.error("Failed to fetch hospitals:", error);
-        setHospitals([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchHospitals();
   }, []);
 
-  const deleteHospital = (id) => {
-    setHospitals(hospitals.filter((h) => h.hospital_id !== id));
+  const fetchHospitals = async () => {
+    try {
+      setLoading(true);
+      const hospitalsData = await getAllHospitals();
+      setHospitals(hospitalsData || []);
+    } catch (error) {
+      console.error("Failed to fetch hospitals:", error);
+      setHospitals([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteHospital = async (id) => {
+    const confirm = window.confirm("Are you sure you want to delete this hospital? This action cannot be undone.");
+    if (!confirm) return;
+
+    try {
+      setDeleting(id);
+      await hospitalApiService.deleteHospital(id);
+      
+      // Remove from local state after successful deletion
+      setHospitals(hospitals.filter((h) => h.hospital_id !== id));
+      
+      console.log(`Hospital ${id} deleted successfully`);
+    } catch (error) {
+      console.error("Failed to delete hospital:", error);
+      alert(`Failed to delete hospital: ${error.message || 'Unknown error'}`);
+    } finally {
+      setDeleting(null);
+    }
   };
 
   if (loading) {
@@ -60,8 +78,8 @@ const HospitalList = () => {
           <thead>
             <tr className="bg-slate-100 text-left text-sm font-semibold text-slate-700">
               <th className="px-4 py-3">Hospital Name</th>
-              <th className="px-4 py-3">Location</th>
-              <th className="px-4 py-3">Contact</th>
+              <th className="px-4 py-3">Admin Name</th>
+              <th className="px-4 py-3">Admin Email</th>
               <th className="px-4 py-3">Admin Contact</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Actions</th>
@@ -104,9 +122,19 @@ const HospitalList = () => {
 
                   {/* Status */}
                   <td className="px-4 py-3">
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                      ● Active
-                    </span>
+                    {hospital.is_active !== undefined ? (
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        hospital.is_active 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        ● {hospital.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                        ● Unknown
+                      </span>
+                    )}
                   </td>
 
                   {/* Actions */}
@@ -114,14 +142,16 @@ const HospitalList = () => {
                     <button 
                       onClick={() => router.push(`/admin/management`)}
                       className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      disabled={deleting === hospital.hospital_id}
                     >
                       <Eye className="w-4 h-4" /> View
                     </button>
                     <button
                       onClick={() => deleteHospital(hospital.hospital_id)}
-                      className="flex items-center gap-1 text-red-500 hover:text-red-700 text-sm font-medium"
+                      disabled={deleting === hospital.hospital_id}
+                      className="flex items-center gap-1 text-red-500 hover:text-red-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Trash2 className="w-4 h-4" /> Delete
+                      <Trash2 className="w-4 h-4" /> {deleting === hospital.hospital_id ? 'Deleting...' : 'Delete'}
                     </button>
                   </td>
                 </tr>
