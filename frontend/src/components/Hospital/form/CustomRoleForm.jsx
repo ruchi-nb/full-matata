@@ -30,50 +30,50 @@ const CustomRoleForm = ({ onSuccess, onCancel }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // 'saving', 'verifying', 'verified', 'failed'
   
-  // Predefined permissions based on requirements
-  const predefinedPermissions = [
-    {
-      permission_name: 'patient.create',
-      description: 'Add new patients to the hospital'
-    },
-    {
-      permission_name: 'doctor.create', 
-      description: 'Add new doctors to the hospital'
-    },
-    {
-      permission_name: 'patient.update',
-      description: 'Edit patient information and profiles'
-    },
-    {
-      permission_name: 'doctor.update',
-      description: 'Edit doctor information and profiles'
-    },
-    {
-      permission_name: 'patient.delete',
-      description: 'Delete patients (soft delete)'
-    },
-    {
-      permission_name: 'doctor.delete',
-      description: 'Delete doctors (soft delete)'
-    },
-    {
-      permission_name: 'patient.view',
-      description: 'View patient profiles and information'
-    },
-    {
-      permission_name: 'doctor.view',
-      description: 'View doctor profiles and information'
-    },
-    {
-      permission_name: 'reports.view',
-      description: 'View hospital reports and analytics'
-    }
-  ];
-  
-  // Load available permissions
+  // Load available permissions from backend
   useEffect(() => {
-    setAvailablePermissions(predefinedPermissions);
-    setLoadingPermissions(false);
+    async function loadPermissions() {
+      try {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+        const accessToken = document.cookie.split('accessToken=')[1]?.split(';')[0];
+        
+        console.log("🔍 Fetching permissions from backend...");
+        
+        const response = await fetch(`${backendUrl}/hospital-admin/permissions`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log("✅ Permissions loaded:", data);
+          
+          // Filter to show only relevant hospital admin permissions
+          const relevantPermissions = data.filter(p => 
+            p.permission_name.startsWith('patient.') ||
+            p.permission_name.startsWith('doctor.') ||
+            p.permission_name.startsWith('hospital.') ||
+            p.permission_name.startsWith('consultation.') ||
+            p.permission_name.startsWith('analytics.')
+          );
+          
+          setAvailablePermissions(relevantPermissions);
+        } else {
+          console.error("Failed to load permissions:", response.status, response.statusText);
+          // Fallback to empty array if fetch fails
+          setAvailablePermissions([]);
+        }
+      } catch (error) {
+        console.error("Error loading permissions:", error);
+        setAvailablePermissions([]);
+      } finally {
+        setLoadingPermissions(false);
+      }
+    }
+
+    loadPermissions();
   }, []);
 
   if (!hasHospitalAccess) {
@@ -366,113 +366,61 @@ const CustomRoleForm = ({ onSuccess, onCancel }) => {
               </div>
               
               <div className="space-y-6">
-                {/* Patient Permissions */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-semibold text-gray-700 flex items-center">
-                      <User className="h-4 w-4 mr-2 text-blue-600" />
-                      Patient Management
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={() => selectCategoryPermissions('patient')}
-                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center"
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      Select All Patient
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {availablePermissions.filter(p => p.permission_name.startsWith('patient')).map(permission => (
-                      <label key={permission.permission_name} className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.permissions.includes(permission.permission_name)}
-                          onChange={() => togglePermission(permission.permission_name)}
-                          className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">
-                            {permission.permission_name.split('.')[1].charAt(0).toUpperCase() + permission.permission_name.split('.')[1].slice(1)} Patient
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">{permission.description}</p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Doctor Permissions */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-semibold text-gray-700 flex items-center">
-                      <User className="h-4 w-4 mr-2 text-green-600" />
-                      Doctor Management
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={() => selectCategoryPermissions('doctor')}
-                      className="text-xs text-green-600 hover:text-green-800 flex items-center"
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      Select All Doctor
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {availablePermissions.filter(p => p.permission_name.startsWith('doctor')).map(permission => (
-                      <label key={permission.permission_name} className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.permissions.includes(permission.permission_name)}
-                          onChange={() => togglePermission(permission.permission_name)}
-                          className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">
-                            {permission.permission_name.split('.')[1].charAt(0).toUpperCase() + permission.permission_name.split('.')[1].slice(1)} Doctor
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">{permission.description}</p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Reports Permissions */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-semibold text-gray-700 flex items-center">
-                      <FileText className="h-4 w-4 mr-2 text-purple-600" />
-                      Reports & Analytics
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={() => selectCategoryPermissions('reports')}
-                      className="text-xs text-purple-600 hover:text-purple-800 flex items-center"
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      Select All Reports
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {availablePermissions.filter(p => p.permission_name.startsWith('reports')).map(permission => (
-                      <label key={permission.permission_name} className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.permissions.includes(permission.permission_name)}
-                          onChange={() => togglePermission(permission.permission_name)}
-                          className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">
-                            {permission.permission_name.split('.')[1].charAt(0).toUpperCase() + permission.permission_name.split('.')[1].slice(1)} Reports
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">{permission.description}</p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
+                {/* Dynamically render permission categories */}
+                {['patient', 'doctor', 'hospital', 'consultation', 'analytics'].map(category => {
+                  const categoryPerms = availablePermissions.filter(p => p.permission_name.startsWith(category));
+                  if (categoryPerms.length === 0) return null;
+                  
+                  const categoryColors = {
+                    patient: 'blue',
+                    doctor: 'green',
+                    hospital: 'indigo',
+                    consultation: 'orange',
+                    analytics: 'purple'
+                  };
+                  const color = categoryColors[category] || 'gray';
+                  
+                  return (
+                    <div key={category}>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className={`text-sm font-semibold text-gray-700 flex items-center`}>
+                          {category === 'patient' && <User className={`h-4 w-4 mr-2 text-${color}-600`} />}
+                          {category === 'doctor' && <User className={`h-4 w-4 mr-2 text-${color}-600`} />}
+                          {category === 'hospital' && <Shield className={`h-4 w-4 mr-2 text-${color}-600`} />}
+                          {category === 'consultation' && <FileText className={`h-4 w-4 mr-2 text-${color}-600`} />}
+                          {category === 'analytics' && <FileText className={`h-4 w-4 mr-2 text-${color}-600`} />}
+                          {category.charAt(0).toUpperCase() + category.slice(1)} Management
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => selectCategoryPermissions(category)}
+                          className={`text-xs text-${color}-600 hover:text-${color}-800 flex items-center`}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Select All {category.charAt(0).toUpperCase() + category.slice(1)}
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {categoryPerms.map(permission => (
+                          <label key={permission.permission_name} className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formData.permissions.includes(permission.permission_name)}
+                              onChange={() => togglePermission(permission.permission_name)}
+                              className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">
+                                {permission.permission_name}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">{permission.description}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

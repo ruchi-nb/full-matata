@@ -2,7 +2,7 @@
 from typing import Tuple, Dict, Any
 from datetime import timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.exc import (
     OperationalError,
     DisconnectionError
@@ -155,6 +155,40 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> Tupl
                 "role_id": role.role_id,
                 "role_name": role.role_name
             }
+    
+    # Add hospital roles to JWT payload
+    try:
+        from models.models import HospitalUserRoles, HospitalRole, HospitalMaster
+        hospital_roles_query = (
+            select(HospitalUserRoles, HospitalRole, HospitalMaster)
+            .join(HospitalRole, HospitalRole.hospital_role_id == HospitalUserRoles.hospital_role_id)
+            .join(HospitalMaster, HospitalMaster.hospital_id == HospitalUserRoles.hospital_id)
+            .where(
+                and_(
+                    HospitalUserRoles.user_id == user.user_id,
+                    HospitalUserRoles.is_active == 1
+                )
+            )
+        )
+        hospital_roles_result = await db.execute(hospital_roles_query)
+        hospital_roles = hospital_roles_result.all()
+        
+        if hospital_roles:
+            user_payload["hospital_roles"] = [
+                {
+                    "hospital_id": hur.HospitalUserRoles.hospital_id,
+                    "hospital_name": hur.HospitalMaster.hospital_name,
+                    "role_id": hur.HospitalUserRoles.hospital_role_id,
+                    "role_name": hur.HospitalRole.role_name
+                }
+                for hur in hospital_roles
+            ]
+            # For convenience, add the first hospital_id to the root level
+            if hospital_roles:
+                user_payload["hospital_id"] = hospital_roles[0].HospitalUserRoles.hospital_id
+    except Exception as e:
+        logger.warning(f"Failed to fetch hospital roles for user {user.user_id}: {e}")
+        # Continue without hospital roles
     
 
     access_exp = int(getattr(settings, "ACCESS_TOKEN_EXPIRY_SECONDS", ACCESS_EXPIRE))

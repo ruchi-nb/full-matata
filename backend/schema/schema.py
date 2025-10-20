@@ -1269,4 +1269,5 @@ class CreateHospitalRoleOut(BaseModel):
     description: str
 
 class AssignPermissionsIn(BaseModel):
-    permission_ids: List[int] = Field(..., description="List of permission IDs to assign to role")
+    permission_ids: Optional[List[int]] = Field(None, description="List of permission IDs to assign to role")
+    permission_names: Optional[List[str]] = Field(None, description="List of permission names to assign to role")

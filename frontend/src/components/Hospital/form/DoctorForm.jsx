@@ -14,29 +14,8 @@ const DEFAULT_ROLES = [
   { name: "patient", label: "Patient", isDefault: true }
 ];
 
-const SPECIALTIES = [
-  { id: "cardiology", name: "Cardiology" },
-  { id: "neurology", name: "Neurology" },
-  { id: "pediatrics", name: "Pediatrics" },
-  { id: "orthopedics", name: "Orthopedics" },
-  { id: "dermatology", name: "Dermatology" },
-  { id: "psychiatry", name: "Psychiatry" },
-  { id: "radiology", name: "Radiology" },
-  { id: "internal-medicine", name: "Internal Medicine" },
-  { id: "general-surgery", name: "General Surgery" },
-];
+// Hardcoded specialties removed - now fetched from backend
 
-const INDIAN_LANGUAGES = [
-  "Hindi",
-  "Bengali",
-  "Telugu",
-  "Marathi",
-  "Tamil",
-  "Urdu",
-  "Gujarati",
-  "Kannada",
-  "Malayalam",
-];
 
 function randFrom(chars, n) {
   let out = "";
@@ -52,6 +31,23 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
   const hasHospitalAccess = !!hospitalId;
   const isSuperAdminContext = context === 'superadmin';
 
+  // Early return before any other hooks to avoid Rules of Hooks violation
+  if (!hasHospitalAccess) {
+    return (
+      <div className="p-8 bg-red-50 border border-red-200 rounded-xl">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-red-800 mb-2">Access Denied</h3>
+          <p className="text-red-600">You don't have permission to access this hospital's data.</p>
+        </div>
+      </div>
+    );
+  }
+
   console.log("🔍 DoctorForm Debug:", {
     user: user ? { 
       user_id: user.user_id, 
@@ -65,6 +61,8 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
   const [availableRoles, setAvailableRoles] = useState(DEFAULT_ROLES);
   const [loadingRoles, setLoadingRoles] = useState(true);
   const [rolesError, setRolesError] = useState("");
+  const [specialties, setSpecialties] = useState([]);
+  const [loadingSpecialties, setLoadingSpecialties] = useState(true);
 
   // Load custom roles dynamically
   useEffect(() => {
@@ -88,7 +86,12 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
               description: role.description
             }));
             
-            setAvailableRoles([...DEFAULT_ROLES, ...customRoleObjects]);
+            // Combine roles and remove duplicates based on role name
+            const allRoles = [...DEFAULT_ROLES, ...customRoleObjects];
+            const uniqueRoles = allRoles.filter((role, index, self) => 
+              index === self.findIndex(r => r.name === role.name)
+            );
+            setAvailableRoles(uniqueRoles);
             console.log("✅ Superadmin: Custom roles loaded:", customRoleObjects.length);
           } catch (error) {
             console.log("⚠️ Superadmin: Custom roles endpoint not available, using default roles only");
@@ -107,7 +110,12 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
               description: role.description
             }));
             
-            setAvailableRoles([...DEFAULT_ROLES, ...customRoleObjects]);
+            // Combine roles and remove duplicates based on role name
+            const allRoles = [...DEFAULT_ROLES, ...customRoleObjects];
+            const uniqueRoles = allRoles.filter((role, index, self) => 
+              index === self.findIndex(r => r.name === role.name)
+            );
+            setAvailableRoles(uniqueRoles);
             console.log("✅ Hospital admin: Custom roles loaded:", customRoleObjects.length);
           } catch (error) {
             console.log("⚠️ Hospital admin: Custom roles endpoint not available, using default roles only");
@@ -130,21 +138,40 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
     }
   }, [hospitalId, isSuperAdminContext]);
 
-  if (!hasHospitalAccess) {
-    return (
-      <div className="p-8 bg-red-50 border border-red-200 rounded-xl">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-red-800 mb-2">Access Denied</h3>
-          <p className="text-red-600">You don't have permission to access this hospital's data.</p>
-        </div>
-      </div>
-    );
-  }
+  // Load specialties from backend
+  useEffect(() => {
+    async function loadSpecialties() {
+      try {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+        const accessToken = document.cookie.split('accessToken=')[1]?.split(';')[0];
+        
+        console.log("🔍 Fetching specialties from:", `${backendUrl}/hospitals/specialities`);
+        
+        const response = await fetch(`${backendUrl}/hospitals/specialities`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log("✅ Specialties loaded:", data);
+          setSpecialties(data || []);
+        } else {
+          console.error("Failed to load specialties:", response.status, response.statusText);
+          setSpecialties([]);
+        }
+      } catch (error) {
+        console.error("Error loading specialties:", error);
+        setSpecialties([]);
+      } finally {
+        setLoadingSpecialties(false);
+      }
+    }
+
+    loadSpecialties();
+  }, []);
 
   const [form, setForm] = useState({
     firstName: "",
@@ -153,7 +180,6 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
     phone: "",
     role: "",
     specialty: "",
-    languages: [],
     password: "",
     genMode: "pattern", // 'pattern' | 'random'
   });
@@ -181,12 +207,6 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
     }
   };
 
-  const toggleLanguage = (lang) => {
-    setForm((f) => {
-      const exists = f.languages.includes(lang);
-      return { ...f, languages: exists ? f.languages.filter((l) => l !== lang) : [...f.languages, lang] };
-    });
-  };
 
   const isClinician = form.role === "doctor" || form.role === "nurse" || form.role === "lab technician" || 
                      (form.role && !availableRoles.find(r => r.name === form.role)?.isDefault);
@@ -206,7 +226,12 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
           description: role.description
         }));
         
-        setAvailableRoles([...DEFAULT_ROLES, ...customRoleObjects]);
+        // Combine roles and remove duplicates based on role name
+        const allRoles = [...DEFAULT_ROLES, ...customRoleObjects];
+        const uniqueRoles = allRoles.filter((role, index, self) => 
+          index === self.findIndex(r => r.name === role.name)
+        );
+        setAvailableRoles(uniqueRoles);
         console.log(`✅ ${isSuperAdminContext ? 'Superadmin' : 'Hospital admin'}: Roles refreshed successfully:`, customRoleObjects.length);
       } catch (error) {
         console.log(`⚠️ ${isSuperAdminContext ? 'Superadmin' : 'Hospital admin'}: Custom roles endpoint not available during refresh`);
@@ -244,9 +269,9 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
     setSuccess("");
 
     try {
-      // Validate required fields
-      if (!form.firstName || !form.lastName || !form.email || !form.role || !form.password) {
-        throw new Error("Please fill in all required fields");
+      // Validate required fields (matching backend schema)
+      if (!form.email || !form.role || !form.password) {
+        throw new Error("Please fill in all required fields (Email, Role, Password)");
       }
 
       if (isClinician && !form.specialty) {
@@ -255,23 +280,23 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
 
       // Prepare payload according to API expectations
       const payload = {
-        first_name: form.firstName,
-        last_name: form.lastName,
         email: form.email,
-        phone: form.phone || undefined,
         role_name: form.role,
         username: username,
         password: form.password,
-        // Include specialty and languages only for clinicians
-        ...(isClinician && {
+        // Include optional fields only if they have values
+        ...(form.firstName && { first_name: form.firstName }),
+        ...(form.lastName && { last_name: form.lastName }),
+        ...(form.phone && { phone: form.phone }),
+        // Include specialty only for clinicians
+        ...(isClinician && form.specialty && {
           specialty: form.specialty,
-          languages: form.languages,
         }),
       };
 
       // Prepare specialty IDs array (convert specialty name to ID)
       const specialtyIds = isClinician && form.specialty ? 
-        [SPECIALTIES.find(s => s.name === form.specialty)?.id || form.specialty] : 
+        [specialties.find(s => s.name === form.specialty)?.specialty_id || form.specialty] : 
         [];
 
       console.log("Calling API with:", {
@@ -279,6 +304,18 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
         payload,
         specialtyIds,
         context: isSuperAdminContext ? 'superadmin' : 'hospital-admin'
+      });
+      
+      // Debug: Log the actual payload being sent
+      console.log("🔍 Payload details:", {
+        first_name: payload.first_name,
+        last_name: payload.last_name,
+        email: payload.email,
+        role_name: payload.role_name,
+        username: payload.username,
+        password: payload.password ? '***' : 'MISSING',
+        phone: payload.phone,
+        specialty: payload.specialty
       });
 
       // Call the appropriate API based on context
@@ -309,7 +346,6 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
         phone: "",
         role: "",
         specialty: "",
-        languages: [],
         password: "",
         genMode: "pattern",
       });
@@ -334,7 +370,6 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
         phone: "",
         role: "",
         specialty: "",
-        languages: [],
         password: "",
         genMode: "pattern",
       });
@@ -469,7 +504,6 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
                   role: newRole,
                   // reset clinician-only fields if switching to patient or non-clinician role
                   specialty: newRole === "patient" ? "" : f.specialty,
-                  languages: newRole === "patient" ? [] : f.languages,
                 }));
               }}
               disabled={loading || loadingRoles}
@@ -580,37 +614,24 @@ const DoctorForm = ({ onSuccess, onCancel, context = 'hospital-admin', hospitalI
                 required
                 value={form.specialty}
                 onChange={onChange("specialty")}
-                disabled={loading}
+                disabled={loading || loadingSpecialties}
                 className="w-full px-4 py-2 text-gray-800 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
               >
-                <option value="">Select specialty</option>
-                {SPECIALTIES.map((s) => (
-                  <option key={s.id} value={s.name}>
-                    {s.name}
-                  </option>
-                ))}
+                <option value="">
+                  {loadingSpecialties ? "Loading specialties..." : "Select specialty"}
+                </option>
+                {specialties.length > 0 ? (
+                  specialties.map((s) => (
+                    <option key={s.specialty_id} value={s.name}>
+                      {s.name}
+                    </option>
+                  ))
+                ) : (
+                  !loadingSpecialties && <option value="" disabled>No specialties available</option>
+                )}
               </select>
             </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Languages (Select any)
-              </label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {INDIAN_LANGUAGES.map((lang) => (
-                  <label key={lang} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={form.languages.includes(lang)}
-                      onChange={() => toggleLanguage(lang)}
-                      disabled={loading}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:bg-gray-100"
-                    />
-                    <span className="text-sm text-gray-700">{lang}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       )}

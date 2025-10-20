@@ -11,7 +11,58 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('weekly');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [dashboardStats, setDashboardStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const { user, getHospitalId } = useUser();
+
+  // Fetch dashboard statistics
+  useEffect(() => {
+    async function loadDashboardStats() {
+      try {
+        const hospitalId = getHospitalId();
+        
+        if (!hospitalId) {
+          console.error("No hospital ID found for user");
+          setStatsLoading(false);
+          return;
+        }
+
+        const accessToken = document.cookie.split('accessToken=')[1]?.split(';')[0];
+        if (!accessToken) {
+          console.error("No access token found");
+          setStatsLoading(false);
+          return;
+        }
+
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+        const response = await fetch(
+          `${backendUrl}/hospital-admin/hospitals/${hospitalId}/dashboard-stats`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log("✅ Dashboard stats loaded:", data);
+          setDashboardStats(data);
+        } else {
+          console.error("Failed to load dashboard stats:", response.statusText);
+        }
+      } catch (error) {
+        console.error("Error loading dashboard stats:", error);
+      } finally {
+        setStatsLoading(false);
+      }
+    }
+
+    if (user) {
+      loadDashboardStats();
+    }
+  }, [user, getHospitalId]);
 
   useEffect(() => {
     async function loadHospitalDoctors() {
@@ -148,6 +199,20 @@ const Dashboard = () => {
   };
 
   const getTotalConsultations = () => {
+    // Use real data if available, otherwise fallback to generated data
+    if (dashboardStats && dashboardStats.consultations) {
+      switch (timeRange) {
+        case 'weekly':
+          return dashboardStats.consultations.weekly;
+        case 'monthly':
+          return dashboardStats.consultations.monthly;
+        case 'yearly':
+          return dashboardStats.consultations.total;
+        default:
+          return dashboardStats.consultations.weekly;
+      }
+    }
+    // Fallback to generated data
     const data = getCurrentData();
     return data.reduce((sum, item) => sum + item.consultations, 0);
   };

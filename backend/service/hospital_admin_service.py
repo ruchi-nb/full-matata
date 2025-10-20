@@ -70,6 +70,7 @@ async def hospital_admin_create_user(
     first_name = payload.get("first_name")
     last_name = payload.get("last_name")
     phone = payload.get("phone")
+    specialty = payload.get("specialty")  # For doctors
 
 
     # Check if user is superadmin (bypass hospital check) or validate hospital access
@@ -136,10 +137,28 @@ async def hospital_admin_create_user(
             logger.info("Assigned %d default permissions to new role '%s' for hospital %s", len(perm_ids), role_name, hospital_id)
 
 
+    # Get global_role_id from role_master based on role_name
+    from models.models import RoleMaster
+    role_master_query = select(RoleMaster).where(RoleMaster.role_name == role_name)
+    role_master_result = await db.execute(role_master_query)
+    role_master = role_master_result.scalar_one_or_none()
+    
+    if not role_master:
+        raise ValueError(f"Role '{role_name}' not found in role_master table")
+    
+    global_role_id = role_master.role_id
+    logger.info(f"🔍 Found global_role_id {global_role_id} for role '{role_name}'")
+    
     hashed = generate_passwd_hash(password)
-    user = Users(username=username, email=email, password_hash=hashed)
+    user = Users(
+        username=username, 
+        email=email, 
+        password_hash=hashed,
+        global_role_id=global_role_id  # Set global_role_id from role_master
+    )
     db.add(user)
     await db.flush()
+    logger.info(f"✅ Created user {user.user_id} with global_role_id {global_role_id}")
 
 
     ud = UserDetails(user_id=user.user_id, first_name=first_name, last_name=last_name, phone=phone)
@@ -155,6 +174,31 @@ async def hospital_admin_create_user(
     )
     db.add(hur)
     await db.flush()
+
+    # Handle specialty assignment for doctors
+    if role_name == "doctor" and specialty:
+        try:
+            from models.models import DoctorSpecialties, Specialties
+            
+            # Find specialty by name
+            specialty_query = select(Specialties).where(Specialties.name == specialty)
+            specialty_result = await db.execute(specialty_query)
+            specialty_obj = specialty_result.scalar_one_or_none()
+            
+            if specialty_obj:
+                # Create doctor specialty relationship
+                doctor_specialty = DoctorSpecialties(
+                    user_id=user.user_id,
+                    specialty_id=specialty_obj.specialty_id
+                )
+                db.add(doctor_specialty)
+                await db.flush()
+                logger.info(f"Assigned specialty '{specialty}' to doctor {user.user_id}")
+            else:
+                logger.warning(f"Specialty '{specialty}' not found in database")
+        except Exception as e:
+            logger.error(f"Failed to assign specialty to doctor: {e}")
+            # Continue without specialty assignment
 
     await db.commit()
 

@@ -258,9 +258,12 @@ async def get_hospital_statistics(
 
 @router.get("/specialities", response_model=list[SpecialityOut])
 async def list_all_specialities(
-    caller: Dict[str, Any] = Depends(require_permissions(["hospital.specialities.list"], hospital_id_param="hospital_id")),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    List all specialties - accessible to all authenticated users
+    This endpoint is used for dropdown population in forms
+    """
     try:
         rows = await list_specialities(db)
         return [SpecialityOut(specialty_id=int(r.specialty_id), name=r.name, description=r.description, status=r.status) for r in rows]
@@ -543,6 +546,45 @@ async def list_doctors(
         logger.error(f"❌ API: Database error listing doctors: {de}")
         raise HTTPException(status_code=500, detail="Failed to list doctors") from de
 
+
+@router.get("/{hospital_id}/roles", response_model=List[Dict[str, Any]])
+async def get_hospital_roles(
+    hospital_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get all roles for a specific hospital.
+    """
+    try:
+        from models.models import HospitalRole
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"🔍 Getting roles for hospital_id: {hospital_id}")
+        
+        # Get all hospital roles
+        from sqlalchemy import select
+        roles_query = select(HospitalRole).where(HospitalRole.hospital_id == hospital_id)
+        roles_res = await db.execute(roles_query)
+        roles = roles_res.scalars().all()
+        
+        result = [
+            {
+                "role_id": r.hospital_role_id,
+                "role_name": r.role_name,
+                "description": r.description,
+                "is_active": bool(r.is_active)
+            } for r in roles
+        ]
+        
+        logger.info(f"🔍 Found {len(result)} roles for hospital_id: {hospital_id}")
+        return result
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"❌ Error getting hospital roles for hospital_id {hospital_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get hospital roles: {str(e)}")
 
 @router.get("/{hospital_id}/debug/roles", response_model=Dict[str, Any])
 async def debug_hospital_roles(
