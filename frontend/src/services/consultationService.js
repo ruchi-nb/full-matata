@@ -12,29 +12,65 @@ class ConsultationService {
     return null;
   }
 
+  // Check if token is expired
+  isTokenExpired(token) {
+    if (!token) return true;
+    
+    try {
+      // Decode JWT token to check expiration
+      const payload = token.split('.')[1];
+      const decodedPayload = JSON.parse(atob(payload));
+      
+      // Check if exp field exists and if it's expired
+      if (decodedPayload.exp) {
+        const currentTime = Math.floor(Date.now() / 1000);
+        return decodedPayload.exp < currentTime;
+      }
+      
+      return false; // If no exp field, assume not expired
+    } catch (error) {
+      console.error('Error checking token expiration:', error);
+      return true; // If can't decode, assume expired
+    }
+  }
+
   // Create consultation automatically in background
-  async createConsultation(doctorId, patientId = null, specialtyId = null, hospitalId = null) {
+  async createConsultation(doctor, patientId = null, hospitalId = null) {
     try {
       const token = this.getAuthToken();
       if (!token) {
         throw new Error('Authentication required');
       }
 
-      // If patientId is not provided, try to get it from user context or use default
-      const finalPatientId = patientId || await this.getCurrentPatientId();
+      // Check if token is expired before making API call
+      if (this.isTokenExpired(token)) {
+        throw new Error('Authentication failed - Your session has expired');
+      }
+
+      // Get current user info from JWT token
+      const userData = await this.getCurrentUserInfo();
+      if (!userData || !userData.user_id) {
+        throw new Error('Unable to identify patient');
+      }
+
+      // Extract doctor information
+      const doctorUserId = doctor.user_id; // Doctor's user_id from database
+      const specialtyId = doctor.specialties && doctor.specialties.length > 0 
+        ? doctor.specialties[0].specialty_id 
+        : 1; // Use first specialty or default
       
-      // If specialtyId is not provided, try to infer from doctor
-      const finalSpecialtyId = specialtyId || await this.getDoctorSpecialty(doctorId);
+      // Hospital ID should come from patient's associated hospital
+      const finalHospitalId = hospitalId || userData.hospital_id || null;
 
       const consultationData = {
-        patient_id: finalPatientId,
-        doctor_id: doctorId,
-        specialty_id: finalSpecialtyId,
-        hospital_id: hospitalId,
-        consultation_type: 'online', // Default to online consultation
-        audio_provider: 'deepgram', // Default to deepgram
-        language: 'multi' // Default to multi-language
+        patient_id: userData.user_id, // Patient's user_id from JWT
+        doctor_id: doctorUserId, // Doctor's user_id
+        specialty_id: specialtyId,
+        hospital_id: finalHospitalId,
+        consultation_type: 'online' // Default to online consultation
       };
+
+      console.log('💊 Creating consultation with data:', consultationData);
 
       // Log analytics event
       await this.logAnalyticsEvent('consultation_form_submit', consultationData);
@@ -49,56 +85,69 @@ class ConsultationService {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication failed - Your session has expired');
+        }
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Failed to create consultation');
       }
 
       const result = await response.json();
 
+      console.log('✅ Consultation created successfully:', result);
+
       // Log successful creation
       await this.logAnalyticsEvent('consultation_created', {
         consultation_id: result.consultation_id,
-        doctor_id: doctorId,
-        patient_id: finalPatientId
+        doctor_id: doctorUserId,
+        patient_id: userData.user_id
       });
 
       return result;
     } catch (error) {
-      console.error('Consultation creation error:', error);
+      console.error('❌ Consultation creation error:', error);
       throw error;
     }
   }
 
-  // Get current patient ID from user context or token
-  async getCurrentPatientId() {
+  // Get current user information from JWT token
+  async getCurrentUserInfo() {
     try {
       const token = this.getAuthToken();
-      if (!token) return 12; // Default patient ID
-
-      // Try to get patient info from /auth/me endpoint
-      const response = await fetch(`${this.baseURL}/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        return userData.id || 12; // Use user ID as patient ID
+      if (!token) {
+        throw new Error('No authentication token found');
       }
 
-      return 12; // Default fallback
+      // Decode JWT token to get user info
+      // JWT structure: header.payload.signature
+      const payload = token.split('.')[1];
+      const decodedPayload = JSON.parse(atob(payload));
+      
+      console.log('👤 Decoded user info from JWT:', decodedPayload);
+
+      // Return user info from JWT payload
+      return {
+        user_id: decodedPayload.user?.user_id || decodedPayload.user_id,
+        username: decodedPayload.user?.username || decodedPayload.username,
+        email: decodedPayload.user?.email || decodedPayload.email,
+        hospital_id: decodedPayload.hospital_id || decodedPayload.user?.hospital_id,
+        role: decodedPayload.user?.global_role?.role_name || decodedPayload.role
+      };
     } catch (error) {
-      console.warn('Could not get current patient ID:', error);
-      return 12; // Default fallback
+      console.error('Failed to get current user info:', error);
+      throw new Error('Failed to authenticate user');
     }
   }
 
-  // Get doctor specialty (this would typically come from doctor data)
-  async getDoctorSpecialty(doctorId) {
-    // This is a simplified version - in a real app, you'd fetch from doctor API
-    // For now, return a default specialty ID
-    return 1; // Default specialty ID
+  // Get current patient ID from JWT token
+  async getCurrentPatientId() {
+    try {
+      const userInfo = await this.getCurrentUserInfo();
+      return userInfo.user_id;
+    } catch (error) {
+      console.error('Failed to get patient ID:', error);
+      throw error;
+    }
   }
 
   // Log analytics events

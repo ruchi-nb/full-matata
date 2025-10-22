@@ -6,6 +6,7 @@ import { Search, Filter, User, Mail, Phone, Medal, X, Eye } from 'lucide-react';
 import { getPatientHospitalDoctors, getPatientHospitalSpecialties } from '@/data/api-patient';
 import { LifeLine } from 'react-loading-indicators';
 import Consult from '@/components/PatientPortal/home/Consult';
+import ConsultationSettings from '@/components/PatientPortal/home/ConsultationSettings';
 import InvertedGradientButton from '@/components/common/InvertedGradientButton';
 import OutlineButton from '@/components/common/OutlineButton';
 
@@ -24,6 +25,7 @@ const DoctorsListSection = () => {
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showConsultation, setShowConsultation] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Fetch specialties on mount
   useEffect(() => {
@@ -83,8 +85,17 @@ const DoctorsListSection = () => {
   };
 
   const handleConsultDoctor = (doctor) => {
+    // Show settings modal to choose provider and language
     setSelectedDoctor(doctor);
-    setShowConsultation(true);
+    setShowSettingsModal(true);
+  };
+
+  const handleStartConsultation = ({ provider, language }) => {
+    // Store doctor info in sessionStorage for the consultation page
+    sessionStorage.setItem('selectedDoctor', JSON.stringify(selectedDoctor));
+    
+    // Navigate to consultation page with chosen provider and language
+    router.push(`/consultation?doctor_id=${selectedDoctor.user_id}&provider=${provider}&language=${language}`);
   };
 
   const closeModal = () => {
@@ -385,6 +396,17 @@ const DoctorsListSection = () => {
           </div>
         </div>
       )}
+
+      {/* Consultation Settings Modal */}
+      <ConsultationSettings
+        isOpen={showSettingsModal}
+        onClose={() => {
+          setShowSettingsModal(false);
+          setSelectedDoctor(null);
+        }}
+        onStart={handleStartConsultation}
+        doctor={selectedDoctor}
+      />
     </>
   );
 };

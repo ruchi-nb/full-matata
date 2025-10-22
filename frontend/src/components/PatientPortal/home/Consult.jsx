@@ -29,7 +29,7 @@ const Consult = ({ doctor, onBack }) => {
     clearConversation,
     error: conversationError
   } = useEnhancedConversation({
-  consultationId: doctor?.id,
+  consultationId: consultationId, // Use the consultation_id from backend
   enableAnalytics: true,
   defaultLanguage: 'en-IN',
   defaultProvider: 'deepgram',
@@ -185,8 +185,9 @@ const Consult = ({ doctor, onBack }) => {
 
   // Create consultation automatically in background
   const createConsultation = async () => {
-    if (!doctor?.id) {
+    if (!doctor || !doctor.user_id) {
       updateStatus('Error: Doctor information not available');
+      console.error('Doctor object missing user_id:', doctor);
       return null;
     }
 
@@ -194,17 +195,21 @@ const Consult = ({ doctor, onBack }) => {
       setIsCreatingConsultation(true);
       updateStatus('Creating consultation session...');
       
-      const result = await consultationService.createConsultation(doctor.id);
+      console.log('📋 Creating consultation for doctor:', doctor);
+      
+      // Pass the entire doctor object with user_id and specialties
+      const result = await consultationService.createConsultation(doctor);
       
       if (result?.consultation_id) {
         setConsultationId(result.consultation_id);
         updateStatus(`Consultation created successfully (ID: ${result.consultation_id})`);
+        console.log('✅ Consultation ID set:', result.consultation_id);
         return result.consultation_id;
       } else {
-        throw new Error('Failed to create consultation');
+        throw new Error('Failed to create consultation - no consultation_id returned');
       }
     } catch (error) {
-      console.error('Consultation creation failed:', error);
+      console.error('❌ Consultation creation failed:', error);
       updateStatus(`Failed to create consultation: ${error.message}`);
       return null;
     } finally {
