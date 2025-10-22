@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeroSection from "@/components/PatientPortal/home/HeroSection";
-import SpecialtiesSection from "@/components/PatientPortal/home/SpecialtiesSection";
+import DoctorsListSection from "@/components/PatientPortal/home/DoctorsListSection";
 import Navbar from "@/components/Landing/Navbar";
 import Footer from "@/components/Landing/Footer";
 import { LifeLine } from "react-loading-indicators";
@@ -100,7 +100,7 @@ export default function PatientPortalPage() {
       <Navbar onLogout={handleLogout} navItems={portalNavItems} />
       <main>
         <HeroSection />
-        <SpecialtiesSection />
+        <DoctorsListSection />
       </main>
       <Footer />
     </div>
