@@ -63,33 +63,32 @@ const PatientCard = ({
   };
 
   return (
-<div className="p-6 hover:bg-gray-50 transition-colors border-b border-gray-100">
+<div className="p-6 hover:bg-gradient-to-r hover:from-blue-50 hover:to-transparent transition-all duration-200 border-b border-gray-100">
   <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
     {/* Patient Info */}
     <div className="flex items-start space-x-4 flex-1">
-      <div className="bg-blue-100 p-3 rounded-full flex-shrink-0">
-        <User className="h-6 w-6 text-blue-600" />
+      <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-3 rounded-full flex-shrink-0 shadow-md">
+        <User className="h-6 w-6 text-white" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 gap-2 mb-2">
-          <h3 className="text-lg font-semibold text-gray-900 truncate">{name}</h3>
-          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium whitespace-nowrap">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 mb-3">
+          <h3 className="text-lg font-bold text-gray-900 truncate">{name}</h3>
+          <span className="px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full text-xs font-semibold whitespace-nowrap shadow-sm w-fit">
             {specialty}
           </span>
         </div>
-        <p className="text-sm text-gray-600 mb-3">{reason}</p>
-        <div className="flex flex-wrap gap-4 sm:gap-6 text-sm text-gray-500">
-          <div className="flex items-center whitespace-nowrap">
-            <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
-            {date}
+        <div className="flex flex-wrap gap-4 sm:gap-6 text-sm">
+          <div className="flex items-center whitespace-nowrap text-gray-700">
+            <Calendar className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />
+            <span className="font-medium">{date}</span>
           </div>
-          <div className="flex items-center whitespace-nowrap">
-            <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
-            {time}
+          <div className="flex items-center whitespace-nowrap text-gray-700">
+            <Clock className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />
+            <span className="font-medium">{time}</span>
           </div>
-          <div className="flex items-center whitespace-nowrap">
-            <File className="h-4 w-4 mr-2 flex-shrink-0" />
-            {transcriptCount} Transcript{transcriptCount > 1 ? "s" : ""}
+          <div className="flex items-center whitespace-nowrap text-gray-700">
+            <File className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />
+            <span className="font-medium">{transcriptCount} Consultation{transcriptCount > 1 ? "s" : ""}</span>
           </div>
         </div>
       </div>
@@ -99,19 +98,19 @@ const PatientCard = ({
     <div className="flex flex-col sm:flex-row gap-3 xl:justify-end">
       <InvertedGradientButton
         onClick={onViewTranscript}
-        className="flex items-center justify-center "
+        className="flex items-center justify-center shadow-sm hover:shadow-md transition-shadow"
         color="amber"
       >
         <File className="h-4 w-4 mr-2" />
-        View 
+        View Details
       </InvertedGradientButton>
       <GradientButton
         onClick={handleDownloadPdf}
-        className="flex items-center justify-center "
+        className="flex items-center justify-center shadow-sm hover:shadow-md transition-shadow"
         color="amber"
       >
         <Download className="h-4 w-4 mr-2" />
-        Download 
+        Download Report
       </GradientButton>
     </div>
   </div>

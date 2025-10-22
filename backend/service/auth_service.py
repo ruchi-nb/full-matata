@@ -203,13 +203,16 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> Tupl
 async def authenticate_google_user(db: AsyncSession, google_token: str) -> Tuple[str, str, int]:
     """
     Authenticate user with Google OAuth token and return JWT tokens.
+    Includes clock skew tolerance to handle minor time synchronization issues.
     """
     try:
-        # Verify the Google token
+        # Verify the Google token with clock skew tolerance (10 seconds)
+        # This handles minor time synchronization differences between client and server
         idinfo = id_token.verify_oauth2_token(
             google_token, 
             requests.Request(), 
-            settings.GOOGLE_CLIENT_ID
+            settings.GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=10
         )
         
         # Extract user information from Google token

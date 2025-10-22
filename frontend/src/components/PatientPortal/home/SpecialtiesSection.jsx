@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ChevronRight } from 'lucide-react';
 import { specialties } from "@/data/Specialties";
+import { getPatientHospitalSpecialties } from "@/data/api-patient";
 
 const SpecialtiesSection = () => {
   const router = useRouter();
@@ -15,6 +16,43 @@ const SpecialtiesSection = () => {
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [hoveredCard, setHoveredCard] = useState(null);
   const hoverTimers = useRef({});
+  
+  // New state for dynamic specialties from database
+  const [hospitalSpecialties, setHospitalSpecialties] = useState([]);
+  const [loadingSpecialties, setLoadingSpecialties] = useState(true);
+  const [specialtiesError, setSpecialtiesError] = useState(null);
+
+  // Fetch hospital specialties on component mount
+  useEffect(() => {
+    const fetchHospitalSpecialties = async () => {
+      try {
+        setLoadingSpecialties(true);
+        setSpecialtiesError(null);
+        
+        console.log("🏥 Fetching hospital specialties for patient...");
+        const response = await getPatientHospitalSpecialties();
+        
+        console.log("✅ Received specialties:", response);
+        
+        if (response && response.specialties) {
+          setHospitalSpecialties(response.specialties);
+          console.log(`📋 Loaded ${response.specialties.length} specialties from hospital`);
+        } else {
+          setHospitalSpecialties([]);
+          console.warn("⚠️ No specialties returned from API");
+        }
+      } catch (error) {
+        console.error("❌ Error fetching hospital specialties:", error);
+        setSpecialtiesError(error.message || "Failed to load specialties");
+        // Fallback to empty array on error
+        setHospitalSpecialties([]);
+      } finally {
+        setLoadingSpecialties(false);
+      }
+    };
+
+    fetchHospitalSpecialties();
+  }, []);
 
   const openSpecialtyModal = (specialtyName) => {
     const specialty = specialties[specialtyName];
@@ -230,58 +268,93 @@ const SpecialtiesSection = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Object.keys(specialties).map((name, index) => (
-              <div
-                key={index}
-                onClick={() => openSpecialtyModal(name)}
-                onMouseEnter={() => handleMouseEnter(name)}
-                onMouseLeave={() => handleMouseLeave(name)}
-                className="group cursor-pointer bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden border border-gray-100 relative"
-              >
-                <div className="relative h-48 overflow-hidden">
-                  <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-                    {hoveredCard === name ? (
-                      <img 
-                        src={specialties[name].image} 
-                        alt={name} 
-                        className=" h-full object-cover transition-opacity duration-500"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <svg 
-                        xmlns="http://www.w3.org/2000/svg" 
-                        width="64" 
-                        height="64" 
-                        viewBox="0 0 24 24" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        strokeWidth="2" 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        className="text-white opacity-80"
-                      >
-                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-                      </svg>
-                    )}
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-                </div>
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                    {name}
-                  </h3>
-                  <p className="text-gray-600 mb-4">{specialties[name].description}</p>
-                  <div className="flex items-center text-blue-600 font-medium">
-                    <span>View Doctors</span>
-                    <ChevronRight className="w-5 h-5 ml-1 transition-transform group-hover:translate-x-1"/>
-                  </div>
-                </div>
+          {/* Loading State */}
+          {loadingSpecialties && (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading specialties...</p>
+            </div>
+          )}
+
+          {/* Error State */}
+          {!loadingSpecialties && specialtiesError && (
+            <div className="text-center py-12 px-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+                <p className="text-red-800 font-medium mb-2">⚠️ Unable to Load Specialties</p>
+                <p className="text-red-600 text-sm">{specialtiesError}</p>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
+
+          {/* Empty State - No Hospital Assigned */}
+          {!loadingSpecialties && !specialtiesError && hospitalSpecialties.length === 0 && (
+            <div className="text-center py-12 px-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md mx-auto">
+                <p className="text-yellow-800 font-medium mb-2">🏥 No Hospital Assigned</p>
+                <p className="text-yellow-600 text-sm">
+                  You are not currently associated with any hospital. Please contact support to get assigned to a hospital.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Specialties Grid */}
+          {!loadingSpecialties && hospitalSpecialties.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {hospitalSpecialties.map((specialty, index) => (
+                <div
+                  key={specialty.specialty_id}
+                  onClick={() => openSpecialtyModal(specialty.name)}
+                  onMouseEnter={() => handleMouseEnter(specialty.name)}
+                  onMouseLeave={() => handleMouseLeave(specialty.name)}
+                  className="group cursor-pointer bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden border border-gray-100 relative"
+                >
+                  <div className="relative h-48 overflow-hidden">
+                    <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                      {hoveredCard === specialty.name && specialties[specialty.name]?.image ? (
+                        <img 
+                          src={specialties[specialty.name].image} 
+                          alt={specialty.name} 
+                          className="h-full object-cover transition-opacity duration-500"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <svg 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          width="64" 
+                          height="64" 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth="2" 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round" 
+                          className="text-white opacity-80"
+                        >
+                          <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                        </svg>
+                      )}
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                      {specialty.name}
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      {specialty.description || specialties[specialty.name]?.description || "View available doctors for this specialty"}
+                    </p>
+                    <div className="flex items-center text-blue-600 font-medium">
+                      <span>View Doctors</span>
+                      <ChevronRight className="w-5 h-5 ml-1 transition-transform group-hover:translate-x-1"/>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

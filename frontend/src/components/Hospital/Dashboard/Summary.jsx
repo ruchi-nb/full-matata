@@ -92,98 +92,51 @@ const Dashboard = () => {
     }
   }, [user, getHospitalId]);
 
-  // Get current date information
-  const getCurrentDateInfo = () => {
-    const now = new Date();
-    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    const currentWeek = Math.ceil((now.getDate() + 6 - now.getDay()) / 7); // Week of month
-    const currentMonth = now.getMonth(); // 0 = January, 1 = February, etc.
-    const currentYear = now.getFullYear();
-    
-    return { currentDay, currentWeek, currentMonth, currentYear };
-  };
+  // Generate display data from DB stats
+  const generateDisplayData = () => {
+    if (!dashboardStats) {
+      return { weeklyData: [], monthlyData: [], yearlyData: [] };
+    }
 
-  // Generate real-time data based on current date
-  const generateRealTimeData = () => {
-    const { currentDay, currentWeek, currentMonth } = getCurrentDateInfo();
+    const totalDoctors = dashboardStats.users?.doctors || 0;
+    const weeklyConsultations = dashboardStats.consultations?.weekly || 0;
+    const monthlyConsultations = dashboardStats.consultations?.monthly || 0;
+    const totalConsultations = dashboardStats.consultations?.total || 0;
     
-    // Base data templates
-    const allWeeklyDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const allMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
-    // Weekly data - only show days up to today
-    const weeklyData = allWeeklyDays.slice(0, currentDay + 1).map((day, index) => {
-      // Generate realistic consultation numbers (increasing trend with some variation)
-      const baseConsultations = 80 + (index * 15);
-      const variation = Math.floor(Math.random() * 30) - 15;
-      const consultations = Math.max(50, baseConsultations + variation);
-      
-      // Doctors online (more during weekdays, less on weekends)
-      const baseDoctors = day === 'Sat' || day === 'Sun' ? 12 : 20;
-      const doctorVariation = Math.floor(Math.random() * 6) - 3;
-      const doctors = Math.max(8, baseDoctors + doctorVariation);
-      
-      // Calculate percentage based on maximum expected for that day
-      const maxExpected = day === 'Sat' || day === 'Sun' ? 120 : 200;
-      const percentage = `${Math.min(100, (consultations / maxExpected) * 100).toFixed(2)}%`;
-      
-      return {
-        day,
-        consultations,
-        doctors,
-        percentage
-      };
-    });
+    // Weekly data - simplified placeholder (Coming Soon for detailed breakdown)
+    const weeklyData = [
+      {
+        day: 'This Week',
+        consultations: weeklyConsultations,
+        doctors: totalDoctors,
+        percentage: '100%'
+      }
+    ];
 
-    // Monthly data - only show weeks up to current week
-    const monthlyData = Array.from({ length: currentWeek }, (_, index) => {
-      const weekNumber = index + 1;
-      // Increasing trend with some variation
-      const baseConsultations = 800 + (weekNumber * 200);
-      const variation = Math.floor(Math.random() * 100) - 50;
-      const consultations = Math.max(500, baseConsultations + variation);
-      
-      const baseDoctors = 18 + (weekNumber * 1);
-      const doctorVariation = Math.floor(Math.random() * 4) - 2;
-      const doctors = Math.max(15, baseDoctors + doctorVariation);
-      
-      const percentage = `${Math.min(100, (weekNumber / 4) * 100).toFixed(2)}%`;
-      
-      return {
-        week: `Week ${weekNumber}`,
-        consultations,
-        doctors,
-        percentage
-      };
-    });
+    // Monthly data - simplified placeholder (Coming Soon for detailed breakdown)
+    const monthlyData = [
+      {
+        week: 'This Month',
+        consultations: monthlyConsultations,
+        doctors: totalDoctors,
+        percentage: '100%'
+      }
+    ];
 
-    // Yearly data - only show months up to current month
-    const yearlyData = allMonths.slice(0, currentMonth + 1).map((month, index) => {
-      // Seasonal variation - higher in winter months, lower in summer
-      const seasonalFactor = [1.2, 1.1, 1.0, 0.9, 0.8, 0.85, 0.9, 1.0, 1.1, 1.2, 1.3, 1.2][index];
-      
-      const baseConsultations = 2500 + (index * 300);
-      const variation = Math.floor(Math.random() * 500) - 250;
-      const consultations = Math.max(2000, Math.floor((baseConsultations + variation) * seasonalFactor));
-      
-      const baseDoctors = 15 + (index * 1);
-      const doctorVariation = Math.floor(Math.random() * 3) - 1;
-      const doctors = Math.max(12, baseDoctors + doctorVariation);
-      
-      const percentage = `${Math.min(100, ((index + 1) / 12) * 100).toFixed(2)}%`;
-      
-      return {
-        month,
-        consultations,
-        doctors,
-        percentage
-      };
-    });
+    // Yearly data - simplified placeholder (Coming Soon for detailed breakdown)
+    const yearlyData = [
+      {
+        month: 'Total',
+        consultations: totalConsultations,
+        doctors: totalDoctors,
+        percentage: '100%'
+      }
+    ];
 
     return { weeklyData, monthlyData, yearlyData };
   };
 
-  const { weeklyData, monthlyData, yearlyData } = generateRealTimeData();
+  const { weeklyData, monthlyData, yearlyData } = generateDisplayData();
 
   const getCurrentData = () => {
     switch (timeRange) {
@@ -415,7 +368,7 @@ const Dashboard = () => {
                 const status = getDoctorStatus(doctor);
                 return (
                   <div 
-                    key={doctor.id || index} 
+                    key={doctor.user_id || index} 
                     className="flex items-center justify-between p-3 bg-slate-50 rounded-lg animate-slide-up"
                     style={{ animationDelay: `${index * 100}ms` }}
                   >
@@ -425,10 +378,14 @@ const Dashboard = () => {
                       </div>
                       <div>
                         <h4 className="text-sm font-medium text-slate-900">
-                          {doctor.name || `Dr. ${doctor.first_name} ${doctor.last_name}`}
+                          {doctor.first_name && doctor.last_name 
+                            ? `Dr. ${doctor.first_name} ${doctor.last_name}` 
+                            : doctor.username || 'Doctor'}
                         </h4>
                         <p className="text-xs text-slate-500">
-                          {doctor.specialty || doctor.department || 'General Medicine'}
+                          {doctor.specialties && doctor.specialties.length > 0 
+                            ? doctor.specialties[0].name 
+                            : 'General Medicine'}
                         </p>
                       </div>
                     </div>

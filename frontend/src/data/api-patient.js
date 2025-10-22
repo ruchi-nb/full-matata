@@ -75,6 +75,15 @@ export function getPatientConsultations() {
 }
 
 /**
+ * Get hospital specialties available to the patient
+ * Patient can only see specialties from their hospital
+ */
+export function getPatientHospitalSpecialties() {
+  console.log("🩺 [PATIENT API] Fetching hospital specialties for patient");
+  return request("/patients/specialties", { method: "GET" });
+}
+
+/**
  * Create missing UserDetails record for new patients
  */
 export async function createMissingUserDetails(userData) {

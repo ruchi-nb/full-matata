@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { getDoctorProfile, updateDoctorProfile } from '@/data/api-doctor';
 import InvertedGradientButton from '@/components/common/InvertedGradientButton';
 import { 
@@ -14,7 +14,7 @@ import {
   Upload, 
 } from 'lucide-react';
 
-const UnifiedDoctorSettings = ({ isEditing, onSave, onCancel }) => {
+const UnifiedDoctorSettings = forwardRef(({ isEditing, onSaveSuccess }, ref) => {
   // Profile Information State
   const [profileData, setProfileData] = useState({
     firstName: '',
@@ -22,11 +22,8 @@ const UnifiedDoctorSettings = ({ isEditing, onSave, onCancel }) => {
     email: '',
     phone: '',
     gender: 'Prefer not to say',
-    pronouns: '',
-    street: '',
-    city: '',
-    state: '',
-    zip: '',
+    dob: '',
+    address: '',
     avatar: null,
     avatarUrl: null
   });
@@ -45,6 +42,9 @@ const UnifiedDoctorSettings = ({ isEditing, onSave, onCancel }) => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+
+  // Store original profile data for cancel functionality
+  const [originalProfileData, setOriginalProfileData] = useState(null);
 
   // File input refs
   const avatarInputRef = useRef(null);
@@ -68,22 +68,23 @@ const UnifiedDoctorSettings = ({ isEditing, onSave, onCancel }) => {
       setError(null);
       
       const profile = await getDoctorProfile();
+      console.log('📥 Loaded doctor profile:', profile);
       
-      // Auto-fill all profile fields from backend
-      setProfileData({
+      // Map backend fields to frontend state
+      const mappedProfile = {
         firstName: profile.first_name || '',
         lastName: profile.last_name || '',
         email: profile.email || '',
         phone: profile.phone || '',
         gender: profile.gender || 'Prefer not to say',
-        pronouns: profile.pronouns || '',
-        street: profile.street || '',
-        city: profile.city || '',
-        state: profile.state || '',
-        zip: profile.zip || '',
-        avatar: profile.avatar,
-        avatarUrl: profile.avatar_url || profile.avatar
-      });
+        dob: profile.dob || '',
+        address: profile.address || '',
+        avatar: null,
+        avatarUrl: profile.avatar_url || null
+      };
+      
+      setProfileData(mappedProfile);
+      setOriginalProfileData(mappedProfile); // Store for cancel functionality
 
       // Load voice samples if available
       if (profile.voice_samples) {
@@ -162,47 +163,62 @@ const UnifiedDoctorSettings = ({ isEditing, onSave, onCancel }) => {
       // Validate required fields
       if (!profileData.firstName.trim() || !profileData.lastName.trim()) {
         setError('First name and last name are required.');
+        setSaving(false);
         return;
       }
 
-      // Prepare form data for file uploads
-      const formData = new FormData();
-      
-      // Add profile fields
-      formData.append('first_name', profileData.firstName.trim());
-      formData.append('last_name', profileData.lastName.trim());
-      formData.append('phone', profileData.phone.trim());
-      formData.append('gender', profileData.gender);
-      formData.append('pronouns', profileData.pronouns.trim());
-      formData.append('street', profileData.street.trim());
-      formData.append('city', profileData.city.trim());
-      formData.append('state', profileData.state.trim());
-      formData.append('zip', profileData.zip.trim());
+      // Prepare update payload - only DB-supported fields from UserDetails model
+      const updatePayload = {
+        first_name: profileData.firstName.trim(),
+        last_name: profileData.lastName.trim(),
+        phone: profileData.phone.trim(),
+        gender: profileData.gender,
+        address: profileData.address.trim(),
+        dob: profileData.dob || null
+      };
 
-      // Add avatar if uploaded
-      if (profileData.avatar) {
-        formData.append('avatar', profileData.avatar);
-      }
+      console.log('📤 Updating doctor profile:', updatePayload);
 
       // Update profile
-      await updateDoctorProfile(formData);
+      const updatedProfile = await updateDoctorProfile(updatePayload);
+      console.log('✅ Profile updated successfully:', updatedProfile);
       
       setSuccess('Profile updated successfully!');
-      onSave && onSave();
       
-      // Reload profile to get updated data
+      // Reload profile to get updated data and store it as original
+      await loadDoctorProfile();
+      
+      // Notify parent component
+      onSaveSuccess && onSaveSuccess();
+      
+      // Clear success message after 3 seconds
       setTimeout(() => {
-        loadDoctorProfile();
-      }, 1000);
+        setSuccess(null);
+      }, 3000);
 
     } catch (error) {
-      console.error('Failed to update profile:', error);
+      console.error('❌ Failed to update profile:', error);
       const errorMessage = error.message || 'Failed to update profile. Please try again.';
       setError(errorMessage);
     } finally {
       setSaving(false);
     }
   };
+
+  const handleCancelEdit = () => {
+    // Restore original profile data
+    if (originalProfileData) {
+      setProfileData({ ...originalProfileData });
+    }
+    setError(null);
+    setSuccess(null);
+  };
+
+  // Expose methods to parent component via ref
+  useImperativeHandle(ref, () => ({
+    handleSave: handleSaveProfile,
+    handleCancel: handleCancelEdit
+  }));
 
   const handleAddVoiceSample = () => {
     if (!newVoiceData.name || !newVoiceData.audioFile) {
@@ -361,14 +377,18 @@ const UnifiedDoctorSettings = ({ isEditing, onSave, onCancel }) => {
               type="tel"
             />
           </div>
-        </div>
-      </div>
 
-      {/* Gender Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Gender</h2>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth</label>
+            <input
+              value={profileData.dob}
+              onChange={(e) => handleInputChange('dob', e.target.value)}
+              disabled={!isEditing}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+              type="date"
+            />
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
             <select
@@ -384,67 +404,23 @@ const UnifiedDoctorSettings = ({ isEditing, onSave, onCancel }) => {
               <option value="Other">Other</option>
             </select>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Pronouns (optional)</label>
-            <input
-              value={profileData.pronouns}
-              onChange={(e) => handleInputChange('pronouns', e.target.value)}
-              disabled={!isEditing}
-              placeholder="e.g., she/her, he/him, they/them"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-              type="text"
-            />
-          </div>
         </div>
-
-        <p className="text-xs text-gray-500 mt-4">
-          This information helps patients address you correctly and improves communication.
-        </p>
       </div>
 
       {/* Address Information */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Address Information</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Address</h2>
         
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
-            <input
-              value={profileData.street}
-              onChange={(e) => handleInputChange('street', e.target.value)}
-              disabled={!isEditing}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-              type="text"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <input
-              value={profileData.city}
-              onChange={(e) => handleInputChange('city', e.target.value)}
-              disabled={!isEditing}
-              placeholder="City"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-              type="text"
-            />
-            <input
-              value={profileData.state}
-              onChange={(e) => handleInputChange('state', e.target.value)}
-              disabled={!isEditing}
-              placeholder="State"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-              type="text"
-            />
-            <input
-              value={profileData.zip}
-              onChange={(e) => handleInputChange('zip', e.target.value)}
-              disabled={!isEditing}
-              placeholder="ZIP Code"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-              type="text"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Full Address</label>
+          <textarea
+            value={profileData.address}
+            onChange={(e) => handleInputChange('address', e.target.value)}
+            disabled={!isEditing}
+            placeholder="Enter your complete address"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+            rows={3}
+          />
         </div>
       </div>
 
@@ -454,6 +430,31 @@ const UnifiedDoctorSettings = ({ isEditing, onSave, onCancel }) => {
           <h2 className="text-xl flex items-center gap-2 font-semibold text-gray-900">
             <Mic className="w-6 h-6 text-black" />
             Voice Samples
+          </h2>
+          <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium">
+            Coming Soon
+          </span>
+        </div>
+
+        {/* Coming Soon Message */}
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Mic className="h-8 w-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Voice Samples Coming Soon</h3>
+          <p className="text-gray-600 max-w-md mx-auto">
+            Upload and manage your voice samples for AI avatar training. This feature will be available soon.
+          </p>
+        </div>
+      </div>
+
+      {/* OLD VOICE SAMPLES CODE - COMMENTED OUT */}
+      {false && (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6" style={{display: 'none'}}>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl flex items-center gap-2 font-semibold text-gray-900">
+            <Mic className="w-6 h-6 text-black" />
+            Voice Samples (Old)
           </h2>
           {isEditing && (
             <InvertedGradientButton
@@ -593,8 +594,12 @@ const UnifiedDoctorSettings = ({ isEditing, onSave, onCancel }) => {
           </div>
         )}
       </div>
+      )}
+      {/* END OLD VOICE SAMPLES CODE */}
     </div>
   );
-};
+});
+
+UnifiedDoctorSettings.displayName = 'UnifiedDoctorSettings';
 
 export default UnifiedDoctorSettings;

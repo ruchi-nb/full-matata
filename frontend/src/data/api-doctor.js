@@ -76,3 +76,11 @@ export function getDoctorPatientsAnalytics() {
 export function getDoctorMonthlyConsultations() {
   return request("/doctors/consultations/monthly", { method: "GET" });
 }
+
+/**
+ * Get doctor dashboard statistics (comprehensive)
+ * Returns stats, patients list with consultation counts
+ */
+export function getDoctorDashboardStats() {
+  return request("/doctors/dashboard-stats", { method: "GET" });
+}

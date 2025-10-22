@@ -17,6 +17,7 @@ from centralisedErrorHandling.ErrorHandling import (
     TransactionError
 )
 import logging
+from datetime import datetime, date
 
 logger = logging.getLogger(__name__)
 
@@ -49,29 +50,59 @@ async def get_doctor_profile(db: AsyncSession, user_id: int) -> Tuple[Users, Opt
 
 async def update_doctor_profile(db: AsyncSession, user_id: int, updates: Dict[str, Any]) -> Tuple[Users, Optional[UserDetails]]:
     try:
+        logger.info(f"Updating doctor profile for user_id={user_id} with updates: {updates}")
+        
         user = await db.get(Users, int(user_id))
         if not user:
             raise UserNotFoundError(user_id=user_id)
+        
         details = await db.get(UserDetails, int(user_id))
         if not details:
+            logger.info(f"Creating new UserDetails for user_id={user_id}")
             details = UserDetails(user_id=int(user_id))
+            db.add(details)
+        
         allowed_user = {"username", "email"}
         changed = False
+        
+        # Update user fields
         for k, v in (updates or {}).items():
             if k in allowed_user and v is not None and getattr(user, k) != v:
+                logger.info(f"Updating user.{k}: {getattr(user, k)} -> {v}")
                 setattr(user, k, v)
                 changed = True
+        
+        # Update user_details fields
         allowed_details = {"first_name", "last_name", "phone", "dob", "gender", "address"}
         for k, v in (updates or {}).items():
-            if k in allowed_details and getattr(details, k, None) != v:
-                setattr(details, k, v)
-                changed = True
+            if k in allowed_details:
+                current_value = getattr(details, k, None)
+                
+                # Special handling for dob field - convert string to date
+                if k == "dob" and v is not None and isinstance(v, str):
+                    try:
+                        v = datetime.fromisoformat(v.replace('Z', '+00:00')).date()
+                        logger.info(f"Converted dob string to date: {v}")
+                    except (ValueError, AttributeError) as e:
+                        logger.warning(f"Failed to convert dob '{v}' to date: {e}")
+                        continue
+                
+                # Check if value has actually changed
+                if current_value != v:
+                    logger.info(f"Updating details.{k}: {current_value} -> {v}")
+                    setattr(details, k, v)
+                    changed = True
+        
         if changed:
             db.add(user)
             db.add(details)
             await db.commit()
             await db.refresh(user)
             await db.refresh(details)
+            logger.info(f"✅ Successfully updated doctor profile for user_id={user_id}")
+        else:
+            logger.info(f"No changes detected for user_id={user_id}")
+        
         return user, details
     except UserNotFoundError:
         raise
@@ -79,7 +110,7 @@ async def update_doctor_profile(db: AsyncSession, user_id: int, updates: Dict[st
         raise
     except Exception as e:
         await _safe_rollback(db, "users/user_details")
-        logger.error(f"Unexpected error in update_doctor_profile: {e}", exc_info=True)
+        logger.error(f"❌ Unexpected error in update_doctor_profile: {e}", exc_info=True)
         raise DatabaseError(
             "Failed to update doctor profile",
             operation="update",

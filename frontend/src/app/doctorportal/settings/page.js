@@ -1,22 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Layout from "./Layout";
 import SettingsHeader from "@/components/DoctorPortal/settings/SettingHeader";
 import UnifiedDoctorSettings from "@/components/DoctorPortal/settings/UnifiedDoctorSettings";
 
 export default function SettingsPage() {
   const [isEditing, setIsEditing] = useState(false);
+  const settingsRef = useRef(null);
 
   const handleSave = () => {
-    // The save logic is now handled within UnifiedDoctorSettings
-    console.log("Profile saved successfully");
-    setIsEditing(false);
+    // Trigger save in UnifiedDoctorSettings component
+    if (settingsRef.current && settingsRef.current.handleSave) {
+      settingsRef.current.handleSave();
+    }
   };
 
   const handleCancel = () => {
-    // The cancel logic is now handled within UnifiedDoctorSettings
-    console.log("Canceling edits...");
+    // Trigger cancel in UnifiedDoctorSettings component
+    if (settingsRef.current && settingsRef.current.handleCancel) {
+      settingsRef.current.handleCancel();
+    }
+    setIsEditing(false);
+  };
+
+  const handleSaveSuccess = () => {
     setIsEditing(false);
   };
 
@@ -29,7 +37,9 @@ export default function SettingsPage() {
         onCancel={handleCancel}
       />
       <UnifiedDoctorSettings 
+        ref={settingsRef}
         isEditing={isEditing}
+        onSaveSuccess={handleSaveSuccess}
       />
     </Layout>
   );

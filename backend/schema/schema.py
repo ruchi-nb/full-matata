@@ -207,6 +207,12 @@ class SpecialityOut(SpecialityBase):
 class DoctorProfileUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[EmailStr] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    gender: Optional[str] = None
+    address: Optional[str] = None
+    dob: Optional[str] = None  # ISO format date string
 
 
 class DoctorProfileRead(BaseModel):
