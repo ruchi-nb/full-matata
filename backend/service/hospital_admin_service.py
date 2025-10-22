@@ -71,6 +71,10 @@ async def hospital_admin_create_user(
     last_name = payload.get("last_name")
     phone = payload.get("phone")
     specialty = payload.get("specialty")  # For doctors
+    
+    # DEBUG: Log what we received
+    logger.info(f"🔍 Creating user with role='{role_name}', specialty='{specialty}'")
+    logger.info(f"🔍 Full payload keys: {list(payload.keys())}")
 
 
     # Check if user is superadmin (bypass hospital check) or validate hospital access
@@ -192,29 +196,101 @@ async def hospital_admin_create_user(
     await db.flush()
 
     # Handle specialty assignment for doctors
-    if role_name == "doctor" and specialty:
+    logger.info(f"🔍 Checking specialty assignment: role_name='{role_name}', specialty='{specialty}'")
+    logger.info(f"🔍 Condition check: role_name.lower()=='doctor'? {role_name.lower() == 'doctor' if role_name else False}, specialty exists? {bool(specialty)}")
+    
+    if role_name and role_name.lower() == "doctor" and specialty and specialty.strip():
+        logger.info(f"✅ ENTERING specialty assignment block for doctor with specialty '{specialty}'")
         try:
-            from models.models import DoctorSpecialties, Specialties
+            from models.models import DoctorSpecialties, Specialties, HospitalSpecialties
             
-            # Find specialty by name
+            # Find specialty by name (case-insensitive)
             specialty_query = select(Specialties).where(Specialties.name == specialty)
             specialty_result = await db.execute(specialty_query)
             specialty_obj = specialty_result.scalar_one_or_none()
             
-            if specialty_obj:
-                # Create doctor specialty relationship
-                doctor_specialty = DoctorSpecialties(
-                    user_id=user.user_id,
-                    specialty_id=specialty_obj.specialty_id
+            # **AUTO-CREATE SPECIALTY** if it doesn't exist in the database
+            if not specialty_obj:
+                logger.warning(f"⚠️ Specialty '{specialty}' not found in database, creating it automatically")
+                specialty_obj = Specialties(
+                    name=specialty,
+                    description=f"Specialty created automatically when adding doctor",
+                    status='active'
                 )
-                db.add(doctor_specialty)
+                db.add(specialty_obj)
                 await db.flush()
-                logger.info(f"Assigned specialty '{specialty}' to doctor {user.user_id}")
+                logger.info(f"✅ Created new specialty '{specialty}' (ID: {specialty_obj.specialty_id})")
+            
+            # Create doctor specialty relationship
+            doctor_specialty = DoctorSpecialties(
+                user_id=user.user_id,
+                specialty_id=specialty_obj.specialty_id
+            )
+            db.add(doctor_specialty)
+            await db.flush()
+            logger.info(f"✅ Assigned specialty '{specialty}' (ID: {specialty_obj.specialty_id}) to doctor {user.user_id}")
+            
+            # **CRITICAL**: Also add specialty to hospital_specialties if not already present
+            # This enables patients to see this specialty in their hospital
+            hospital_specialty_query = select(HospitalSpecialties).where(
+                HospitalSpecialties.hospital_id == hospital_id,
+                HospitalSpecialties.specialty_id == specialty_obj.specialty_id
+            )
+            hospital_specialty_result = await db.execute(hospital_specialty_query)
+            existing_hospital_specialty = hospital_specialty_result.scalar_one_or_none()
+            
+            if not existing_hospital_specialty:
+                # Add specialty to hospital
+                hospital_specialty = HospitalSpecialties(
+                    hospital_id=hospital_id,
+                    specialty_id=specialty_obj.specialty_id,
+                    is_primary=0
+                )
+                db.add(hospital_specialty)
+                await db.flush()
+                logger.info(f"✅ Added specialty '{specialty}' to hospital_specialties for hospital_id={hospital_id}")
             else:
-                logger.warning(f"Specialty '{specialty}' not found in database")
+                logger.info(f"ℹ️ Specialty '{specialty}' already exists in hospital_specialties for hospital_id={hospital_id}")
+                
         except Exception as e:
-            logger.error(f"Failed to assign specialty to doctor: {e}")
+            logger.error(f"❌ Failed to assign specialty to doctor: {e}", exc_info=True)
             # Continue without specialty assignment
+
+    # **CRITICAL FIX**: Associate doctor/patient with hospital in junction tables
+    # This enables tenant isolation and proper data filtering
+    if role_name.lower() == "doctor":
+        try:
+            from models.models import t_doctor_hospitals
+            from sqlalchemy import insert
+            
+            # Insert into doctor_hospitals junction table
+            stmt = insert(t_doctor_hospitals).values(
+                user_id=user.user_id,
+                hospital_id=hospital_id
+            )
+            await db.execute(stmt)
+            await db.flush()
+            logger.info(f"✅ Associated doctor user_id={user.user_id} with hospital_id={hospital_id} in doctor_hospitals table")
+        except Exception as e:
+            logger.error(f"❌ Failed to associate doctor with hospital in doctor_hospitals: {e}")
+            # Don't fail the entire operation, but log the error
+    
+    elif role_name.lower() == "patient":
+        try:
+            from models.models import PatientHospitals
+            
+            # Insert into patient_hospitals junction table
+            patient_hospital = PatientHospitals(
+                user_id=user.user_id,
+                hospital_id=hospital_id,
+                is_active=1
+            )
+            db.add(patient_hospital)
+            await db.flush()
+            logger.info(f"✅ Associated patient user_id={user.user_id} with hospital_id={hospital_id} in patient_hospitals table")
+        except Exception as e:
+            logger.error(f"❌ Failed to associate patient with hospital in patient_hospitals: {e}")
+            # Don't fail the entire operation, but log the error
 
     await db.commit()
 

@@ -1,11 +1,13 @@
 // File: components/PatientPortal/home/DoctorModal.jsx
 "use client";
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { doctors } from '@/data/doctors';
 import Consult from '@/components/PatientPortal/home/Consult';
 import InvertedGradientButton from '@/components/common/InvertedGradientButton';
 import OutlineButton from '@/components/common/OutlineButton';
+import { getPatientHospitalDoctors } from '@/data/api-patient';
+import { LifeLine } from 'react-loading-indicators';
 
 import { Calendar, Medal, Globe, MapPin, Eye, Image, X } from 'lucide-react';
 
@@ -24,6 +26,11 @@ const selectStyles = `
 
 const DoctorCard = ({ doctor, onView, onConsult }) => {
   const [isHovered, setIsHovered] = useState(false);
+  
+  // Handle both API format and old hardcoded format
+  const doctorName = doctor.name || `${doctor.first_name || ''} ${doctor.last_name || ''}`.trim() || doctor.username;
+  const doctorSpecialty = doctor.specialty || (doctor.specialties && doctor.specialties[0]?.name) || 'General Practice';
+  const doctorEmail = doctor.email;
 
   return (
     <div 
@@ -32,11 +39,19 @@ const DoctorCard = ({ doctor, onView, onConsult }) => {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="relative h-48">
-        <img 
-          alt={doctor.name} 
-          className="w-full h-full object-cover" 
-          src={doctor.image}
-        />
+        {doctor.image ? (
+          <img 
+            alt={doctorName} 
+            className="w-full h-full object-cover" 
+            src={doctor.image}
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+            <div className="text-white text-5xl font-bold">
+              {doctorName.charAt(0).toUpperCase()}
+            </div>
+          </div>
+        )}
         <div className="absolute top-4 right-4">
           <div className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
             Available
@@ -51,26 +66,24 @@ const DoctorCard = ({ doctor, onView, onConsult }) => {
       </div>
       
       <div className="p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-2 font-poppins">{doctor.name}</h3>
+        <h3 className="text-xl font-bold text-gray-900 mb-2 font-poppins">{doctorName}</h3>
         <div className="space-y-2 mb-4">
           <div className="flex items-center text-gray-600">
             <Medal className="h-4 w-4 mr-2" aria-hidden="true" />
-            <span className="text-sm font-gothambook">{doctor.specialty}</span>
+            <span className="text-sm font-gothambook">{doctorSpecialty}</span>
           </div>
-          <div className="flex items-center text-gray-600">
-            <Calendar className="h-4 w-4 mr-2" aria-hidden="true" />
-            <span className="text-sm font-gothambook">{doctor.experience}</span>
-          </div>
-          <div className="flex items-center text-gray-600">
-            <Globe className="h-4 w-4 mr-2" aria-hidden="true" />
-            <span className="text-sm font-gothambook">{doctor.languages}</span>
-          </div>          
-        </div>
-        <div className="mb-4">
-          <div className="flex items-start text-gray-600">
-            <MapPin className="h-4 w-4 mr-2 mt-1" aria-hidden="true" />
-            <span className="text-sm font-gothambook">{doctor.hospitals}</span>
-          </div>
+          {doctorEmail && (
+            <div className="flex items-center text-gray-600">
+              <Globe className="h-4 w-4 mr-2" aria-hidden="true" />
+              <span className="text-sm font-gothambook">{doctorEmail}</span>
+            </div>
+          )}
+          {doctor.phone && (
+            <div className="flex items-center text-gray-600">
+              <Calendar className="h-4 w-4 mr-2" aria-hidden="true" />
+              <span className="text-sm font-gothambook">{doctor.phone}</span>
+            </div>
+          )}
         </div>
         
         {/* Buttons Container - Hidden by default, slides up on hover */}
@@ -106,11 +119,55 @@ const DoctorCard = ({ doctor, onView, onConsult }) => {
 
 const DoctorListing = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showConsultation, setShowConsultation] = useState(false);
   const [selectedSpecialty, setSelectedSpecialty] = useState('all');
   const [selectedLanguage, setSelectedLanguage] = useState('all');
+  
+  // New state for API data
+  const [doctorsFromAPI, setDoctorsFromAPI] = useState([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
+  const [specialtyFilter, setSpecialtyFilter] = useState(null);
+  const [specialtyName, setSpecialtyName] = useState('');
+
+  // Get specialty filter from URL params
+  useEffect(() => {
+    const specialtyIdParam = searchParams.get('specialty_id');
+    const specialtyNameParam = searchParams.get('specialty_name');
+    
+    if (specialtyIdParam) {
+      setSpecialtyFilter(parseInt(specialtyIdParam));
+      setSpecialtyName(specialtyNameParam || '');
+      console.log(`🔍 Filtering doctors by specialty: ${specialtyNameParam} (ID: ${specialtyIdParam})`);
+    }
+  }, [searchParams]);
+
+  // Fetch doctors from API
+  useEffect(() => {
+    async function fetchDoctors() {
+      try {
+        setLoadingDoctors(true);
+        console.log(`🔍 Fetching doctors${specialtyFilter ? ` for specialty_id=${specialtyFilter}` : ''}`);
+        
+        const response = await getPatientHospitalDoctors(specialtyFilter);
+        console.log('✅ Doctors fetched:', response);
+        
+        setDoctorsFromAPI(response.doctors || []);
+      } catch (error) {
+        console.error('❌ Failed to fetch doctors:', error);
+        setDoctorsFromAPI([]);
+      } finally {
+        setLoadingDoctors(false);
+      }
+    }
+
+    fetchDoctors();
+  }, [specialtyFilter]);
+
+  // Use API doctors if available, otherwise fallback to hardcoded
+  const doctors = doctorsFromAPI.length > 0 ? doctorsFromAPI : [];
 
   // Extract unique specialties and languages from doctors data
   const specialties = ['all'];
@@ -118,31 +175,23 @@ const DoctorListing = () => {
   
   // Get unique specialties
   doctors.forEach(doctor => {
-    if (!specialties.includes(doctor.specialty)) {
-      specialties.push(doctor.specialty);
+    const specialty = doctor.specialty || (doctor.specialties && doctor.specialties[0]?.name);
+    if (specialty && !specialties.includes(specialty)) {
+      specialties.push(specialty);
     }
   });
   
-  // Get unique languages
-  doctors.forEach(doctor => {
-    const doctorLanguages = doctor.languages.split(',').map(lang => lang.trim());
-    doctorLanguages.forEach(lang => {
-      if (!languages.includes(lang)) {
-        languages.push(lang);
-      }
-    });
-  });
-  
+  // Languages are no longer in API response, so remove language filter for now
   // Sort languages alphabetically
   languages.sort();
 
   // Filter doctors based on selected filters
   const filteredDoctors = doctors.filter(doctor => {
-    const matchesSpecialty = selectedSpecialty === 'all' || doctor.specialty === selectedSpecialty;
+    const doctorSpecialty = doctor.specialty || (doctor.specialties && doctor.specialties[0]?.name);
+    const matchesSpecialty = selectedSpecialty === 'all' || doctorSpecialty === selectedSpecialty;
     
-    const doctorLanguages = doctor.languages.split(',').map(lang => lang.trim());
-    const matchesLanguage = selectedLanguage === 'all' || doctorLanguages.includes(selectedLanguage);
-    return matchesSpecialty && matchesLanguage;
+    // Remove language filter for now since API doesn't return languages
+    return matchesSpecialty;
   });
 
   const handleViewDoctor = (doctor) => {
@@ -208,7 +257,16 @@ const DoctorListing = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="mb-8">
               <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
-                <h1 className="text-3xl font-bold text-white mb-2 font-poppins">Available Doctors</h1>
+                <div>
+                  <h1 className="text-3xl font-bold text-white mb-2 font-poppins">
+                    {specialtyName ? `${specialtyName} Specialists` : 'Available Doctors'}
+                  </h1>
+                  {specialtyName && (
+                    <p className="text-white/80 text-sm">
+                      Showing doctors specializing in {specialtyName}
+                    </p>
+                  )}
+                </div>
                 
                 {/* Filter options - responsive layout */}
                 <div className="flex flex-col sm:flex-row gap-4">
@@ -251,26 +309,48 @@ const DoctorListing = () => {
               </div>
             </div>
             
-            {filteredDoctors.length === 0 ? (
+            {loadingDoctors ? (
               <div className="text-center py-12 bg-white/90 rounded-xl backdrop-blur-sm">
-                <p className="text-gray-500 text-lg font-gothambook">No doctors match your selected filters.</p>
+                <LifeLine
+                  color="#3b82f6"
+                  size="medium"
+                  text="Loading doctors..."
+                  textColor="#3b82f6"
+                />
+              </div>
+            ) : filteredDoctors.length === 0 ? (
+              <div className="text-center py-12 bg-white/90 rounded-xl backdrop-blur-sm">
+                <p className="text-gray-500 text-lg font-gothambook mb-2">
+                  {specialtyName 
+                    ? `No doctors available for ${specialtyName} specialty.`
+                    : 'No doctors match your selected filters.'
+                  }
+                </p>
+                {specialtyName && (
+                  <p className="text-gray-400 text-sm mb-4">
+                    Try checking other specialties or contact your hospital.
+                  </p>
+                )}
                 <OutlineButton
                   onClick={() => {
                     setSelectedSpecialty('all');
                     setSelectedLanguage('all');
+                    if (specialtyName) {
+                      router.push('/patientportal');
+                    }
                   }}
                   className="mt-4 mx-auto"
                   color="blue"
                   size="medium"
                 >
-                  Reset Filters
+                  {specialtyName ? 'Back to Specialties' : 'Reset Filters'}
                 </OutlineButton>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredDoctors.map((doctor, index) => (
                   <DoctorCard 
-                    key={index} 
+                    key={doctor.user_id || index} 
                     doctor={doctor} 
                     onView={handleViewDoctor}
                     onConsult={handleConsultDoctor}

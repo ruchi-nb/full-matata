@@ -84,6 +84,19 @@ export function getPatientHospitalSpecialties() {
 }
 
 /**
+ * Get doctors available in the patient's hospital
+ * Optionally filter by specialty_id
+ * @param {number|null} specialtyId - Optional specialty ID to filter doctors
+ */
+export function getPatientHospitalDoctors(specialtyId = null) {
+  const url = specialtyId 
+    ? `/patients/doctors?specialty_id=${specialtyId}` 
+    : "/patients/doctors";
+  console.log("🩺 [PATIENT API] Fetching hospital doctors:", url);
+  return request(url, { method: "GET" });
+}
+
+/**
  * Create missing UserDetails record for new patients
  */
 export async function createMissingUserDetails(userData) {

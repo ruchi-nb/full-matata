@@ -1232,6 +1232,7 @@ class HospitalAdminCreateUserIn(BaseModel):
     first_name: Optional[str] = Field(None)
     last_name: Optional[str] = Field(None)
     phone: Optional[str] = Field(None)
+    specialty: Optional[str] = Field(None, description="Specialty name for doctors (will auto-create if not exists)")
 
     class Config:
         json_schema_extra = {

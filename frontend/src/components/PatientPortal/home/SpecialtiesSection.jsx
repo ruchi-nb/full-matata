@@ -54,7 +54,12 @@ const SpecialtiesSection = () => {
     fetchHospitalSpecialties();
   }, []);
 
-  const openSpecialtyModal = (specialtyName) => {
+  const openSpecialtyModal = (specialtyName, specialtyId) => {
+    // Navigate to doctors page with specialty filter
+    router.push(`/patientportal/doctors?specialty_id=${specialtyId}&specialty_name=${encodeURIComponent(specialtyName)}`);
+  };
+
+  const openSpecialtyModalOld = (specialtyName) => {
     const specialty = specialties[specialtyName];
     if (!specialty) return;
 
@@ -304,7 +309,7 @@ const SpecialtiesSection = () => {
               {hospitalSpecialties.map((specialty, index) => (
                 <div
                   key={specialty.specialty_id}
-                  onClick={() => openSpecialtyModal(specialty.name)}
+                  onClick={() => openSpecialtyModal(specialty.name, specialty.specialty_id)}
                   onMouseEnter={() => handleMouseEnter(specialty.name)}
                   onMouseLeave={() => handleMouseLeave(specialty.name)}
                   className="group cursor-pointer bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden border border-gray-100 relative"

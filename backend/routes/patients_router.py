@@ -3,7 +3,7 @@ from fastapi import (
     Depends, 
     HTTPException,
     status)
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from database.database import get_db
@@ -18,7 +18,7 @@ from service.patients_service import (
     update_patient_profile, 
     list_patient_consultations
 )
-from models.models import PatientHospitals, HospitalSpecialties, Specialties
+from models.models import PatientHospitals, HospitalSpecialties, Specialties, DoctorSpecialties, Users
 from centralisedErrorHandling.ErrorHandling import ValidationError, DatabaseError, UserNotFoundError
 import logging
 
@@ -130,7 +130,7 @@ async def get_patient_hospital_specialties(
     user_id = caller.get("user_id")
     
     try:
-        logger.info(f"Fetching specialties for patient user_id={user_id}")
+        logger.info(f"🔍 Fetching specialties for patient user_id={user_id}")
         
         # Get patient's hospital(s) from patient_hospitals table
         # PatientHospitals uses 'user_id' not 'patient_id' 
@@ -142,14 +142,17 @@ async def get_patient_hospital_specialties(
         patient_hospitals_result = await db.execute(patient_hospitals_query)
         patient_hospitals = patient_hospitals_result.scalars().all()
         
+        logger.info(f"📋 Query result: Found {len(patient_hospitals)} patient_hospitals entries")
+        
         if not patient_hospitals:
-            logger.warning(f"Patient user_id={user_id} is not associated with any hospital")
+            logger.warning(f"⚠️ Patient user_id={user_id} is NOT in patient_hospitals table!")
+            logger.warning(f"⚠️ This means the patient was created BEFORE the fix or not by hospital admin")
             # Return empty list if patient has no hospital
             return {"specialties": [], "message": "No hospital assigned to patient"}
         
         # Get all hospital IDs for this patient
         hospital_ids = [ph.hospital_id for ph in patient_hospitals]
-        logger.info(f"Patient user_id={user_id} is associated with hospitals: {hospital_ids}")
+        logger.info(f"🏥 Patient user_id={user_id} is associated with hospitals: {hospital_ids}")
         
         # Get specialties for these hospitals from hospital_specialties table
         specialties_query = (
@@ -166,7 +169,9 @@ async def get_patient_hospital_specialties(
         specialties_result = await db.execute(specialties_query)
         specialties = specialties_result.scalars().all()
         
-        logger.info(f"Found {len(specialties)} specialties for patient user_id={user_id}")
+        logger.info(f"✅ Found {len(specialties)} specialties for patient user_id={user_id}")
+        if len(specialties) == 0:
+            logger.warning(f"⚠️ 0 specialties found! Check hospital_specialties table for hospital_ids: {hospital_ids}")
         
         # Format response
         specialties_list = [
@@ -184,3 +189,111 @@ async def get_patient_hospital_specialties(
     except Exception as e:
         logger.error(f"Error fetching specialties for patient user_id={user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch specialties") from e
+
+
+@router.get("/patients/doctors")
+async def get_patient_hospital_doctors(
+    specialty_id: Optional[int] = None,
+    caller: Dict[str, Any] = Depends(require_permissions(["patient.profile.view"], allow_super_admin=False)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get doctors available in the patient's hospital, optionally filtered by specialty.
+    Patient can only see doctors from hospitals they are associated with.
+    
+    Logic:
+    1. Get user_id from JWT token
+    2. Find patient's hospital(s) from patient_hospitals table (using user_id)
+    3. Get doctors for those hospitals from doctor_hospitals table
+    4. Optionally filter by specialty_id
+    5. Return doctor details with their specialties
+    """
+    global_role = caller.get("global_role") or {}
+    role_name = (global_role.get("role_name") or "").strip().lower()
+    if role_name != "patient":
+        raise HTTPException(status_code=403, detail="Only patients may access hospital doctors")
+
+    user_id = caller.get("user_id")
+    
+    try:
+        logger.info(f"🔍 Fetching doctors for patient user_id={user_id}, specialty_id={specialty_id}")
+        
+        # Get patient's hospital(s) from patient_hospitals table
+        patient_hospitals_query = select(PatientHospitals).where(
+            PatientHospitals.user_id == int(user_id),
+            PatientHospitals.is_active == 1
+        )
+        patient_hospitals_result = await db.execute(patient_hospitals_query)
+        patient_hospitals = patient_hospitals_result.scalars().all()
+        
+        logger.info(f"📋 Query result: Found {len(patient_hospitals)} patient_hospitals entries")
+        
+        if not patient_hospitals:
+            logger.warning(f"⚠️ Patient user_id={user_id} is NOT in patient_hospitals table!")
+            return {"doctors": [], "message": "No hospital assigned to patient"}
+        
+        # Get all hospital IDs for this patient
+        hospital_ids = [ph.hospital_id for ph in patient_hospitals]
+        logger.info(f"🏥 Patient user_id={user_id} is associated with hospitals: {hospital_ids}")
+        
+        # Build query to get doctors from these hospitals
+        from models.models import t_doctor_hospitals, UserDetails
+        
+        # Base query: get doctors from patient's hospitals
+        doctors_query = (
+            select(Users, UserDetails)
+            .join(t_doctor_hospitals, t_doctor_hospitals.c.user_id == Users.user_id)
+            .outerjoin(UserDetails, UserDetails.user_id == Users.user_id)
+            .where(t_doctor_hospitals.c.hospital_id.in_(hospital_ids))
+        )
+        
+        # If specialty_id is provided, filter by it
+        if specialty_id:
+            doctors_query = doctors_query.join(
+                DoctorSpecialties, 
+                DoctorSpecialties.user_id == Users.user_id
+            ).where(DoctorSpecialties.specialty_id == specialty_id)
+        
+        doctors_result = await db.execute(doctors_query)
+        doctors_data = doctors_result.all()
+        
+        logger.info(f"✅ Found {len(doctors_data)} doctors for patient user_id={user_id}")
+        
+        # Format response with doctor specialties
+        doctors_list = []
+        for user, user_details in doctors_data:
+            # Get doctor's specialties
+            specialties_query = (
+                select(Specialties)
+                .join(DoctorSpecialties, DoctorSpecialties.specialty_id == Specialties.specialty_id)
+                .where(DoctorSpecialties.user_id == user.user_id)
+            )
+            specialties_result = await db.execute(specialties_query)
+            doctor_specialties = specialties_result.scalars().all()
+            
+            doctor_dict = {
+                "user_id": int(user.user_id),
+                "username": user.username,
+                "email": user.email,
+                "first_name": user_details.first_name if user_details else None,
+                "last_name": user_details.last_name if user_details else None,
+                "phone": user_details.phone if user_details else None,
+                "gender": user_details.gender if user_details else None,
+                "specialties": [
+                    {
+                        "specialty_id": int(s.specialty_id),
+                        "name": s.name,
+                        "description": s.description
+                    }
+                    for s in doctor_specialties
+                ],
+                # Add primary specialty (first one) for convenience
+                "specialty": doctor_specialties[0].name if doctor_specialties else None
+            }
+            doctors_list.append(doctor_dict)
+        
+        return {"doctors": doctors_list}
+        
+    except Exception as e:
+        logger.error(f"Error fetching doctors for patient user_id={user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch doctors") from e
