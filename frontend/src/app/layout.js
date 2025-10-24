@@ -43,7 +43,7 @@ export default function RootLayout({ children }) {
       <body
         className={`${comfortaa.variable} ${playfair.variable} ${jetbrainsMono.variable} ${poppins.variable} antialiased`}
       >
-        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "1068912069395-pjjgo5vkfm478a42l292uhlj5u5t23ro.apps.googleusercontent.com"}>
+        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
           <ErrorBoundary>
             <UserProvider>
               {children}

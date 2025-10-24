@@ -66,7 +66,7 @@ export function useConversationWebSocket({
       return;
     }
     
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
     const wsUrl = backendUrl.replace('http', 'ws') + '/api/v1/conversation/stream';
     const wsUrlWithToken = `${wsUrl}?token=${encodeURIComponent(token)}`;
     

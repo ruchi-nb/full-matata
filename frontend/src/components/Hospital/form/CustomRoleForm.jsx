@@ -34,7 +34,7 @@ const CustomRoleForm = ({ onSuccess, onCancel }) => {
   useEffect(() => {
     async function loadPermissions() {
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
         const accessToken = document.cookie.split('accessToken=')[1]?.split(';')[0];
         
         console.log("🔍 Fetching permissions from backend...");

@@ -22,7 +22,7 @@ class WebSocketStreamingService {
         // Store connection parameters for reconnection
         this.connectionParams = { sessionId, language, provider, consultationId };
         
-        const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'}/conversation/stream`;
+        const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL}/conversation/stream`;
         this.ws = new WebSocket(wsUrl);
         
         this.ws.onopen = () => {
