@@ -1,9 +1,35 @@
 "use client";
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Send } from 'lucide-react';
 import consultationService from '@/services/consultationService';
 import { useConversationWebSocket } from '@/hooks/useConversationWebSocket';
+
+// Language mapping helper - converts short codes to provider-specific codes
+const normalizeLanguage = (lang, provider) => {
+  // If already in correct format (has country code), return as is
+  if (lang.includes('-')) return lang;
+  
+  // Map short codes to Sarvam format (with country code)
+  if (provider === 'sarvam') {
+    const sarvamMap = {
+      'en': 'en-IN',
+      'hi': 'hi-IN',
+      'bn': 'bn-IN',
+      'gu': 'gu-IN',
+      'kn': 'kn-IN',
+      'ml': 'ml-IN',
+      'mr': 'mr-IN',
+      'pa': 'pa-IN',
+      'ta': 'ta-IN',
+      'te': 'te-IN'
+    };
+    return sarvamMap[lang] || 'en-IN';
+  }
+  
+  // Deepgram uses simple codes
+  return lang;
+};
 
 export default function ConsultationPage() {
   const router = useRouter();
@@ -14,6 +40,9 @@ export default function ConsultationPage() {
   const providerParam = searchParams.get('provider') || 'deepgram';
   const languageParam = searchParams.get('language') || 'en';
   
+  // Normalize language based on provider
+  const normalizedLanguage = normalizeLanguage(languageParam, providerParam);
+  
   // State
   const [doctor, setDoctor] = useState(null);
   const [consultationId, setConsultationId] = useState(null);
@@ -22,10 +51,12 @@ export default function ConsultationPage() {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [provider, setProvider] = useState(providerParam);
-  const [language, setLanguage] = useState(languageParam);
+  const [language, setLanguage] = useState(normalizedLanguage);
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [partialTranscript, setPartialTranscript] = useState('');
   const [isStreamingMode, setIsStreamingMode] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0); // For VAD visual feedback
+  const [isTTSPlaying, setIsTTSPlaying] = useState(false); // Track TTS playback state
   
   // Refs
   const videoRef = useRef(null);
@@ -33,6 +64,7 @@ export default function ConsultationPage() {
   const chatMessagesRef = useRef(null);
   const hasShownConnectedMessageRef = useRef(false);
   const hasInitializedRef = useRef(false);
+  const audioElementRef = useRef(null); // Track current TTS audio element
   
   // Debug: Track consultation ID state changes
   useEffect(() => {
@@ -52,11 +84,14 @@ export default function ConsultationPage() {
     isRecording,
     startRecording,
     stopRecording,
-    sendTextMessage
+    sendTextMessage,
+    pauseRecording,
+    resumeRecording
   } = useConversationWebSocket({
     consultationId: wsConsultationId,
     provider,
     language,
+    isTTSPlaying, // Pass TTS state to hook
     onTranscript: (transcript) => {
       addMessage('user', `${transcript} (${getLanguageLabel()})`);
       setPartialTranscript('');
@@ -66,6 +101,8 @@ export default function ConsultationPage() {
     },
     onResponse: (response) => {
       addMessage('doctor', response);
+      // Play TTS for doctor's response
+      playTTS(response);
     },
     onStatusUpdate: (newStatus) => {
       setStatus(newStatus);
@@ -75,20 +112,36 @@ export default function ConsultationPage() {
       addMessage('system', '❌ Connection error: ' + error.message);
       setIsStreamingMode(false);
       hasShownConnectedMessageRef.current = false; // Reset on error
+    },
+    onAudioLevel: (level) => {
+      setAudioLevel(level); // Update audio level for VAD visual feedback
     }
   });
   
-  // Notify when WebSocket connects (only once per session)
+  // Notify when WebSocket connects (only once per session) and start recording
   useEffect(() => {
     if (isConnected && isStreamingMode && !hasShownConnectedMessageRef.current) {
-      addMessage('system', '✅ Voice mode active! Speak into your microphone or type.');
+      addMessage('system', '✅ Voice mode active! Starting microphone...');
       setStatus('Voice Mode - Ready');
       hasShownConnectedMessageRef.current = true;
+      
+      // Automatically start recording when voice mode is active and connected
+      if (!isRecording) {
+        console.log('🎤 Auto-starting recording in voice mode...');
+        startRecording().then(() => {
+          addMessage('system', '🎤 Listening... Speak now!');
+          setStatus('Voice Mode - Listening');
+        }).catch((error) => {
+          console.error('Failed to start recording:', error);
+          addMessage('system', '❌ Failed to access microphone: ' + error.message);
+          setIsStreamingMode(false); // Fall back to text mode
+        });
+      }
     } else if (!isConnected && !isStreamingMode) {
       // Reset flag when disconnected
       hasShownConnectedMessageRef.current = false;
     }
-  }, [isConnected, isStreamingMode]);
+  }, [isConnected, isStreamingMode, isRecording, startRecording]);
   
   // Initialize on mount (prevent double initialization in dev mode)
   useEffect(() => {
@@ -215,6 +268,108 @@ export default function ConsultationPage() {
     };
     return langMap[language] || language;
   };
+
+  // Play TTS for doctor's response
+  const playTTS = useCallback(async (text) => {
+    if (!text || !consultationId) return;
+    
+    try {
+      console.log('[TTS] Playing response:', text.substring(0, 50) + '...');
+      
+      // **PAUSE STT RECORDING DURING TTS PLAYBACK**
+      // This prevents the microphone from capturing the doctor's voice from speakers
+      const wasRecording = isRecording;
+      if (wasRecording && pauseRecording) {
+        console.log('[TTS] 🔇 Pausing STT recording to prevent echo...');
+        pauseRecording();
+      }
+      setIsTTSPlaying(true);
+      
+      // Try both token keys (access_token for backend template, token for Next.js)
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+      
+      // Use FormData like the backend template does
+      const formData = new FormData();
+      formData.append('text', text);
+      formData.append('language', language);
+      formData.append('provider', provider);
+      formData.append('consultation_id', consultationId);
+      formData.append('session_id', `session-${Date.now()}`);
+      if (provider === 'sarvam') {
+        formData.append('speaker', 'meera');
+      }
+      
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(`${API_BASE}/api/v1/tts/stream`, {
+        method: 'POST',
+        headers: headers,
+        body: formData
+      });
+
+      if (!response.ok) {
+        console.error('[TTS] Failed:', response.status, response.statusText);
+        // Resume recording on error
+        setIsTTSPlaying(false);
+        if (wasRecording && resumeRecording) {
+          console.log('[TTS] 🎤 Resuming STT recording after error...');
+          resumeRecording();
+        }
+        return;
+      }
+
+      // Get audio blob from response
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      // Store reference to cancel if needed
+      audioElementRef.current = audio;
+      
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        console.log('[TTS] ✅ Playback complete');
+        setIsTTSPlaying(false);
+        audioElementRef.current = null;
+        
+        // **RESUME STT RECORDING AFTER TTS COMPLETES**
+        if (wasRecording && resumeRecording && isStreamingMode) {
+          console.log('[TTS] 🎤 Resuming STT recording...');
+          resumeRecording();
+        }
+      };
+      
+      audio.onerror = (error) => {
+        console.error('[TTS] Playback error:', error);
+        URL.revokeObjectURL(audioUrl);
+        setIsTTSPlaying(false);
+        audioElementRef.current = null;
+        
+        // Resume recording on error
+        if (wasRecording && resumeRecording && isStreamingMode) {
+          console.log('[TTS] 🎤 Resuming STT recording after playback error...');
+          resumeRecording();
+        }
+      };
+      
+      await audio.play();
+      console.log('[TTS] 🔊 Started playback');
+    } catch (error) {
+      console.error('[TTS] Error:', error);
+      setIsTTSPlaying(false);
+      audioElementRef.current = null;
+      
+      // Resume recording on error
+      if (isRecording && resumeRecording && isStreamingMode) {
+        console.log('[TTS] 🎤 Resuming STT recording after error...');
+        resumeRecording();
+      }
+    }
+  }, [consultationId, language, provider, isRecording, isStreamingMode, pauseRecording, resumeRecording]);
   
   // Toggle streaming mode (mimic conversation.js startStreamingMode/stopStreamingMode)
   const toggleStreamingMode = () => {
@@ -239,6 +394,13 @@ export default function ConsultationPage() {
   
   const stopStreamingMode = () => {
     console.log('Stopping voice mode, switching to text mode...');
+    
+    // Stop recording if active
+    if (isRecording) {
+      console.log('🛑 Stopping recording...');
+      stopRecording();
+    }
+    
     setIsStreamingMode(false);
     setStatus('Ready - Text Mode');
     addMessage('system', '💬 Switched to text mode. Type your message below.');
@@ -335,6 +497,8 @@ export default function ConsultationPage() {
         console.log('📥 Text API response:', result);
         const doctorResponse = result.final_response || result.response || result.message || 'No response received';
         addMessage('doctor', doctorResponse);
+        // Play TTS for text mode response too
+        playTTS(doctorResponse);
         setStatus('Ready - Text Mode');
       } catch (error) {
         console.error('Error sending text message:', error);
@@ -419,7 +583,14 @@ export default function ConsultationPage() {
               <select
                 id="provider-select"
                 value={provider}
-                onChange={(e) => setProvider(e.target.value)}
+                onChange={(e) => {
+                  const newProvider = e.target.value;
+                  setProvider(newProvider);
+                  // Update language to match new provider format
+                  const currentLangBase = language.split('-')[0]; // Get base language code
+                  const normalizedLang = normalizeLanguage(currentLangBase, newProvider);
+                  setLanguage(normalizedLang);
+                }}
                 className="bg-[#333] text-white border border-[#555] px-2 py-1 rounded text-sm"
                 disabled={isStreamingMode}
               >
@@ -465,7 +636,13 @@ export default function ConsultationPage() {
         {/* Status Indicator */}
         <div className="absolute bottom-[100px] left-5 bg-black/80 backdrop-blur-lg px-5 py-3 rounded-lg border border-white/20 z-30 min-w-[200px] text-center">
           <p className="text-white font-medium">{status}</p>
-          {isStreamingMode && isConnected && (
+          {isStreamingMode && isConnected && isRecording && isTTSPlaying && (
+            <p className="text-orange-400 text-xs mt-1">⏸ Paused (TTS playing)</p>
+          )}
+          {isStreamingMode && isConnected && isRecording && !isTTSPlaying && (
+            <p className="text-red-400 text-xs mt-1 animate-pulse">● Recording</p>
+          )}
+          {isStreamingMode && isConnected && !isRecording && (
             <p className="text-green-400 text-xs mt-1">● Connected</p>
           )}
           {isStreamingMode && !isConnected && (
@@ -475,18 +652,35 @@ export default function ConsultationPage() {
         
         {/* Controls */}
         <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 flex gap-4 flex-wrap justify-center z-30 max-w-[90%]">
-          <button
-            onClick={toggleStreamingMode}
-            className={`px-14 py-3 rounded text-white text-lg transition-all duration-300 ${
-              isStreamingMode
-                ? 'bg-red-600/80 hover:bg-red-700/80 animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.5)]'
-                : 'bg-black/40 hover:bg-white/20 border border-gray-400'
-            }`}
-            disabled={!consultationId}
-            title={isStreamingMode ? 'Stop voice mode (click to switch to text)' : 'Start voice mode with STT streaming'}
-          >
-            {isStreamingMode ? '🎤 Voice ON (Stop)' : '🎤 Voice Mode'}
-          </button>
+          <div className="flex flex-col items-center gap-1">
+            <button
+              onClick={toggleStreamingMode}
+              className={`px-14 py-3 rounded text-white text-lg transition-all duration-300 ${
+                isStreamingMode && isRecording
+                  ? 'bg-red-600/80 hover:bg-red-700/80 animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.5)]'
+                  : isStreamingMode
+                  ? 'bg-orange-600/80 hover:bg-orange-700/80 border border-orange-400'
+                  : 'bg-black/40 hover:bg-white/20 border border-gray-400'
+              }`}
+              disabled={!consultationId}
+              title={isStreamingMode ? 'Stop voice mode (click to switch to text)' : 'Start voice mode with STT streaming'}
+            >
+              {isStreamingMode && isRecording ? '🎤 Listening...' : isStreamingMode ? '🎤 Voice ON (Stop)' : '🎤 Voice Mode'}
+            </button>
+            
+            {/* Audio Level Meter (VAD Visual Feedback) */}
+            {isStreamingMode && isRecording && (
+              <div className="w-full bg-gray-800/80 rounded-full h-2 overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-100 ${
+                    audioLevel > 30 ? 'bg-green-500' : audioLevel > 10 ? 'bg-yellow-500' : 'bg-gray-600'
+                  }`}
+                  style={{ width: `${Math.min(100, (audioLevel / 80) * 100)}%` }}
+                  title={`Audio level: ${audioLevel.toFixed(0)}`}
+                />
+              </div>
+            )}
+          </div>
           
           <button
             onClick={toggleCamera}
