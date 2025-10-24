@@ -57,6 +57,8 @@ export default function ConsultationPage() {
   const [isStreamingMode, setIsStreamingMode] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0); // For VAD visual feedback
   const [isTTSPlaying, setIsTTSPlaying] = useState(false); // Track TTS playback state
+  const [sessionId, setSessionId] = useState(null); // Track session ID for conversation history
+  const [sessionDbId, setSessionDbId] = useState(null); // Track DB session ID
   
   // Refs
   const videoRef = useRef(null);
@@ -173,6 +175,12 @@ export default function ConsultationPage() {
         setConsultationId(result.consultation_id);
         // Store in window for backend compatibility
         window.consultationId = result.consultation_id;
+        
+        // ✅ Reset session IDs for new consultation
+        setSessionId(null);
+        setSessionDbId(null);
+        console.log('🔄 Reset session IDs for new consultation');
+        
         addMessage('system', `✅ Welcome to Virtual Doctor! Consultation ID: ${result.consultation_id}`);
         addMessage('system', '💬 Text Mode: Type your message and press Send');
         addMessage('system', '🎤 Voice Mode: Click "Voice Mode" button to enable speech-to-text');
@@ -473,6 +481,17 @@ export default function ConsultationPage() {
         formData.append('consultation_id', consultationId);
         formData.append('language', language);
         
+        // ✅ IMPORTANT: Send session_id to maintain conversation context
+        if (sessionId) {
+          formData.append('session_id', sessionId);
+          console.log('📤 Sending with session_id:', sessionId);
+        }
+        
+        // ✅ Send session_db_id if available
+        if (sessionDbId) {
+          formData.append('session_db_id', sessionDbId);
+        }
+        
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/conversation/text`, {
           method: 'POST',
           headers: {
@@ -495,6 +514,19 @@ export default function ConsultationPage() {
 
         const result = await response.json();
         console.log('📥 Text API response:', result);
+        
+        // ✅ IMPORTANT: Store session_id from response for next request
+        if (result.metrics?.session_id && !sessionId) {
+          setSessionId(result.metrics.session_id);
+          console.log('✅ Session ID stored:', result.metrics.session_id);
+        }
+        
+        // ✅ Store session_db_id from response
+        if (result.session_db_id && !sessionDbId) {
+          setSessionDbId(result.session_db_id);
+          console.log('✅ DB Session ID stored:', result.session_db_id);
+        }
+        
         const doctorResponse = result.final_response || result.response || result.message || 'No response received';
         addMessage('doctor', doctorResponse);
         // Play TTS for text mode response too

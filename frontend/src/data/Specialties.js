@@ -17,7 +17,7 @@ export const specialties = {
     doctors: [
       { id: "michaek-rodriguez", name: "Dr. Michael Rodriguez", role: "Senior Dermatologist", experience: "15 years", active: true, img: "/images/man(2).png" }
     ],
-    image: "/images/easter/bald.png",
+    image: "/images/easter/magician-hat.png",  // Using existing image
     commonConditions: ["Acne", "Eczema", "Psoriasis", "Skin Cancer", "Rosacea", "Hair Loss"],
     procedures: ["Skin Biopsy", "Cryotherapy", "Laser Treatment", "Chemical Peels", "Mohs Surgery"]
   },

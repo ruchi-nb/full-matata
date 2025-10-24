@@ -28,7 +28,7 @@ from routes.routes_websocket_streaming import router as websocket_streaming_rout
 from routes.routes_rag import router as rag_router
 
 # New routers
-from routes import patients_router, auth_router, hospital_router, doctors_router, search_router, superadmin_router, hospital_admin_routers
+from routes import patients_router, auth_router, hospital_router, doctors_router, search_router, superadmin_router, hospital_admin_routers, transcript_router
 
 # Dependencies and error handling
 from dependencies.middleware import register_middleware
@@ -192,6 +192,7 @@ app.include_router(doctors_router.router)
 app.include_router(search_router.router)
 app.include_router(superadmin_router.router)
 app.include_router(hospital_admin_routers.router)
+app.include_router(transcript_router.router)  # Transcript access endpoints
 
 # Include monitoring health check router
 app.include_router(health_check_router, prefix="/api/v1", tags=["Monitoring"])

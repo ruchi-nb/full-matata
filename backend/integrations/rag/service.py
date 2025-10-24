@@ -1,17 +1,27 @@
 """
 RAG Service - Production Grade
-Optimized Retrieval-Augmented Generation with caching and fast context building
+Optimized Retrieval-Augmented Generation with Redis caching and fast context building
 """
 
 from typing import List, Optional
 import time
 import logging
+import json
 from openai import OpenAI
 from config import settings
 from system_prompt import VIRTUAL_DOCTOR_SYSTEM_PROMPT
 from .retriever import RAGRetriever
 
 logger = logging.getLogger(__name__)
+
+# Import Redis for caching
+try:
+    from database.redis import redis_client
+    REDIS_AVAILABLE = True
+except Exception as e:
+    logger.warning(f"Redis not available for RAG caching: {e}")
+    REDIS_AVAILABLE = False
+    redis_client = None
 
 
 class RAGService:
@@ -20,8 +30,8 @@ class RAGService:
     def __init__(self):
         self.client = OpenAI(
             api_key=settings.OPENAI_API_KEY,
-            timeout=10.0,  # Reduced timeout for faster RAG queries
-            max_retries=1,  # Reduced retries for faster response
+            timeout=5.0,  # Ultra-fast timeout for real-time
+            max_retries=0,  # No retries for maximum speed
             http_client=None  # Use default HTTP client with connection pooling
         )
         self.retriever = RAGRetriever()
@@ -30,12 +40,78 @@ class RAGService:
         self.last_retrieval_time = 0.0
         self.last_chunks_count = 0
         
-        # Performance tuning - optimized for speed and quality
-        self._default_k = 3  # Retrieve top 3 chunks for better context
-        self._default_max_chars = 800  # Reduced for faster processing
-        self._min_relevance_score = 0.4  # Lower threshold for more results
+        # ULTRA-FAST: Performance tuning optimized for real-time conversations
+        self._default_k = 2  # Only 2 chunks for speed (was 3)
+        self._default_max_chars = 600  # Reduced for faster processing (was 800)
+        self._min_relevance_score = 0.5  # Higher threshold for better quality
         
-        logger.info("RAG Service initialized with optimized retrieval")
+        # REDIS CACHE: Use Redis for persistent caching across restarts
+        self._cache_ttl = getattr(settings, 'RAG_CACHE_TTL', 300)  # 5 minutes cache TTL
+        self._redis_prefix = "rag:query:"  # Redis key prefix
+        self._use_redis = REDIS_AVAILABLE and redis_client is not None
+        
+        # Fallback in-memory cache if Redis unavailable
+        self._memory_cache = {}  # {query_hash: (context, timestamp)}
+        self._max_cache_size = 100  # Limit in-memory cache size
+        
+        if self._use_redis:
+            logger.info("RAG Service initialized with REDIS caching + ULTRA-FAST retrieval")
+        else:
+            logger.warning("RAG Service initialized with IN-MEMORY caching (Redis unavailable)")
+
+    def _get_cache_key(self, query: str) -> str:
+        """Generate cache key from query"""
+        return str(hash(query.lower().strip()))
+    
+    def _get_cached_context(self, query: str) -> Optional[str]:
+        """Get cached RAG context from Redis (or memory fallback) if available"""
+        cache_key = self._get_cache_key(query)
+        
+        # Try Redis first
+        if self._use_redis:
+            try:
+                redis_key = f"{self._redis_prefix}{cache_key}"
+                cached_data = redis_client.get(redis_key)
+                if cached_data:
+                    context = cached_data.decode('utf-8') if isinstance(cached_data, bytes) else cached_data
+                    logger.info(f"⚡ REDIS RAG CACHE HIT - Instant retrieval!")
+                    return context
+            except Exception as e:
+                logger.warning(f"Redis cache read failed, trying memory: {e}")
+        
+        # Fallback to in-memory cache
+        if cache_key in self._memory_cache:
+            context, timestamp = self._memory_cache[cache_key]
+            if time.time() - timestamp < self._cache_ttl:
+                logger.info(f"⚡ MEMORY RAG CACHE HIT - Saved retrieval time!")
+                return context
+            else:
+                del self._memory_cache[cache_key]
+        
+        return None
+    
+    def _cache_context(self, query: str, context: str):
+        """Cache RAG context in Redis (or memory fallback) for future use"""
+        cache_key = self._get_cache_key(query)
+        
+        # Try Redis first
+        if self._use_redis:
+            try:
+                redis_key = f"{self._redis_prefix}{cache_key}"
+                redis_client.setex(redis_key, self._cache_ttl, context)
+                logger.debug(f"RAG context cached in Redis (TTL: {self._cache_ttl}s)")
+                return
+            except Exception as e:
+                logger.warning(f"Redis cache write failed, using memory: {e}")
+        
+        # Fallback to in-memory cache
+        if len(self._memory_cache) >= self._max_cache_size:
+            oldest_key = min(self._memory_cache.keys(), 
+                           key=lambda k: self._memory_cache[k][1])
+            del self._memory_cache[oldest_key]
+        
+        self._memory_cache[cache_key] = (context, time.time())
+        logger.debug(f"RAG context cached in memory")
 
     def build_context(
         self, 
@@ -45,13 +121,13 @@ class RAGService:
         min_relevance: float = None
     ) -> str:
         """
-        Build RAG context from retrieved chunks with optimizations
+        Build RAG context from retrieved chunks with ULTRA-FAST optimizations
         
         Args:
             query: User query
             k: Number of chunks to retrieve (default: 2)
-            max_chars: Maximum context characters (default: 1500)
-            min_relevance: Minimum relevance score 0-1 (default: None, all chunks)
+            max_chars: Maximum context characters (default: 600)
+            min_relevance: Minimum relevance score 0-1 (default: 0.5)
         
         Returns:
             Formatted context string
@@ -59,13 +135,18 @@ class RAGService:
         # Fast path for simple queries
         simple_queries = ["hello", "hi", "ok", "thanks", "thank you", "yes", "no", "okay"]
         if query.lower().strip() in simple_queries:
-            logger.info(f"RAG Fast path: Skipping RAG for simple query '{query}'")
+            logger.debug(f"RAG Fast path: Skipping RAG for simple query")
             return ""
+        
+        # CHECK CACHE FIRST (ultra-fast path)
+        cached = self._get_cached_context(query)
+        if cached is not None:
+            return cached
         
         # Optimized parameters for low latency
         k = k or self._default_k
         max_chars = max_chars or self._default_max_chars
-        min_relevance = min_relevance if min_relevance is not None else None
+        min_relevance = min_relevance if min_relevance is not None else self._min_relevance_score
         
         # Validate input
         if not query or not query.strip():
@@ -101,12 +182,12 @@ class RAGService:
                 logger.info(f"RAG: No relevant chunks after filtering")
                 return ""
             
-            # Ultra-fast: Build context with minimal processing
+            # ULTRA-FAST: Build context with minimal processing
             parts: List[str] = []
             total_chars = 0
             
-            # Limit to first 2 chunks for balanced speed and quality
-            max_chunks = min(len(chunks), 2)
+            # SPEED OPTIMIZED: Only use top 2 chunks
+            max_chunks = 2
             
             for i, ch in enumerate(chunks[:max_chunks]):
                 text = ch.get('text', '')
@@ -117,37 +198,29 @@ class RAGService:
                 
                 # If we already have some chunks and this would exceed limit, stop
                 if parts and total_chars + len(text) > max_chars:
-                    logger.debug(f"RAG: Stopped at chunk {i+1}/{max_chunks} (char limit reached)")
                     break
                 
                 # If this is the first chunk and it's too large, truncate it
                 if not parts and len(text) > max_chars:
                     text = text[:max_chars]
-                    logger.debug(f"RAG: Truncated first chunk to {max_chars} chars")
                 
-                # Simplified chunk format for speed
-                page = ch.get('page', 'unknown')
-                side = ch.get('side', '')
-                
-                # Build simplified chunk
-                if side:
-                    chunk_text = f"Page {page} ({side}): {text}"
-                else:
-                    chunk_text = f"Page {page}: {text}"
-                
-                parts.append(chunk_text)
-                total_chars += len(chunk_text)
+                # ULTRA-SIMPLIFIED format for speed (no page numbers in real-time)
+                parts.append(text)
+                total_chars += len(text)
             
             if not parts:
-                logger.info(f"RAG: No valid chunks after processing")
+                logger.debug(f"RAG: No valid chunks after processing")
                 return ""
             
             ctx = "\n\n".join(parts)
+            
+            # CACHE THE RESULT for future identical queries
+            self._cache_context(query, ctx)
+            
             avg_relevance = sum((1 - ch.get('distance', 0) / 2) * 100 for ch in chunks[:len(parts)]) / len(parts)
             logger.info(
-                f"RAG: Retrieved {len(parts)}/{len(chunks)} chunks, "
-                f"{len(ctx)} chars, {avg_relevance:.0f}% avg relevance "
-                f"(took {self.last_retrieval_time*1000:.0f}ms)"
+                f"⚡ RAG: {len(parts)} chunks, {len(ctx)} chars, "
+                f"{avg_relevance:.0f}% relevance ({self.last_retrieval_time*1000:.0f}ms)"
             )
             return ctx
             

@@ -7,6 +7,7 @@ import { logout as apiLogout } from "@/data/api-auth";
 
 const portalNavItems = [
   { type: "link", path: "/doctorportal", label: "Home" },
+  { type: "link", path: "/doctorportal/transcripts", label: "Transcripts" },
   { type: "link", path: "/doctorportal/settings", label: "Settings" },
   { type: "logout", label: "Logout", variant: "outline", color: "red" },
 ];

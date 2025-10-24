@@ -18,7 +18,7 @@ const benefitsData = [
       "Regulations compliant platform with end-to-end encryption. Your health data is always protected.",
     icon: (<Shield className="w-12 h-12 text-[var(--color-secondary)]" />),
     badge: "Bank-level Security",
-    image: "/images/easter/bald.png",
+    image: "/images/easter/magician-hat.png",  // Using existing image
   },
   {
     title: "Smooth Care",
@@ -54,9 +54,19 @@ export default function WhyChoose() {
   const [mounted, setMounted] = useState(false);
   const [hoveredCard, setHoveredCard] = useState(null);
   const [hoverTimers, setHoverTimers] = useState({});
+  const [bubbles, setBubbles] = useState([]);
 
   useEffect(() => {
     setMounted(true);
+    // Generate bubbles on client-side only to avoid hydration mismatch
+    const generatedBubbles = [...Array(20)].map((_, i) => ({
+      id: i,
+      size: Math.random() * 40 + 20,
+      duration: Math.random() * 20 + 10,
+      delay: Math.random() * 15,
+      left: Math.random() * 100
+    }));
+    setBubbles(generatedBubbles);
   }, []);
 
   const handleMouseEnter = (index) => {
@@ -91,29 +101,22 @@ export default function WhyChoose() {
           {/* Left side - Bubble animation/image */}
           <div className="lg:w-2/5 flex items-center justify-center">
             <div className="relative w-full h-64 lg:h-96">
-              {/* Bubble animation container */}
+              {/* Bubble animation container - client-side only */}
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {[...Array(20)].map((_, i) => {
-                  const size = Math.random() * 40 + 20;
-                  const duration = Math.random() * 20 + 10;
-                  const delay = Math.random() * 15;
-                  const left = Math.random() * 100;
-
-                  return (
-                    <div
-                      key={i}
-                      className="absolute rounded-full bg-gradient-to-br from-blue-100 to-blue-300 opacity-60 animate-bubble"
-                      style={{
-                        width: `${size}px`,
-                        height: `${size}px`,
-                        left: `${left}%`,
-                        bottom: `-${size}px`,
-                        animationDuration: `${duration}s`,
-                        animationDelay: `${delay}s`,
-                      }}
-                    />
-                  );
-                })}
+                {mounted && bubbles.map((bubble) => (
+                  <div
+                    key={bubble.id}
+                    className="absolute rounded-full bg-gradient-to-br from-blue-100 to-blue-300 opacity-60 animate-bubble"
+                    style={{
+                      width: `${bubble.size}px`,
+                      height: `${bubble.size}px`,
+                      left: `${bubble.left}%`,
+                      bottom: `-${bubble.size}px`,
+                      animationDuration: `${bubble.duration}s`,
+                      animationDelay: `${bubble.delay}s`,
+                    }}
+                  />
+                ))}
               </div>
               
               {/* Central illustration/icon */}

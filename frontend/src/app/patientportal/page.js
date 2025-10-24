@@ -14,6 +14,7 @@ import { logout } from "@/data/api-auth";
 const portalNavItems = [
   { type: "link", path: "/patientportal", label: "Home" },
   { type: "link", path: "/patientportal/mydoctors", label: "My Doctors" },
+  { type: "link", path: "/patientportal/transcripts", label: "Transcripts" },
   { type: "link", path: "/patientportal/settings", label: "Settings" },
   { type: "logout", label: "Logout", variant: "outline", color: "red" },
 ];

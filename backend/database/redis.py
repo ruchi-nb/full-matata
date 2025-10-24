@@ -56,6 +56,19 @@ def get_redis_init_error() -> str | None:
 logger = logging.getLogger(__name__)
 
 
+# Sync Redis client for general caching (RAG, system prompts, etc.)
+redis_client = None
+try:
+    redis_client = redis_sync.Redis.from_url(settings.REDIS_URL, decode_responses=True)
+    # Test connection
+    redis_client.ping()
+    logger.info("✅ Global Redis client initialized for caching")
+except Exception as e:
+    logger.warning(f"⚠️ Failed to initialize global Redis client: {e}")
+    logger.warning("Falling back to in-memory caching")
+    redis_client = None
+
+
 class SessionManager:
     """
     OpenAI Session Manager

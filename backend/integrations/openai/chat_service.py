@@ -238,157 +238,6 @@ class OpenAIChatService:
             prompt: User prompt
             use_cache: Enable response caching (default: False for fresh responses)
         """
-        # Ultra-optimized response cache for better performance
-        self._response_cache: Dict[str, tuple] = {}  # {prompt_hash: (response, timestamp)}
-        self._cache_ttl = 600  # 10 minutes TTL for responses (increased for better hit rate)
-        self._max_cache_size = 300  # Larger cache size for better performance
-        
-        logger.info("OpenAI Chat Service initialized with connection pooling")
-
-    def _get_cache_key(self, prompt: str, system_prompt: str) -> str:
-        """Ultra-fast cache key generation"""
-        return f"{hash(prompt)}_{len(system_prompt)}"
-    
-    def _get_cached_response(self, prompt: str, system_prompt: str) -> Optional[str]:
-        """Get cached response if available and not expired"""
-        cache_key = self._get_cache_key(prompt, system_prompt)
-        if cache_key in self._response_cache:
-            response, timestamp = self._response_cache[cache_key]
-            if time.time() - timestamp < self._cache_ttl:
-                logger.info(f"Response Cache HIT (saved OpenAI call)")
-                return response
-            else:
-                del self._response_cache[cache_key]
-        return None
-    
-    def _cache_response(self, prompt: str, system_prompt: str, response: str):
-        """Cache response for future use"""
-        cache_key = self._get_cache_key(prompt, system_prompt)
-        
-        # Limit cache size
-        if len(self._response_cache) >= self._max_cache_size:
-            oldest_key = min(self._response_cache.keys(), 
-                           key=lambda k: self._response_cache[k][1])
-            del self._response_cache[oldest_key]
-        
-        self._response_cache[cache_key] = (response, time.time())
-
-    def _stream_completion(
-        self, 
-        messages, 
-        max_tokens, 
-        temperature, 
-        top_p, 
-        start_time
-    ) -> Generator[str, None, None]:
-        """
-        Stream tokens as they arrive from OpenAI with retry logic and error handling
-        """
-        retry_count = 0
-        max_retries = 2
-        
-        while retry_count <= max_retries:
-            try:
-                # Print complete request to console for debugging (first attempt only)
-                if retry_count == 0:
-                    print("\n" + "="*80)
-                    print(" OPENAI API REQUEST")
-                    print("="*80)
-                    print(f"Model: {self.model}")
-                    print(f"Parameters: max_tokens={max_tokens}, temperature={temperature}, top_p={top_p}, stream=True")
-                    print(f"\nMessages ({len(messages)} total):")
-                    print("-"*80)
-                    
-                    for i, msg in enumerate(messages):
-                        role = msg.get('role', 'unknown')
-                        content = msg.get('content', '')
-                        print(f"\n[Message {i}] Role: {role.upper()}")
-                        print(f"Content ({len(content)} chars):")
-                        # Print preview for long content
-                        preview_len = 500
-                        if len(content) > preview_len:
-                            print(content[:preview_len] + f"... ({len(content) - preview_len} more chars)")
-                        else:
-                            print(content)
-                        print("-"*80)
-                    
-                    print("="*80 + "\n")
-                
-                # Log summary
-                logger.info(f" OPENAI REQUEST - Model: {self.model}, Messages: {len(messages)}, Total chars: {sum(len(m.get('content', '')) for m in messages)}, Attempt: {retry_count + 1}")
-                
-                stream = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    top_p=top_p,
-                    stream=True
-                )
-                
-                full_text = ""
-                first_token_time = None
-                token_count = 0
-                
-                for chunk in stream:
-                    if chunk.choices[0].delta.content:
-                        token = chunk.choices[0].delta.content
-                        full_text += token
-                        token_count += 1
-                        
-                        if first_token_time is None:
-                            first_token_time = time.time()
-                            ttft_ms = int((first_token_time - start_time) * 1000)
-                            logger.info(f" OpenAI TTFT: {ttft_ms}ms")
-                        
-                        yield token
-                
-                # Log completion metrics
-                total_time = time.time() - start_time
-                logger.info(f" OpenAI Streaming Complete - Tokens: ~{token_count}, Total: {int(total_time*1000)}ms")
-                
-                # Store for analytics
-                self.last_usage = {
-                    'total_tokens': token_count,
-                    'output_tokens': token_count,
-                    'input_tokens': 0  # Not available in streaming
-                }
-                
-                break  # Success, exit retry loop
-                
-            except Exception as e:
-                if retry_count < max_retries:
-                    retry_count += 1
-                    wait_time = 0.5 * retry_count  # Exponential backoff
-                    logger.warning(f" OpenAI streaming error, retrying in {wait_time}s (attempt {retry_count + 1}/{max_retries + 1}): {e}")
-                    time.sleep(wait_time)
-                    continue
-                else:
-                    logger.error(f" OpenAI streaming error after {max_retries} retries: {e}", exc_info=True)
-                    yield "I'm sorry, I couldn't generate a response right now."
-                    break
-
-    def generate_response(
-        self, 
-        prompt: str, 
-        max_tokens: int = None, 
-        temperature: float = None, 
-        top_p: float = None, 
-        request_id: str = None, 
-        session_id: str = None, 
-        use_rag: bool = True,
-        user_language: Optional[str] = None, 
-        system_prompt: Optional[str] = None,
-        use_cache: bool = False
-    ) -> str:
-        """
-        Generate response using streaming (collects all tokens and returns full response)
-        This is the non-streaming API that internally uses streaming for better performance
-        
-        Args:
-            prompt: User prompt
-            use_cache: Enable response caching (default: False for fresh responses)
-        """
         from system_prompt import VIRTUAL_DOCTOR_SYSTEM_PROMPT
         from database.redis import SessionManager
         
@@ -405,14 +254,6 @@ class OpenAIChatService:
                 if cached:
                     return cached
             
-            base_system_prompt = system_prompt or VIRTUAL_DOCTOR_SYSTEM_PROMPT
-            
-            # Check cache for non-session, non-RAG requests
-            if use_cache and not session_id and not use_rag:
-                cached = self._get_cached_response(prompt, base_system_prompt)
-                if cached:
-                    return cached
-            
             # Build RAG context if available and enabled
             rag_context = ""
             if use_rag and self.rag_service:
@@ -420,17 +261,12 @@ class OpenAIChatService:
                     rag_context = self.rag_service.build_context(prompt)
                     if rag_context:
                         logger.info(f" RAG context: {len(rag_context)} chars")
-                        logger.info(f" RAG context: {len(rag_context)} chars")
                 except Exception as e:
-                    logger.warning(f" RAG retrieval failed: {e}")
                     logger.warning(f" RAG retrieval failed: {e}")
             
             # Enhance user prompt with RAG context if available
             enhanced_prompt = prompt
-            # Enhance user prompt with RAG context if available
-            enhanced_prompt = prompt
             if rag_context:
-                enhanced_prompt = f"Relevant medical book context:\n{rag_context}\n\nPatient question: {prompt}"
                 enhanced_prompt = f"Relevant medical book context:\n{rag_context}\n\nPatient question: {prompt}"
             
             if session_id:
@@ -445,20 +281,8 @@ class OpenAIChatService:
                 
                 session_manager._add_message_to_session(session_id, "assistant", full_response)
                 return full_response
-                session_manager._add_message_to_session(session_id, "user", enhanced_prompt)
-                messages = session_manager.get_session_messages(session_id, base_system_prompt)
-                
-                # Stream and collect full response
-                full_response = ""
-                for token in self._stream_completion(messages, max_tokens, temperature, top_p, time.time()):
-                    full_response += token
-                
-                session_manager._add_message_to_session(session_id, "assistant", full_response)
-                return full_response
             else:
                 messages = [
-                    {"role": "system", "content": base_system_prompt},
-                    {"role": "user", "content": enhanced_prompt},
                     {"role": "system", "content": base_system_prompt},
                     {"role": "user", "content": enhanced_prompt}
                 ]
@@ -474,20 +298,7 @@ class OpenAIChatService:
                 
                 return full_response
                 
-                
-                # Stream and collect full response
-                full_response = ""
-                for token in self._stream_completion(messages, max_tokens, temperature, top_p, time.time()):
-                    full_response += token
-                
-                # Cache response if enabled
-                if use_cache:
-                    self._cache_response(prompt, base_system_prompt, full_response)
-                
-                return full_response
-                
         except Exception as e:
-            logger.error(f" OpenAI completion error: {e}", exc_info=True)
             logger.error(f" OpenAI completion error: {e}", exc_info=True)
             return "I'm sorry, I couldn't generate a response right now."
     

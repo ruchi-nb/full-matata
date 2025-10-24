@@ -7,6 +7,7 @@ import {
   Users,
   CreditCard,
   Settings,
+  FileText,
 } from "lucide-react";
 import Sidebar from "@/components/common/Sidebar";
 
@@ -46,6 +47,13 @@ const HospitalSidebar = () => {
       path: "/Hospital/roles", // Fixed: This should probably point to a roles page
       icon: <Users className="mr-3 h-5 w-5" />,
       sec: "VIEW",
+    },
+    {
+      id: "Transcripts",
+      label: "Transcripts",
+      path: "/Hospital/transcripts",
+      icon: <FileText className="mr-3 h-5 w-5" />,
+      sec: "VIEW"
     },
     {
       id: "MyPlan",

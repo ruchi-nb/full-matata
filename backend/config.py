@@ -29,11 +29,14 @@ class Settings(BaseSettings):
     CHAT_PROVIDER: str = "openai"  # "openai" or "gemini"
     GEMINI_MODEL: str = "gemini-2.0-flash"
     
-    # Production Performance Optimizations
-    OPENAI_TIMEOUT: float = 10.0
-    OPENAI_MAX_RETRIES: int = 1
-    RAG_TIMEOUT: float = 8.0
-    RAG_MAX_RETRIES: int = 1
+    # Production Performance Optimizations - ULTRA-FAST
+    OPENAI_TIMEOUT: float = 8.0  # Reduced timeout for faster failure detection
+    OPENAI_MAX_RETRIES: int = 1  # Minimal retries for speed
+    RAG_TIMEOUT: float = 5.0  # Ultra-fast RAG with caching
+    RAG_MAX_RETRIES: int = 0  # No RAG retries for speed
+    RAG_CACHE_TTL: int = 300  # 5 minutes RAG cache
+    RAG_MAX_CACHE_SIZE: int = 100  # Cache up to 100 queries
+    TRANSLATION_TIMEOUT: float = 2.0  # Fast translation timeout
 
 
 
@@ -111,17 +114,17 @@ class Settings(BaseSettings):
     SARVAM_TRANSLATE_MODEL: str = "sarvam-translate:v1"
     SARVAM_TRANSLATE_MODE: str = "formal"
 
-    # RAG Configuration
-    RAG_MAX_CHARS: int = 4000
-    RAG_K_CHUNKS: int = 5
+    # RAG Configuration - ULTRA-FAST for real-time
+    RAG_MAX_CHARS: int = 600  # Reduced for speed (was 4000)
+    RAG_K_CHUNKS: int = 2  # Only top 2 chunks (was 5)
     RAG_MAX_TOKENS: int = 300
     RAG_TEMPERATURE: float = 0.3
 
-    # OpenAI Configuration
+    # OpenAI Configuration - OPTIMIZED FOR SPEED
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"
-    OPENAI_MAX_TOKENS: int = 300
-    OPENAI_TEMPERATURE: float = 0.3
-    OPENAI_TOP_P: float = 0.9
+    OPENAI_MAX_TOKENS: int = 150  # Reduced for faster response
+    OPENAI_TEMPERATURE: float = 0.3  # Balanced for speed and quality
+    OPENAI_TOP_P: float = 0.85  # Optimized for faster token generation
 
     # Celery / Redis
     # CELERY_BROKER_URL: str = "redis://localhost:6379/0"

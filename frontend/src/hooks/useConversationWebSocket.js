@@ -36,11 +36,11 @@ export function useConversationWebSocket({
   const lastFlushTimeRef = useRef(0); // Track last flush to prevent duplicates
   const isProcessingResponseRef = useRef(false); // Track if backend is processing
   
-  // VAD thresholds (more sensitive for better detection)
-  const SPEECH_THRESHOLD = 30; // Audio level above this = speech (lowered for sensitivity)
-  const SILENCE_THRESHOLD = 10; // Audio level below this = silence (lowered for sensitivity)
-  const SILENCE_DURATION = 1500; // 1.5 seconds of silence to finalize (ms) - slightly longer
-  const FLUSH_DEBOUNCE_MS = 3000; // Don't send flush more than once every 3 seconds
+  // VAD thresholds (optimized for better detection and reduced false positives)
+  const SPEECH_THRESHOLD = 35; // Audio level above this = speech (optimized)
+  const SILENCE_THRESHOLD = 15; // Audio level below this = silence (optimized)
+  const SILENCE_DURATION = 1200; // 1.2 seconds of silence to finalize (ms) - faster response
+  const FLUSH_DEBOUNCE_MS = 2500; // Reduced debounce for faster response
   
   // WebSocket connection
   const connectWebSocket = useCallback(() => {
@@ -433,13 +433,13 @@ export function useConversationWebSocket({
         }
       };
       
-      mediaRecorder.start(100); // Collect data every 100ms
+      mediaRecorder.start(250); // Collect data every 250ms (reduced frequency for less overhead)
       mediaRecorderRef.current = mediaRecorder;
       setIsRecording(true);
       
       // Start VAD interval to monitor audio levels
       console.log('[VAD] Starting voice activity detection...');
-      vadCheckIntervalRef.current = setInterval(checkAudioLevel, 100); // Check every 100ms
+      vadCheckIntervalRef.current = setInterval(checkAudioLevel, 150); // Check every 150ms (reduced frequency)
       speechDetectedRef.current = false; // Reset speech detection
       
       // Start PCM streaming for real-time STT (matches backend implementation)
@@ -455,7 +455,7 @@ export function useConversationWebSocket({
             audioContextRef.current.resume();
           }
           
-          const bufferSize = 2048; // Match backend buffer size
+          const bufferSize = 4096; // Increased buffer size for better performance (less frequent sends)
           pcmProcessorRef.current = audioContextRef.current.createScriptProcessor(bufferSize, 1, 1);
           pcmSourceRef.current = audioContextRef.current.createMediaStreamSource(streamRef.current);
           
@@ -557,7 +557,7 @@ export function useConversationWebSocket({
     
     // Restart VAD checks
     if (isRecording && analyserRef.current) {
-      vadCheckIntervalRef.current = setInterval(checkAudioLevel, 100);
+      vadCheckIntervalRef.current = setInterval(checkAudioLevel, 150); // Reduced frequency
     }
   }, [isRecording, checkAudioLevel]);
   

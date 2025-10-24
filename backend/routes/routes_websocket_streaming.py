@@ -497,19 +497,52 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                 "utterance_seq": utter_seq
             }, websocket)
         
-        # Fetch dynamic system prompt with doctor's name and hospital
+        # Fetch dynamic system prompt with doctor's name and hospital (REDIS CACHED)
         dynamic_prompt = None
         try:
             if session_data.get('consultation_id'):
-                async with AsyncSessionLocal() as db:
-                    from service.consultation_service import get_consultation_details
-                    from system_prompt import get_dynamic_system_prompt
-                    
-                    consultation_id = int(session_data['consultation_id'])
-                    consultation = await get_consultation_details(db, consultation_id=consultation_id)
-                    if consultation and consultation.doctor_id:
-                        dynamic_prompt = await get_dynamic_system_prompt(db, consultation.doctor_id, consultation_id)
-                        logger.info(f"Using dynamic prompt for doctor_id={consultation.doctor_id}")
+                consultation_id = int(session_data['consultation_id'])
+                
+                # Try Redis cache first for system prompt
+                redis_cache_key = f"prompt_{consultation_id}"
+                try:
+                    from database.redis import redis_client
+                    cached_prompt = redis_client.get(redis_cache_key)
+                    if cached_prompt:
+                        dynamic_prompt = cached_prompt.decode('utf-8') if isinstance(cached_prompt, bytes) else cached_prompt
+                        logger.info(f"⚡ REDIS: Using cached system prompt for consultation {consultation_id}")
+                except Exception as redis_err:
+                    logger.debug(f"Redis cache miss for prompt: {redis_err}")
+                
+                # If not in Redis, check session memory
+                if not dynamic_prompt:
+                    cache_key = f"prompt_{consultation_id}"
+                    if cache_key in session_data:
+                        dynamic_prompt = session_data[cache_key]
+                        if dynamic_prompt:
+                            logger.info(f"Using session-cached system prompt")
+                    else:
+                        # Fetch from DB and cache in both Redis and session
+                        async with AsyncSessionLocal() as db:
+                            from service.consultation_service import get_consultation_details
+                            from system_prompt import get_dynamic_system_prompt
+                            
+                            consultation = await get_consultation_details(db, consultation_id=consultation_id)
+                            if consultation and consultation.doctor_id:
+                                dynamic_prompt = await get_dynamic_system_prompt(db, consultation.doctor_id, consultation_id)
+                                
+                                # Cache in session
+                                session_data[cache_key] = dynamic_prompt
+                                
+                                # Cache in Redis (15 min TTL)
+                                try:
+                                    from database.redis import redis_client
+                                    redis_client.setex(redis_cache_key, 900, dynamic_prompt)
+                                    logger.info(f"✅ Cached system prompt in Redis for doctor_id={consultation.doctor_id}")
+                                except Exception as redis_err:
+                                    logger.warning(f"Failed to cache prompt in Redis: {redis_err}")
+                            else:
+                                session_data[cache_key] = None
         except Exception as e:
             logger.warning(f"Failed to fetch dynamic prompt: {e}, using default")
         
@@ -530,13 +563,14 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
             
             for token in openai_service.generate_response_stream(
                 prompt=f"Patient said: {prompt_text}",
-                max_tokens=200,  # Reduced for faster generation
-                temperature=0.2,  # More deterministic for faster response
-                top_p=0.8,
+                max_tokens=150,  # Ultra-fast generation
+                temperature=0.3,  # Balanced for speed and quality
+                top_p=0.85,
                 request_id=session_data['request_id'],
                 session_id=session_data['session_id'],
                 user_language='en',
-                system_prompt=dynamic_prompt
+                system_prompt=dynamic_prompt,
+                use_rag=True  # Keep RAG enabled with optimizations
             ):
                 full_response += token
                 sentence_buffer += token
@@ -556,10 +590,10 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                         }, websocket)
                         logger.info(f"ULTRA-FAST First Chunk sent: {len(sentence_buffer)} chars")
                 
-                # Continue with sentence-based chunking for remaining text
-                elif any(sentence_buffer.rstrip().endswith(punct) for punct in ['.', '!', '?', '।']):
+                # Send smaller chunks for faster perceived response
+                elif any(sentence_buffer.rstrip().endswith(punct) for punct in ['.', '!', '?', '।', ',']):
                     sentence = sentence_buffer.strip()
-                    if len(sentence) > 8:  # Balanced threshold for good delivery
+                    if len(sentence) > 5:  # Reduced threshold for faster delivery
                         chunk_count += 1
                         # Send sentence chunk to client for TTS
                         if websocket.client_state.name == "CONNECTED":
@@ -603,13 +637,14 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
             
             for token in openai_service.generate_response_stream(
                 prompt=f"Patient said: {prompt_text}",
-                max_tokens=200,  # Reduced for faster generation
-                temperature=0.2,  # More deterministic for faster response
-                top_p=0.8,
+                max_tokens=150,  # Ultra-fast generation
+                temperature=0.3,  # Balanced for speed
+                top_p=0.85,
                 request_id=session_data['request_id'],
                 session_id=session_data['session_id'],
                 user_language='en',
-                system_prompt=dynamic_prompt
+                system_prompt=dynamic_prompt,
+                use_rag=True  # Keep RAG enabled with optimizations
             ):
                 response_en += token
                 sentence_buffer += token
@@ -624,7 +659,8 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                         source_lang='en',
                         target_lang=lang,
                         request_id=session_data['request_id'],
-                        session_id=session_data['session_id']
+                        session_id=session_data['session_id'],
+                        timeout=2.0  # Reduce translation timeout for faster failure
                     )
                     
                     # Send first translated chunk immediately
@@ -638,17 +674,18 @@ async def handle_audio_data(websocket: WebSocket, message: dict, session_data: d
                         }, websocket)
                         logger.info(f"ULTRA-FAST First Chunk (translated) sent: {len(translated_first_chunk)} chars")
                 
-                # Continue with sentence-based chunking for remaining text
-                elif any(sentence_buffer.rstrip().endswith(punct) for punct in ['.', '!', '?']):
+                # Send smaller chunks for faster perceived response
+                elif any(sentence_buffer.rstrip().endswith(punct) for punct in ['.', '!', '?', ',']):
                     sentence = sentence_buffer.strip()
-                    if len(sentence) > 8:  # Balanced threshold for good delivery
+                    if len(sentence) > 5:  # Reduced threshold for faster delivery
                         # ULTRA-FAST async translate sentence to target language
                         translated_sentence = await translate_with_timeout(
                             sentence,
                             source_lang='en',
                             target_lang=lang,
                             request_id=session_data['request_id'],
-                            session_id=session_data['session_id']
+                            session_id=session_data['session_id'],
+                            timeout=2.0  # Reduced timeout
                         )
                         
                         chunk_count += 1
