@@ -35,6 +35,7 @@ export function useConversationWebSocket({
   const lastAudioLevelRef = useRef(0);
   const lastFlushTimeRef = useRef(0); // Track last flush to prevent duplicates
   const isProcessingResponseRef = useRef(false); // Track if backend is processing
+  const isRecordingRef = useRef(false); // Synchronous recording state for VAD checks
   
   // VAD thresholds (optimized for better detection and reduced false positives)
   const SPEECH_THRESHOLD = 35; // Audio level above this = speech (optimized)
@@ -113,23 +114,16 @@ export function useConversationWebSocket({
             break;
             
           case 'vad_signal':
-            // Handle Sarvam's VAD signals
-            if (message.signal_type === 'END_SPEECH') {
-              // Debounce flush signals - only send if enough time has passed and not already processing
-              const now = Date.now();
-              const timeSinceLastFlush = now - lastFlushTimeRef.current;
-              
-              if (!isProcessingResponseRef.current && timeSinceLastFlush > FLUSH_DEBOUNCE_MS) {
-                console.log('[VAD] Sarvam detected END_SPEECH, sending flush signal...');
-                lastFlushTimeRef.current = now;
-                isProcessingResponseRef.current = true;
-                sendFlushSignal();
-              } else {
-                console.log('[VAD] Skipping flush (debounced or already processing)');
-              }
-            } else if (message.signal_type === 'START_SPEECH') {
-              // Reset processing flag when new speech starts
+            // Handle Sarvam's VAD signals (but DON'T use for flushing - too aggressive)
+            if (message.signal_type === 'START_SPEECH') {
+              // Reset processing flag when new speech starts (backend compatibility)
               isProcessingResponseRef.current = false;
+              console.log('[VAD] Backend START_SPEECH signal - reset processing flag');
+            } else if (message.signal_type === 'END_SPEECH') {
+              // **IGNORE Sarvam's END_SPEECH for flushing**
+              // It's too aggressive and triggers after just 1-2 words
+              // We'll rely on client-side silence detection instead (like backend)
+              console.log('[VAD] Backend END_SPEECH signal (ignored - using client VAD instead)');
             }
             break;
             
@@ -267,9 +261,43 @@ export function useConversationWebSocket({
     }
   }, [onError]);
   
-  // VAD: Check audio levels and detect speech/silence
+  // Stop recording (defined before checkAudioLevel to avoid temporal dead zone)
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      onStatusUpdate?.('Processing...');
+    }
+    
+    // Clear recording flag synchronously
+    isRecordingRef.current = false;
+    
+    // Clear VAD interval and timers
+    if (vadCheckIntervalRef.current) {
+      clearInterval(vadCheckIntervalRef.current);
+      vadCheckIntervalRef.current = null;
+      console.log('[VAD] Stopped voice activity detection');
+    }
+    
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    
+    // Reset VAD state
+    speechDetectedRef.current = false;
+    lastAudioLevelRef.current = 0;
+  }, [onStatusUpdate]);
+  
+  // VAD: Check audio levels and detect speech/silence (matches backend exactly)
   const checkAudioLevel = useCallback(() => {
-    if (!analyserRef.current || !isRecording) return;
+    // Use ref instead of state for synchronous check
+    if (!analyserRef.current || !isRecordingRef.current || isProcessingResponseRef.current) {
+      // Debug: Log why VAD is not running
+      if (Math.random() < 0.05) { // Log 5% of the time to avoid spam
+        console.log('[VAD] Skipped - analyser:', !!analyserRef.current, 'isRecording:', isRecordingRef.current, 'isProcessing:', isProcessingResponseRef.current);
+      }
+      return;
+    }
     
     const bufferLength = analyserRef.current.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
@@ -279,11 +307,16 @@ export function useConversationWebSocket({
     const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
     lastAudioLevelRef.current = average;
     
+    // Debug: Log audio levels occasionally
+    if (Math.random() < 0.02) { // Log 2% of the time
+      console.log('[VAD] Audio level:', average.toFixed(2), 'Speech detected:', speechDetectedRef.current);
+    }
+    
     // Send audio level to UI for visual feedback
     onAudioLevel?.(average);
     
     // Speech detected
-    if (average > SPEECH_THRESHOLD && !speechDetectedRef.current) {
+    if (average > SPEECH_THRESHOLD && !speechDetectedRef.current && !isProcessingResponseRef.current) {
       console.log('[VAD] Speech detected, level:', average.toFixed(2));
       speechDetectedRef.current = true;
       
@@ -296,18 +329,30 @@ export function useConversationWebSocket({
       onStatusUpdate?.('🎤 Listening - Speaking detected...');
     }
     // Silence detected after speech
-    else if (average < SILENCE_THRESHOLD && speechDetectedRef.current) {
+    else if (average < SILENCE_THRESHOLD && speechDetectedRef.current && !isProcessingResponseRef.current) {
       // Start silence timer if not already started
       if (!silenceTimerRef.current) {
         console.log('[VAD] Silence detected, starting timer...');
         silenceTimerRef.current = setTimeout(() => {
-          if (speechDetectedRef.current) {
+          if (speechDetectedRef.current && !isProcessingResponseRef.current) {
             console.log('[VAD] Silence timeout - finalizing speech');
             speechDetectedRef.current = false;
             silenceTimerRef.current = null;
             
-            // Send flush signal to finalize transcription
-            sendFlushSignal();
+            // **BACKEND FLOW: Stop recording FIRST, then flush**
+            console.log('[VAD] 🛑 Stopping recording...');
+            stopRecording();
+            
+            // Send flush signal after stopping (matches backend exactly)
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              try {
+                console.log('[VAD] 📤 Sending flush signal to finalize transcription');
+                wsRef.current.send(JSON.stringify({ type: 'flush' }));
+                isProcessingResponseRef.current = true;
+              } catch (e) {
+                console.warn('[VAD] Failed to send flush signal:', e);
+              }
+            }
             
             onStatusUpdate?.('Processing...');
           }
@@ -320,19 +365,8 @@ export function useConversationWebSocket({
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
-  }, [isRecording, onStatusUpdate]);
+  }, [isRecording, onStatusUpdate, stopRecording]);
   
-  // Send flush signal to backend to finalize transcription
-  const sendFlushSignal = useCallback(() => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    
-    try {
-      console.log('[VAD] Sending flush signal to finalize transcription');
-      wsRef.current.send(JSON.stringify({ type: 'flush' }));
-    } catch (e) {
-      console.warn('[VAD] Failed to send flush signal:', e);
-    }
-  }, []);
   
   // Send PCM chunk (defined before startRecording to avoid temporal dead zone)
   const sendPcmChunk = useCallback((pcmInt16) => {
@@ -419,8 +453,16 @@ export function useConversationWebSocket({
         console.log('[Recording] Stopped');
         setIsRecording(false);
         
-        // Send final audio
-        sendFinalAudio();
+        // **DON'T send final_audio for Sarvam streaming**
+        // The flush signal already finalizes the accumulated streaming transcript
+        // Sending final_audio causes an empty transcript that overrides the flush result
+        const isSarvam = provider.toLowerCase().includes('sarvam');
+        if (!isSarvam) {
+          // Only send final_audio for Deepgram
+          sendFinalAudio();
+        } else {
+          console.log('[Recording] Skipping final_audio for Sarvam (using flush instead)');
+        }
         
         // Cleanup PCM streaming
         if (pcmProcessorRef.current) {
@@ -435,7 +477,8 @@ export function useConversationWebSocket({
       
       mediaRecorder.start(250); // Collect data every 250ms (reduced frequency for less overhead)
       mediaRecorderRef.current = mediaRecorder;
-      setIsRecording(true);
+      isRecordingRef.current = true; // Set ref synchronously for immediate VAD use
+      setIsRecording(true); // Set state for UI
       
       // Start VAD interval to monitor audio levels
       console.log('[VAD] Starting voice activity detection...');
@@ -494,30 +537,6 @@ export function useConversationWebSocket({
       onError?.(error);
     }
   }, [isRecording, initializeAudio, onStatusUpdate, onError, provider, sendPcmChunk, sendFinalAudio, checkAudioLevel]);
-  
-  // Stop recording
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
-      onStatusUpdate?.('Processing...');
-    }
-    
-    // Clear VAD interval and timers
-    if (vadCheckIntervalRef.current) {
-      clearInterval(vadCheckIntervalRef.current);
-      vadCheckIntervalRef.current = null;
-      console.log('[VAD] Stopped voice activity detection');
-    }
-    
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
-    
-    // Reset VAD state
-    speechDetectedRef.current = false;
-    lastAudioLevelRef.current = 0;
-  }, [onStatusUpdate]);
   
   // Send text message
   const sendTextMessage = useCallback((text) => {

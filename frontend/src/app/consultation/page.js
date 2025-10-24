@@ -86,9 +86,7 @@ export default function ConsultationPage() {
     isRecording,
     startRecording,
     stopRecording,
-    sendTextMessage,
-    pauseRecording,
-    resumeRecording
+    sendTextMessage
   } = useConversationWebSocket({
     consultationId: wsConsultationId,
     provider,
@@ -284,12 +282,12 @@ export default function ConsultationPage() {
     try {
       console.log('[TTS] Playing response:', text.substring(0, 50) + '...');
       
-      // **PAUSE STT RECORDING DURING TTS PLAYBACK**
+      // **STOP STT RECORDING DURING TTS PLAYBACK**
       // This prevents the microphone from capturing the doctor's voice from speakers
       const wasRecording = isRecording;
-      if (wasRecording && pauseRecording) {
-        console.log('[TTS] 🔇 Pausing STT recording to prevent echo...');
-        pauseRecording();
+      if (wasRecording && stopRecording) {
+        console.log('[TTS] 🔇 Stopping microphone to prevent echo...');
+        stopRecording();
       }
       setIsTTSPlaying(true);
       
@@ -321,11 +319,11 @@ export default function ConsultationPage() {
 
       if (!response.ok) {
         console.error('[TTS] Failed:', response.status, response.statusText);
-        // Resume recording on error
+        // Restart recording on error
         setIsTTSPlaying(false);
-        if (wasRecording && resumeRecording) {
-          console.log('[TTS] 🎤 Resuming STT recording after error...');
-          resumeRecording();
+        if (wasRecording && startRecording) {
+          console.log('[TTS] 🎤 Restarting microphone after error...');
+          startRecording();
         }
         return;
       }
@@ -344,10 +342,16 @@ export default function ConsultationPage() {
         setIsTTSPlaying(false);
         audioElementRef.current = null;
         
-        // **RESUME STT RECORDING AFTER TTS COMPLETES**
-        if (wasRecording && resumeRecording && isStreamingMode) {
-          console.log('[TTS] 🎤 Resuming STT recording...');
-          resumeRecording();
+        // **RESTART STT RECORDING AFTER TTS COMPLETES**
+        // Always restart if in streaming mode (wasRecording might be false if VAD stopped it)
+        if (startRecording && isStreamingMode) {
+          console.log('[TTS] 🎤 Restarting microphone...');
+          setTimeout(() => {
+            // Small delay to ensure audio output is fully stopped
+            if (isStreamingMode && startRecording) {
+              startRecording();
+            }
+          }, 300);
         }
       };
       
@@ -357,10 +361,14 @@ export default function ConsultationPage() {
         setIsTTSPlaying(false);
         audioElementRef.current = null;
         
-        // Resume recording on error
-        if (wasRecording && resumeRecording && isStreamingMode) {
-          console.log('[TTS] 🎤 Resuming STT recording after playback error...');
-          resumeRecording();
+        // Restart recording on error (always in streaming mode)
+        if (startRecording && isStreamingMode) {
+          console.log('[TTS] 🎤 Restarting microphone after playback error...');
+          setTimeout(() => {
+            if (isStreamingMode && startRecording) {
+              startRecording();
+            }
+          }, 300);
         }
       };
       
@@ -371,13 +379,17 @@ export default function ConsultationPage() {
       setIsTTSPlaying(false);
       audioElementRef.current = null;
       
-      // Resume recording on error
-      if (isRecording && resumeRecording && isStreamingMode) {
-        console.log('[TTS] 🎤 Resuming STT recording after error...');
-        resumeRecording();
+      // Restart recording on error (always in streaming mode)
+      if (startRecording && isStreamingMode) {
+        console.log('[TTS] 🎤 Restarting microphone after error...');
+        setTimeout(() => {
+          if (isStreamingMode && startRecording) {
+            startRecording();
+          }
+        }, 300);
       }
     }
-  }, [consultationId, language, provider, isRecording, isStreamingMode, pauseRecording, resumeRecording]);
+  }, [consultationId, language, provider, isStreamingMode, startRecording, stopRecording]);
   
   // Toggle streaming mode (mimic conversation.js startStreamingMode/stopStreamingMode)
   const toggleStreamingMode = () => {
@@ -579,15 +591,18 @@ export default function ConsultationPage() {
   }
   
   return (
-    <div className="min-h-screen bg-[#111] text-white flex overflow-hidden">
+    <div className="h-screen bg-[#111] text-white flex overflow-hidden">
       {/* Video Area */}
-      <div className="relative flex-1 flex justify-center items-center bg-black overflow-hidden">
-        {/* AI Placeholder */}
-        <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#667eea] to-[#764ba2]">
-          <div className="absolute inset-0 flex items-center justify-center text-white text-4xl font-bold">
-            🤖 Virtual Doctor
-          </div>
-        </div>
+      <div className="relative flex-1 flex justify-center items-center bg-gradient-to-br from-[#667eea] to-[#764ba2] overflow-hidden">
+        {/* AI Placeholder - Animated GIF (Full Screen) */}
+        <img 
+          src="/ai_placeholder.gif" 
+          alt="AI Video Placeholder"
+          className="absolute top-0 left-0 w-full h-full object-cover z-0"
+          style={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+          }}
+        />
         
         {/* User Video */}
         {isCameraOn ? (
@@ -738,9 +753,9 @@ export default function ConsultationPage() {
       </div>
       
       {/* Chat Section */}
-      <div className="w-[300px] bg-[#1a1a1a] flex flex-col border-l-2 border-[#333]">
+      <div className="w-[300px] bg-[#1a1a1a] flex flex-col border-l-2 border-[#333] h-screen">
         {/* Chat Messages */}
-        <div ref={chatMessagesRef} className="flex-1 overflow-y-auto p-3">
+        <div ref={chatMessagesRef} className="flex-1 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
           {messages.map((msg, index) => (
             <div
               key={index}
