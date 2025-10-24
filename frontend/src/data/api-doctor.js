@@ -1,4 +1,5 @@
 import { request } from './api.js';
+import { normalizePhoneNumber } from '../utils/validation.js';
 
 // =============================================
 // DOCTOR APIs
@@ -7,8 +8,15 @@ import { request } from './api.js';
 /**
  * Get doctor profile
  */
-export function getDoctorProfile() {
-  return request("/doctors/profile", { method: "GET" });
+export async function getDoctorProfile() {
+  const profile = await request("/doctors/profile", { method: "GET" });
+  
+  // Normalize phone number in the response to handle backend validation issues
+  if (profile && profile.phone) {
+    profile.phone = normalizePhoneNumber(profile.phone);
+  }
+  
+  return profile;
 }
 
 /**

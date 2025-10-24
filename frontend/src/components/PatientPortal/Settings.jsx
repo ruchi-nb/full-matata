@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getPatientProfile, updatePatientProfile, uploadPatientAvatar } from "@/data/api-patient";
 import { useUser } from '@/data/UserContext';
+import { normalizePhoneNumber } from '../../utils/validation.js';
 import { Save, MapPin, Mail, User, Image } from "lucide-react";
 import InvertedGradientButton from "@/components/common/InvertedGradientButton";
 
@@ -45,44 +46,6 @@ export default function ProfileForm() {
     return { street, city, state, zip };
   };
 
-  // Helper function to normalize phone number
-  const normalizePhoneNumber = (phone) => {
-    if (!phone) return "";
-    
-    // Remove all non-digit characters
-    const digits = phone.replace(/\D/g, "");
-    
-    // If phone already starts with +91, return as is
-    if (phone.startsWith("+91")) {
-      return phone;
-    }
-    
-    // If phone starts with 91 (without +), add the +
-    if (digits.startsWith("91") && digits.length === 12) {
-      return "+" + digits;
-    }
-    
-    // If it's a 10-digit number (most common Indian format)
-    if (digits.length === 10) {
-      return "+91" + digits;
-    }
-    
-    // If it starts with 0 followed by 10 digits (like 09876543210)
-    if (digits.startsWith("0") && digits.length === 11) {
-      return "+91" + digits.slice(1);
-    }
-    
-    // For any other format, return the original but ensure +91 prefix for Indian numbers
-    // This handles cases where user might have entered with country code differently
-    if (digits.length >= 10) {
-      const last10Digits = digits.slice(-10);
-      return "+91" + last10Digits;
-    }
-    
-    // If we can't normalize properly, return original
-    return phone;
-  };
-
   useEffect(() => {
     let mounted = true;
     
@@ -97,7 +60,7 @@ export default function ProfileForm() {
           email: data.email || "",
           dob: data.dob || "",
           gender: data.gender || "",
-          phone: data.phone || "",
+          phone: normalizePhoneNumber(data.phone) || "",
           street: addr.street,
           city: addr.city,
           state: addr.state,

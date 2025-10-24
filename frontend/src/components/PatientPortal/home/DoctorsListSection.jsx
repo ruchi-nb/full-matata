@@ -125,7 +125,9 @@ const DoctorsListSection = () => {
           <Consult doctor={selectedDoctor} onBack={handleCloseConsultation} />
         </div>
       ) : (
-        <section className="py-16 bg-gradient-to-b from-white to-blue-50">
+        <section 
+        id='specialties-section'
+        className="py-16 bg-gradient-to-b from-[#b9d0f5] to-[#3d85c6]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Header */}
             <div className="text-center mb-12">

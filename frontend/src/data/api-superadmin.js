@@ -1,4 +1,5 @@
 import { request } from './api.js';
+import { normalizePhoneNumber } from '../utils/validation.js';
 
 // =============================================
 // SUPER ADMIN APIs
@@ -94,11 +95,17 @@ export function createDoctorOrPatient(payload) {
     ...userPayload 
   } = payload;
   
+  // Normalize phone number if present
+  if (userPayload.phone) {
+    userPayload.phone = normalizePhoneNumber(userPayload.phone);
+  }
+  
   console.log(`Creating ${userPayload.user_type} for hospital ${hospitalId}:`, {
     email: userPayload.email,
     username: userPayload.username,
     first_name: userPayload.first_name,
-    last_name: userPayload.last_name
+    last_name: userPayload.last_name,
+    phone: userPayload.phone
   });
   
   return request(`/superadmin/hospitals/${hospitalId}/users`, {
