@@ -1,4 +1,5 @@
 import { request } from './api.js';
+import { normalizePhoneNumber } from '../utils/validation.js';
 
 // =============================================
 // PATIENT APIs
@@ -7,8 +8,47 @@ import { request } from './api.js';
 /**
  * Get patient profile
  */
-export function getPatientProfile() {
-  return request("/patients/profile", { method: "GET" });
+export async function getPatientProfile() {
+  try {
+    const profile = await request("/patients/profile", { method: "GET" });
+    
+    // Normalize phone number in the response to handle backend validation issues
+    if (profile && profile.phone) {
+      profile.phone = normalizePhoneNumber(profile.phone);
+    }
+    
+    return profile;
+  } catch (error) {
+    // If the error is due to phone validation, try to handle it gracefully
+    if (error.message && error.message.includes('Invalid Indian phone number')) {
+      console.warn("Phone validation error in response, attempting to fetch profile without phone validation");
+      
+      // Try to get the profile data from the error response if available
+      if (error.data && error.data.detail) {
+        // Extract the phone number from the error message and normalize it
+        const phoneMatch = error.data.detail.match(/input': '([^']+)'/);
+        if (phoneMatch) {
+          const originalPhone = phoneMatch[1];
+          const normalizedPhone = normalizePhoneNumber(originalPhone);
+          
+          // Return a profile with the normalized phone number
+          return {
+            user_id: error.data.user_id || null,
+            first_name: error.data.first_name || null,
+            last_name: error.data.last_name || null,
+            phone: normalizedPhone,
+            address: error.data.address || null,
+            dob: error.data.dob || null,
+            gender: error.data.gender || null,
+            _phoneNormalized: true
+          };
+        }
+      }
+    }
+    
+    // Re-throw the original error if we can't handle it
+    throw error;
+  }
 }
 
 /**
@@ -18,11 +58,15 @@ export function updatePatientProfile(update) {
   console.log("🩺 [PATIENT API] Updating patient profile with data:", update);
   console.log("🩺 [PATIENT API] Phone number being sent:", update.phone);
   
+  // Normalize phone number to remove spaces and ensure proper format
+  const normalizedPhone = normalizePhoneNumber(update.phone);
+  console.log("🩺 [PATIENT API] Normalized phone number:", normalizedPhone);
+  
   // Ensure all fields are properly formatted
   const formattedUpdate = {
     first_name: update.first_name || update.firstName || "",
     last_name: update.last_name || update.lastName || "",
-    phone: update.phone || "",
+    phone: normalizedPhone,
     address: update.address || "",
     dob: update.dob || "",
     gender: update.gender || ""
@@ -43,10 +87,18 @@ export async function registerPatient(payload) {
   console.log("🩺 [PATIENT API] Registering patient with payload:", payload);
   console.log("🩺 [PATIENT API] Patient phone in registration:", payload.phone);
   
+  // Normalize phone number before sending to backend
+  const normalizedPayload = {
+    ...payload,
+    phone: normalizePhoneNumber(payload.phone)
+  };
+  
+  console.log("🩺 [PATIENT API] Normalized payload:", normalizedPayload);
+  
   try {
     const result = await request("/auth/register/patient", { 
       method: "POST", 
-      body: JSON.stringify(payload) 
+      body: JSON.stringify(normalizedPayload) 
     }, { withAuth: false });
     
     console.log("✅ [PATIENT API] Patient registration successful:", result);

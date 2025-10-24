@@ -5,6 +5,7 @@ import { registerPatient } from "@/data/api-patient";
 import { useUser } from "@/data/UserContext";
 import { useRouter } from "next/navigation";
 import LoginPopup from "@/components/Landing/LoginPopUp";
+import { normalizePhoneNumber } from "../../utils/validation.js";
 import { Eye, EyeOff, User, Mail, Lock, Phone, AlertCircle, CheckCircle } from "lucide-react";
 
 export default function RegisterModal({ open, onClose, onLogin }) {
@@ -95,6 +96,10 @@ export default function RegisterModal({ open, onClose, onLogin }) {
       errors.last_name = "Last name is required";
     }
 
+    // Phone validation (optional but if provided, should be valid)
+    if (formData.phone && !/^[\+]?[\d\s\-\(\)]{7,20}$/.test(formData.phone)) {
+      errors.phone = "Please enter a valid phone number";
+    }
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -164,7 +169,7 @@ export default function RegisterModal({ open, onClose, onLogin }) {
         password: formData.password,
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
-        phone: formData.phone.trim() || null,
+        phone: normalizePhoneNumber(formData.phone.trim()) || null,
         hospital_id: formData.hospital_id || null
       };
 
@@ -371,11 +376,16 @@ export default function RegisterModal({ open, onClose, onLogin }) {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="+1 (555) 123-4567"
+                  className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    validationErrors.phone ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter 10-digit mobile number (e.g., 9876543210)"
                   disabled={loading}
                 />
               </div>
+              {validationErrors.phone && (
+                <p className="text-red-500 text-xs mt-1">{validationErrors.phone}</p>
+              )}
             </div>
 
             <div>

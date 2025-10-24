@@ -3,9 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import { Sparkles } from "lucide-react";
 import GradientButton from "../common/GradientButton";
+import LoginPopup from "@/components/Landing/LoginPopUp";
 
 const Specialties = () => {
   const [selected, setSelected] = useState(null);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
   const modalRef = useRef(null);
   
   // Sample data for specialties
@@ -84,28 +86,7 @@ const Specialties = () => {
     }
   ];
 
-  // Intersection Observer for fade-in animation
-  useEffect(() => {
-    const cards = document.querySelectorAll("#specialty-cards > div");
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.remove("opacity-0", "translate-y-10");
-            entry.target.classList.add("opacity-100", "translate-y-0");
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.1 }
-    );
-
-    cards.forEach((card) => observer.observe(card));
-    
-    return () => {
-      cards.forEach((card) => observer.unobserve(card));
-    };
-  }, []);
+  // Remove the old intersection observer code as we'll use StaggeredAnimationGroup
 
   // Handle modal close with animation
   const closeModal = () => {
@@ -133,29 +114,28 @@ const Specialties = () => {
     <section id="specialties" className="py-8 bg-gradient-to-b from-[#3d85c6] to-[#004dd6]     ">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
-          <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 px-4 py-1.5 rounded-full text-sm font-semibold tracking-wide mb-6">
+          <div className="inline-flex items-center space-x-2 bg-white/20 backdrop-blur-sm text-white px-4 py-1.5 rounded-full text-sm font-semibold tracking-wide mb-6">
             <Sparkles className="w-4 h-4" />
             <span className="uppercase">Medical Specialties</span>
           </div>
-          <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
+          <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
             Expert Care in Every{" "}
             <span className="bg-gradient-to-r from-[#ffd166] to-[#eba80e] bg-clip-text text-transparent">
               Specialty
             </span>
           </h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <p className="text-xl text-blue-100 max-w-3xl mx-auto">
             Our network of board-certified specialists covers all major medical
             fields. Find the right expert for your specific health needs and get
             personalized care.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12" id="specialty-cards">
-          {specialties.map((s, idx) => (
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          {specialties.map((s) => (
             <div
               key={s.id}
-              className="group bg-white rounded-2xl p-6 shadow-md transition-all duration-300 cursor-pointer transform hover:-translate-y-2 hover:shadow-xl opacity-0 translate-y-10 flex flex-col items-center text-center"
-              style={{ transitionDelay: `${idx * 100}ms` }}
+              className="group bg-white rounded-2xl p-6 shadow-md transition-all duration-300 cursor-pointer transform hover:-translate-y-2 hover:shadow-xl flex flex-col items-center text-center"
               onClick={() => setSelected(s)}
             >
               {/* Icon Container */}
@@ -213,7 +193,10 @@ const Specialties = () => {
                 </ul>
               </div>
               <div className="flex space-x-4">
-                <GradientButton className="  font-medium transition-colors">
+                <GradientButton 
+                  className="font-medium transition-colors"
+                  onClick={() => setIsLoginOpen(true)}
+                >
                   Find Specialists
                 </GradientButton>
               </div>
@@ -221,6 +204,8 @@ const Specialties = () => {
           </div>
         </div>
       )}
+      
+      <LoginPopup open={isLoginOpen} onClose={() => setIsLoginOpen(false)} />
     </section>
   );
 };

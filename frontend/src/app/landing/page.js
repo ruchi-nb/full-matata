@@ -5,6 +5,7 @@ import HowItWorks from "@/components/Landing/HowItWorks";
 import WhyChoose from "@/components/Landing/Benefits";
 import SidePop from "@/components/Landing/SecondCTA";
 import Specialties from '@/components/Landing/SpecialtyCards';
+import ScrollingSections from '@/components/Landing/ScrollingSections';
 import Footer from "@/components/Landing/Footer";
 
 const landingNavItems = [
@@ -25,6 +26,7 @@ export default function Home() {
         <WhyChoose id="benefits" />
         <SidePop />
         <Specialties id="specialties" />
+        <ScrollingSections />
         <Footer />
       </div>
     </>

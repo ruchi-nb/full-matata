@@ -50,6 +50,21 @@ export async function getProfile() {
             const profile = await getPatientProfile();
             return { ...profile, _detectedRole: 'patient' };
           } catch (error) {
+            // Handle phone validation errors specifically
+            if (error.message && error.message.includes('Invalid Indian phone number')) {
+              console.log("Phone validation error, creating profile from JWT data");
+              return {
+                user_id: userData.user_id,
+                username: userData.username,
+                email: userData.email,
+                first_name: userData.first_name || userData.username || "User",
+                last_name: userData.last_name || "",
+                phone: null, // Set phone to null to avoid validation issues
+                _detectedRole: 'patient',
+                _warning: "Patient profile created from JWT - phone validation issue"
+              };
+            }
+            
             // Handle both 404 and network errors by creating profile from JWT
             if (error.status === 404 || error.message.includes('Failed to fetch') || error.message.includes('Network error')) {
               console.log("Patient profile not available, creating from JWT data");
@@ -59,6 +74,7 @@ export async function getProfile() {
                 email: userData.email,
                 first_name: userData.first_name || userData.username || "User",
                 last_name: userData.last_name || "",
+                phone: null,
                 _detectedRole: 'patient',
                 _warning: "Patient profile created from JWT - backend profile endpoint unavailable"
               };
@@ -72,6 +88,21 @@ export async function getProfile() {
             const profile = await getDoctorProfile();
             return { ...profile, _detectedRole: 'doctor' };
           } catch (error) {
+            // Handle phone validation errors specifically
+            if (error.message && error.message.includes('Invalid Indian phone number')) {
+              console.log("Phone validation error for doctor, creating profile from JWT data");
+              return {
+                user_id: userData.user_id,
+                username: userData.username,
+                email: userData.email,
+                first_name: userData.first_name || userData.username || "User",
+                last_name: userData.last_name || "",
+                phone: null, // Set phone to null to avoid validation issues
+                _detectedRole: 'doctor',
+                _warning: "Doctor profile created from JWT - phone validation issue"
+              };
+            }
+            
             console.log("Doctor profile failed, using JWT data");
             return { ...userData, _detectedRole: 'doctor' };
           }

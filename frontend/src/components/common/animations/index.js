@@ -32,3 +32,6 @@ export {
 
 // Default export for easy importing
 export { default } from './AnimationWrapper';
+
+// Additional components
+export { default as FloatingBubbles } from './FloatingBubbles';

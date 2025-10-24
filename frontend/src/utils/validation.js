@@ -14,6 +14,43 @@ export const validatePhone = (phone) => {
   return '';
 };
 
+// Normalize phone number to backend-compatible format (no spaces)
+export const normalizePhoneNumber = (phone) => {
+  if (!phone) return '';
+  
+  // Remove all non-digit characters except +
+  const cleaned = phone.replace(/[^\d+]/g, '');
+  
+  // If it starts with +91, return as is
+  if (cleaned.startsWith('+91')) {
+    return cleaned;
+  }
+  
+  // If it starts with 91 (without +), add the +
+  if (cleaned.startsWith('91') && cleaned.length === 12) {
+    return '+' + cleaned;
+  }
+  
+  // If it's a 10-digit number, add +91 prefix
+  if (cleaned.length === 10) {
+    return '+91' + cleaned;
+  }
+  
+  // If it starts with 0 followed by 10 digits, remove 0 and add +91
+  if (cleaned.startsWith('0') && cleaned.length === 11) {
+    return '+91' + cleaned.slice(1);
+  }
+  
+  // For any other format, try to extract the last 10 digits
+  if (cleaned.length >= 10) {
+    const last10Digits = cleaned.slice(-10);
+    return '+91' + last10Digits;
+  }
+  
+  // If we can't normalize properly, return the cleaned version
+  return cleaned;
+};
+
 export const validatePassword = (password) => {
   if (!password) return 'Password is required';
   if (password.length < 8) return 'Password must be at least 8 characters long';
