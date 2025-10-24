@@ -33,7 +33,7 @@ export default function HeroSection() {
     <>
       <section
         ref={heroRef}
-        className="relative z-10 max-w-7xl mx-auto mt-6 pt-20 px-6 pb-32 opacity-0 translate-y-10 transition-all duration-1000 font-[var(--font-body)]"
+        className="relative z-10 max-w-7xl mx-auto mt-10 pt-20 px-6 pb-32 opacity-0 translate-y-10 transition-all duration-1000 font-[var(--font-body)]"
       >
         <div className="relative z-10 grid lg:grid-cols-2 gap-12 items-center">
           {/* Left Content */}
