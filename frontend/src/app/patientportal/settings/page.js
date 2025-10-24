@@ -4,17 +4,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import ProfileForm from "@/components/PatientPortal/Settings";
-import Navbar from "@/components/Landing/Navbar";
-import Footer from "@/components/Landing/Footer";
 import { LifeLine } from "react-loading-indicators";
-import { getStoredTokens, clearTokens, logout } from "@/data/api";
-
-const portalNavItems = [
-  { type: "link", path: "/patientportal", label: "Home" },
-  { type: "link", path: "/patientportal/mydoctors", label: "My Doctors" },
-  { type: "link", path: "/patientportal/settings", label: "Settings" },
-  { type: "logout", label: "Logout", variant: "outline", color: "red" },
-];
+import { getStoredTokens, clearTokens } from "@/data/api";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -38,18 +29,6 @@ export default function SettingsPage() {
     }, 2000);
     return () => clearTimeout(timer);
   }, [router]);
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      console.error("Logout error:", error);
-    } finally {
-      clearTokens();
-      localStorage.removeItem("isLoggedIn");
-      router.push("/");
-    }
-  };
 
   if (authLoading) {
     return (
@@ -82,12 +61,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fdfeff]">
-      <Navbar onLogout={handleLogout} navItems={portalNavItems} />
-      <main>
-        <ProfileForm />
-      </main>
-      <Footer />
-    </div>
+    <main>
+      <ProfileForm />
+    </main>
   );
 }

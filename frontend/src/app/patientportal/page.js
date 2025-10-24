@@ -5,24 +5,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeroSection from "@/components/PatientPortal/home/HeroSection";
 import DoctorsListSection from "@/components/PatientPortal/home/DoctorsListSection";
-import Navbar from "@/components/Landing/Navbar";
-import Footer from "@/components/Landing/Footer";
 import { LifeLine } from "react-loading-indicators";
 import { getStoredTokens, clearTokens } from "@/data/api";
-import { logout } from "@/data/api-auth";
-
-const portalNavItems = [
-  { type: "link", path: "/patientportal", label: "Home" },
-  { type: "link", path: "/patientportal/mydoctors", label: "My Doctors" },
-  { type: "link", path: "/patientportal/transcripts", label: "Transcripts" },
-  { type: "link", path: "/patientportal/settings", label: "Settings" },
-  { type: "logout", label: "Logout", variant: "outline", color: "red" },
-];
 
 export default function PatientPortalPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [loggingOut, setLoggingOut] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -46,34 +34,19 @@ export default function PatientPortalPage() {
     return () => clearTimeout(timer);
   }, [router]);
 
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    try {
-      await logout();
-    } catch (error) {
-      console.error("Logout error:", error);
-    } finally {
-      clearTokens();
-      localStorage.removeItem("isLoggedIn");
-      setTimeout(() => {
-        router.push("/");
-      }, 1500);
-    }
-  };
-
   useEffect(() => {
     console.log("🔍 PatientPortal Page - Current tokens:", getStoredTokens());
     console.log("🔍 PatientPortal Page - isLoggedIn:", localStorage.getItem("isLoggedIn"));
   }, []);
 
-  if (loading || loggingOut) {
+  if (loading) {
     return (
       <div className="h-screen bg-[#fdfeff] flex items-center justify-center">
         <div className="text-center">
           <LifeLine
             color="#b9d0f5"
             size="large"
-            text={loggingOut ? "Logging out..." : "Medicare"}
+            text="Medicare"
             textColor="#b9d0f5"
           />
         </div>
@@ -97,13 +70,9 @@ export default function PatientPortalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fdfeff]">
-      <Navbar onLogout={handleLogout} navItems={portalNavItems} />
-      <main>
-        <HeroSection />
-        <DoctorsListSection />
-      </main>
-      <Footer />
-    </div>
+    <main>
+      <HeroSection />
+      <DoctorsListSection />
+    </main>
   );
 }
