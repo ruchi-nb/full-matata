@@ -49,7 +49,7 @@ const Transcripts = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 py-4 md:py-8 px-3 sm:px-4 md:px-6 lg:px-8 font-gothambook">
+    <div className="min-h-screen mt-[3rem] bg-gray-50 py-4 md:py-8 px-3 sm:px-4 md:px-6 lg:px-8 font-gothambook">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 md:mb-8 font-poppins">My Doctors</h1>
 

@@ -6,6 +6,7 @@ import TranscriptModal from "@/components/DoctorPortal/home/TranscriptModal";
 import PatientCard from "@/components/DoctorPortal/home/PatientCard";
 import { User, FileText } from "lucide-react";
 import { getDoctorProfile, getDoctorDashboardStats } from "@/data/api-doctor";
+import { getDoctorTranscripts } from "@/services/transcript-service";
 
 export default function DoctorPortalPage() {
   const [selectedPatient, setSelectedPatient] = useState(null);
@@ -14,6 +15,7 @@ export default function DoctorPortalPage() {
   const [doctorPatients, setDoctorPatients] = useState([]);
   const [dashboardStats, setDashboardStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingTranscripts, setLoadingTranscripts] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -80,6 +82,55 @@ export default function DoctorPortalPage() {
     selectedSpecialty === "All"
       ? doctorPatients
       : (doctorPatients || []).filter((p) => p.specialty === selectedSpecialty);
+
+  // Function to load transcript data for a specific patient
+  const handleViewTranscript = async (patient) => {
+    try {
+      setLoadingTranscripts(true);
+      console.log("Loading transcripts for patient:", patient);
+      
+      // Fetch transcripts for this specific patient
+      const transcriptData = await getDoctorTranscripts(patient.id, 50);
+      console.log("Fetched transcript data:", transcriptData);
+      
+      // Transform the transcript data to match the expected format
+      const formattedTranscripts = (transcriptData.transcripts || []).map(transcript => ({
+        id: transcript.consultation_id,
+        date: new Date(transcript.consultation_date).toLocaleDateString(),
+        time: new Date(transcript.consultation_date).toLocaleTimeString(),
+        doctor: transcript.doctor?.doctor_name || "AI Doctor",
+        doctorEmail: transcript.doctor?.doctor_email || "N/A",
+        duration: "N/A", // Duration not available in current data structure
+        entries: (transcript.messages || []).map(msg => ({
+          speaker: msg.sender_type === 'patient' || msg.sender_type === 'user' ? 'Patient' : 'Doctor',
+          text: msg.message_text,
+          timestamp: msg.timestamp
+        })),
+        summary: transcript.summary || null,
+        followUp: transcript.follow_up || null
+      }));
+
+      // Create patient object with transcript data
+      const patientWithTranscripts = {
+        ...patient,
+        transcripts: formattedTranscripts,
+        hospital: transcriptData.transcripts?.[0]?.hospital?.hospital_name || "Hospital Name"
+      };
+
+      console.log("Patient with transcripts:", patientWithTranscripts);
+      setSelectedPatient(patientWithTranscripts);
+    } catch (error) {
+      console.error("Error loading transcripts:", error);
+      // Still open modal with empty transcripts for now
+      setSelectedPatient({
+        ...patient,
+        transcripts: [],
+        hospital: "Hospital Name"
+      });
+    } finally {
+      setLoadingTranscripts(false);
+    }
+  };
 
   const stats = useMemo(
     () => [
@@ -169,7 +220,7 @@ export default function DoctorPortalPage() {
               <PatientCard
                 key={patient.id}
                 {...patient}
-                onViewTranscript={() => setSelectedPatient(patient)}
+                onViewTranscript={() => handleViewTranscript(patient)}
               />
             ))
           ) : (
@@ -195,6 +246,7 @@ export default function DoctorPortalPage() {
             isOpen={!!selectedPatient}
             onClose={() => setSelectedPatient(null)}
             patient={selectedPatient || {}}
+            isLoading={loadingTranscripts}
           />
         </div>
       </div>

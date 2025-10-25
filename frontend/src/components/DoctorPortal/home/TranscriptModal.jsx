@@ -1,8 +1,9 @@
 "use client";
 import React, { useState } from "react";
 import { jsPDF } from "jspdf";
+import { Calendar, User, Building2, X, Stethoscope } from "lucide-react";
 
-const TranscriptModal = ({ isOpen, onClose, patient }) => {
+const TranscriptModal = ({ isOpen, onClose, patient, isLoading = false }) => {
   if (!isOpen) return null;
 
   const [currentTranscriptIndex, setCurrentTranscriptIndex] = useState(0);
@@ -48,10 +49,12 @@ const TranscriptModal = ({ isOpen, onClose, patient }) => {
     const doc = new jsPDF();
     let y = 10;
 
+    // Header
     doc.setFontSize(16);
     doc.text("Consultation Transcript", 10, y);
     y += 10;
 
+    // Details
     doc.setFontSize(12);
     doc.text(`Patient: ${patient.name}`, 10, y);
     y += 6;
@@ -66,24 +69,34 @@ const TranscriptModal = ({ isOpen, onClose, patient }) => {
     doc.text(`Transcript ID: ${currentTranscript.id}`, 10, y);
     y += 10;
 
-    currentTranscript.entries.forEach((entry) => {
-      const text = `${entry.speaker}: ${entry.text}`;
-      const splitText = doc.splitTextToSize(text, 180);
+    // Messages
+    if (currentTranscript.entries && currentTranscript.entries.length > 0) {
+      doc.setFontSize(14);
+      doc.text("Conversation:", 10, y);
+      y += 8;
 
-      if (entry.speaker === "Doctor") {
-        doc.setTextColor(0, 80, 200);
-      } else {
-        doc.setTextColor(0, 150, 0);
-      }
-
-      doc.text(splitText, 10, y);
-      y += splitText.length * 6;
-
-      if (y > 280) {
-        doc.addPage();
-        y = 10;
-      }
-    });
+      doc.setFontSize(10);
+      currentTranscript.entries.forEach((entry) => {
+        const sender = entry.speaker === "Doctor" ? "AI Doctor" : "Patient";
+        const text = `${sender}: ${entry.text}`;
+        
+        const splitText = doc.splitTextToSize(text, 180);
+        
+        if (entry.speaker === "Doctor") {
+          doc.setTextColor(0, 100, 0); // Green for doctor
+        } else {
+          doc.setTextColor(0, 0, 150); // Blue for patient
+        }
+        
+        doc.text(splitText, 10, y);
+        y += splitText.length * 5;
+        
+        if (y > 280) {
+          doc.addPage();
+          y = 10;
+        }
+      });
+    }
 
     // Add summary and follow-up
     if (currentTranscript.summary) {
@@ -119,33 +132,19 @@ const TranscriptModal = ({ isOpen, onClose, patient }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-4">
             <div className="bg-blue-100 p-2 rounded-lg">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="lucide lucide-user h-6 w-6 text-blue-600"
-                viewBox="0 0 24 24"
-              >
-                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
+              <User className="h-6 w-6 text-blue-600" />
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
                 Consultation Transcript
               </h2>
-              <p className="text-sm text-gray-600">{patient.name}</p>
+              <p className="text-sm text-gray-600">ID: {currentTranscript?.id || 'N/A'}</p>
             </div>
           </div>
 
@@ -168,72 +167,110 @@ const TranscriptModal = ({ isOpen, onClose, patient }) => {
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             onClick={onClose}
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="lucide lucide-x h-6 w-6 text-gray-500"
-              viewBox="0 0 24 24"
-            >
-              <path d="M18 6 6 18"></path>
-              <path d="m6 6 12 12"></path>
-            </svg>
+            <X className="h-6 w-6 text-gray-500" />
           </button>
         </div>
 
-        {/* Transcript info */}
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-6 text-sm text-gray-600">
-          <div className="flex items-center">
-            <span className="font-medium">Date:</span>
-            <span className="ml-2">{currentTranscript?.date}</span>
-          </div>
-          <div className="flex items-center">
-            <span className="font-medium">Doctor:</span>
-            <span className="ml-2">{currentTranscript?.doctor || "Not specified"}</span>
-          </div>
-          <div className="flex items-center">
-            <span className="font-medium">Duration:</span>
-            <span className="ml-2">{currentTranscript?.duration}</span>
-          </div>
-          <div className="flex items-center">
-            <span className="font-medium">Specialty:</span>
-            <span className="ml-2">{patient.specialty}</span>
+        {/* Info Cards */}
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center gap-2 text-gray-600 mb-1">
+                <Calendar size={16} />
+                <span className="text-sm font-medium">Date</span>
+              </div>
+              <p className="text-gray-900 font-semibold">
+                {currentTranscript?.date || 'N/A'}
+              </p>
+              <p className="text-sm text-gray-500">
+                {currentTranscript?.time || 'N/A'}
+              </p>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center gap-2 text-gray-600 mb-1">
+                <User size={16} />
+                <span className="text-sm font-medium">Patient</span>
+              </div>
+              <p className="text-gray-900 font-semibold">{patient.name}</p>
+              <p className="text-sm text-gray-500">{patient.email || 'N/A'}</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center gap-2 text-gray-600 mb-1">
+                <User size={16} />
+                <span className="text-sm font-medium">Doctor</span>
+              </div>
+              <p className="text-gray-900 font-semibold">{currentTranscript?.doctor || "Not specified"}</p>
+              <p className="text-sm text-gray-500">{currentTranscript?.doctorEmail || 'N/A'}</p>
+            </div>
           </div>
         </div>
 
-        {/* Conversation content */}
+        {/* Hospital and Status */}
+        <div className="px-6 pt-4 pb-2 bg-gray-50 border-b border-gray-200">
+          <div className="flex items-center gap-2 text-gray-700">
+            <Building2 size={18} />
+            <span className="font-medium">{patient.hospital || 'Hospital Name'}</span>
+            <span className="ml-auto text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
+              {patient.specialty}
+            </span>
+            <span className="text-sm bg-green-100 text-green-700 px-3 py-1 rounded-full">
+              {currentTranscript ? 'Completed' : 'Active'}
+            </span>
+          </div>
+        </div>
+
+        {/* Conversation */}
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-6">
-            {currentTranscript?.entries?.map((entry, index) => (
-              <div key={index} className="flex items-start space-x-4">
-                <div
-                  className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                    entry.speaker === "Doctor" 
-                      ? "bg-blue-100 text-blue-600" 
-                      : "bg-green-100 text-green-600"
-                  }`}
-                >
-                  {entry.speaker === "Doctor" ? "D" : "P"}
-                </div>
-                <div className="flex-1">
-                  <div className={`font-semibold mb-1 ${
-                    entry.speaker === "Doctor" 
-                      ? "text-blue-700" 
-                      : "text-green-700"
-                  }`}>
-                    {entry.speaker}
-                  </div>
-                  <div className="text-gray-800 leading-relaxed">
-                    {entry.text}
-                  </div>
-                </div>
+          <div className="space-y-4">
+            {isLoading ? (
+              <div className="text-center text-gray-500 py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                Loading transcript data...
               </div>
-            ))}
+            ) : currentTranscript?.entries && currentTranscript.entries.length > 0 ? (
+              currentTranscript.entries.map((entry, index) => (
+                <div key={index} className="flex items-start space-x-4">
+                  <div
+                    className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                      entry.speaker === "Doctor" 
+                        ? "bg-green-100 text-green-600" 
+                        : "bg-blue-100 text-blue-600"
+                    }`}
+                  >
+                    {entry.speaker === "Doctor" ? (
+                      <Stethoscope size={16} />
+                    ) : (
+                      <User size={16} />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className={`font-semibold mb-1 ${
+                      entry.speaker === "Doctor" 
+                        ? "text-green-700" 
+                        : "text-blue-700"
+                    }`}>
+                      {entry.speaker === "Doctor" ? "AI Doctor" : "Patient"}
+                    </div>
+                    <div className="text-gray-800 leading-relaxed mb-1">
+                      {entry.text}
+                    </div>
+                    {entry.timestamp && (
+                      <div className="text-xs text-gray-500">
+                        {new Date(entry.timestamp).toLocaleTimeString()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center text-gray-500 py-8">
+                {patient?.transcripts?.length === 0 
+                  ? "No transcripts available for this patient" 
+                  : "No conversation entries found in this transcript"}
+              </div>
+            )}
           </div>
 
           {/* Summary and Follow-up */}
@@ -258,7 +295,7 @@ const TranscriptModal = ({ isOpen, onClose, patient }) => {
         {/* Footer */}
         <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
           <div className="text-sm text-gray-500">
-            Transcript ID: {currentTranscript?.id}
+            Transcript ID: {currentTranscript?.id || 'N/A'}
           </div>
           <div className="flex space-x-3">
             <button
