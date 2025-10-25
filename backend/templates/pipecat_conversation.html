@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pipecat Ultra-Low Latency Conversation</title>
+  <link rel="stylesheet" href="/static/conversation.css">
+  <style>
+    .pipecat-badge {
+      position: fixed;
+      top: 60px;
+      left: 10px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    
+    .analytics-panel {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      width: 320px;
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 12px;
+      z-index: 1000;
+      display: none;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    
+    .analytics-panel.show {
+      display: block;
+    }
+    
+    .analytics-toggle {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      z-index: 1001;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    
+    .analytics-toggle:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+    }
+    
+    .analytics-item {
+      display: flex;
+      justify-content: space-between;
+      margin: 8px 0;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .analytics-item .label {
+      font-weight: 600;
+      opacity: 0.8;
+    }
+    
+    .analytics-item .value {
+      color: #4CAF50;
+      font-weight: 700;
+    }
+    
+    .analytics-item .value.warning {
+      color: #FF9800;
+    }
+    
+    .analytics-item .value.error {
+      color: #f44336;
+    }
+    
+    .analytics-section {
+      margin: 15px 0;
+      padding-top: 10px;
+      border-top: 2px solid rgba(255,255,255,0.2);
+    }
+    
+    .analytics-section h4 {
+      margin: 0 0 10px 0;
+      font-size: 13px;
+      color: #667eea;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .provider-indicator {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      margin-left: 8px;
+      font-weight: 600;
+    }
+    
+    .provider-deepgram {
+      background: #FF9800;
+      color: white;
+    }
+    
+    .provider-sarvam {
+      background: #9C27B0;
+      color: white;
+    }
+    
+    .status-indicator {
+      position: relative;
+    }
+    
+    .status-indicator.recording {
+      animation: pulse 1s infinite;
+    }
+    
+    .status-indicator.pipecat-connected {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+    }
+    
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(1.05); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    
+    .latency-indicator {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 1000;
+      display: none;
+    }
+    
+    .latency-indicator.show {
+      display: block;
+    }
+    
+    .latency-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #4CAF50;
+    }
+    
+    .latency-value.fast {
+      color: #4CAF50;
+    }
+    
+    .latency-value.medium {
+      color: #FF9800;
+    }
+    
+    .latency-value.slow {
+      color: #f44336;
+    }
+    
+    .chat-message.pipecat {
+      border-left: 3px solid #667eea;
+    }
+  </style>
+</head>
+<body>
+  <div class="pipecat-badge">
+    ⚡ Pipecat Ultra-Low Latency Mode
+  </div>
+
+  <div class="video-area">
+    <img src="/static/ai_placeholder.gif" alt="AI Video Placeholder" class="ai-placeholder" />
+    <video id="userVideo" class="user-video" autoplay playsinline muted></video>
+    
+    <div class="language-selector">
+      <label for="providerSelect">Provider:</label>
+      <select id="providerSelect">
+        <option value="deepgram">Deepgram (Recommended)</option>
+        <option value="sarvam">Sarvam (Indic)</option>
+      </select>
+      <label for="languageSelect">Language:</label>
+      <select id="languageSelect">
+        <optgroup label="Deepgram">
+          <option value="en">English</option>
+          <option value="multi">Multi-Language</option>
+        </optgroup>
+        <optgroup label="Sarvam">
+          <option value="hi-IN">Hindi</option>
+          <option value="bn-IN">Bengali</option>
+          <option value="gu-IN">Gujarati</option>
+          <option value="kn-IN">Kannada</option>
+          <option value="ml-IN">Malayalam</option>
+          <option value="mr-IN">Marathi</option>
+          <option value="pa-IN">Punjabi</option>
+          <option value="ta-IN">Tamil</option>
+          <option value="te-IN">Telugu</option>
+        </optgroup>
+      </select>
+      <label style="margin-left: 10px;">
+        <input type="checkbox" id="useRag" checked> Use RAG
+      </label>
+    </div>
+    
+    <div class="status-indicator" id="statusIndicator">Initializing Pipecat...</div>
+    
+    <div class="controls">
+      <button id="toggleMic">Start Recording</button>
+      <button id="toggleCam">📷 Camera On</button>
+      <button id="clearSession">New Session</button>
+      <button id="sessionInfo">Session Info</button>
+      <button id="endConversation" style="background:#b71c1c;color:#fff">🛑 End Session</button>
+    </div>
+  </div>
+
+  <div class="chat-section">
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input">
+      <input id="chatInput" type="text" placeholder="Type your message..." />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <!-- Analytics Panel -->
+  <button class="analytics-toggle" id="analyticsToggle">📊 Pipecat Analytics</button>
+  <div class="analytics-panel" id="analyticsPanel">
+    <h3 style="margin: 0 0 15px 0; color: #667eea;">⚡ Pipecat Performance</h3>
+    
+    <div class="analytics-section">
+      <h4>Connection</h4>
+      <div class="analytics-item">
+        <span class="label">Status:</span>
+        <span class="value" id="connectionStatus">Disconnected</span>
+      </div>
+      <div class="analytics-item">
+        <span class="label">Session:</span>
+        <span class="value" id="sessionId">-</span>
+      </div>
+      <div class="analytics-item">
+        <span class="label">Pipeline:</span>
+        <span class="value" id="pipelineMode">STT → LLM → TTS</span>
+      </div>
+    </div>
+    
+    <div class="analytics-section">
+      <h4>⚡ Performance</h4>
+      <div class="analytics-item">
+        <span class="label">Last Latency:</span>
+        <span class="value" id="lastLatency">-</span>
+      </div>
+      <div class="analytics-item">
+        <span class="label">Avg Latency:</span>
+        <span class="value" id="avgLatency">-</span>
+      </div>
+      <div class="analytics-item">
+        <span class="label">First Audio:</span>
+        <span class="value" id="firstAudio">-</span>
+      </div>
+      <div class="analytics-item">
+        <span class="label">Messages:</span>
+        <span class="value" id="messageCount">0</span>
+      </div>
+    </div>
+    
+    <div class="analytics-section">
+      <h4>Configuration</h4>
+      <div class="analytics-item">
+        <span class="label">Provider:</span>
+        <span class="value" id="currentProvider">-</span>
+      </div>
+      <div class="analytics-item">
+        <span class="label">Language:</span>
+        <span class="value" id="currentLanguage">-</span>
+      </div>
+      <div class="analytics-item">
+        <span class="label">RAG:</span>
+        <span class="value" id="ragStatus">Enabled</span>
+      </div>
+    </div>
+    
+    <div class="analytics-section">
+      <h4>Session</h4>
+      <div class="analytics-item">
+        <span class="label">Duration:</span>
+        <span class="value" id="sessionDuration">0m 0s</span>
+      </div>
+      <div class="analytics-item">
+        <span class="label">Errors:</span>
+        <span class="value" id="errorCount">0</span>
+      </div>
+      <div class="analytics-item">
+        <span class="label">Recording:</span>
+        <span class="value" id="recordingStatus">Stopped</span>
+      </div>
+    </div>
+    
+    <div class="analytics-section">
+      <h4>Target Performance</h4>
+      <div style="font-size: 11px; opacity: 0.7; line-height: 1.6;">
+        • Time to First Audio: &lt; 800ms<br>
+        • Total Latency: &lt; 3000ms<br>
+        • Streaming: Real-time<br>
+        • Quality: Professional grade
+      </div>
+    </div>
+  </div>
+
+  <!-- Latency Indicator -->
+  <div class="latency-indicator" id="latencyIndicator">
+    <div>Last Response:</div>
+    <div class="latency-value" id="latencyValue">-</div>
+  </div>
+
+  <script>
+    // Extract consultation_id from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const consultationId = urlParams.get('consultation_id');
+    const urlProvider = urlParams.get('provider') || 'deepgram';
+    const urlLanguage = urlParams.get('language') || 'en';
+    
+    // Set window variables
+    if (consultationId) {
+      window.consultationId = consultationId;
+      console.log('Consultation ID:', consultationId);
+    }
+    
+    window.sessionStartTime = Date.now();
+    
+    // Set initial values
+    if (urlProvider) {
+      document.getElementById('providerSelect').value = urlProvider;
+    }
+    if (urlLanguage) {
+      document.getElementById('languageSelect').value = urlLanguage;
+    }
+    
+    // Get auth token
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      console.warn('⚠️ No auth token found - will use test token for Pipecat demo');
+      // For testing: allow without authentication, use dummy token
+      window.authToken = 'test-token-for-pipecat-demo';
+    } else {
+      window.authToken = token;
+      console.log('✅ Auth token found');
+    }
+    
+    // Status indicator updates (DEFINE BEFORE LOADING CLIENT)
+    function updateStatusIndicator(text, isConnected = false) {
+      const indicator = document.getElementById('statusIndicator');
+      if (indicator) {
+        indicator.textContent = text;
+        if (isConnected) {
+          indicator.classList.add('pipecat-connected');
+        } else {
+          indicator.classList.remove('pipecat-connected');
+        }
+      }
+    }
+    
+    // Add message to chat (DEFINE BEFORE LOADING CLIENT)
+    function addChatMessage(sender, text, isPipecat = true) {
+      const chatMessages = document.getElementById('chatMessages');
+      if (chatMessages) {
+        const message = document.createElement('div');
+        message.className = `chat-message ${sender} ${isPipecat ? 'pipecat' : ''}`;
+        message.innerHTML = `<strong>${sender === 'user' ? 'You' : sender === 'system' ? 'System' : 'AI'}:</strong> ${text}`;
+        chatMessages.appendChild(message);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    }
+  </script>
+  
+  <!-- Pipecat WebSocket Client -->
+  <script src="/static/pipecat-client.js"></script>
+  
+  <script>
+    // Analytics panel toggle
+    document.addEventListener('DOMContentLoaded', () => {
+      const analyticsToggle = document.getElementById('analyticsToggle');
+      const analyticsPanel = document.getElementById('analyticsPanel');
+      
+      analyticsToggle.addEventListener('click', () => {
+        analyticsPanel.classList.toggle('show');
+      });
+      
+      // Update analytics every second
+      setInterval(updateAnalyticsDisplay, 1000);
+    });
+    
+    function updateAnalyticsDisplay() {
+      if (!window.pipecatClient) return;
+      
+      const client = window.pipecatClient;
+      
+      // Session duration
+      const duration = Math.floor((Date.now() - window.sessionStartTime) / 1000);
+      const minutes = Math.floor(duration / 60);
+      const seconds = duration % 60;
+      document.getElementById('sessionDuration').textContent = `${minutes}m ${seconds}s`;
+      
+      // Update status
+      document.getElementById('connectionStatus').textContent = client.connected ? 'Connected' : 'Disconnected';
+      document.getElementById('connectionStatus').className = 'value ' + (client.connected ? '' : 'error');
+      
+      document.getElementById('sessionId').textContent = client.sessionId || '-';
+      
+      // Performance
+      if (client.lastLatency > 0) {
+        const latencyClass = client.lastLatency < 1000 ? '' : client.lastLatency < 2000 ? 'warning' : 'error';
+        document.getElementById('lastLatency').textContent = `${client.lastLatency}ms`;
+        document.getElementById('lastLatency').className = 'value ' + latencyClass;
+        
+        // Update latency indicator
+        const latencyIndicator = document.getElementById('latencyIndicator');
+        const latencyValue = document.getElementById('latencyValue');
+        latencyIndicator.classList.add('show');
+        latencyValue.textContent = `${client.lastLatency}ms`;
+        latencyValue.className = 'latency-value ' + (client.lastLatency < 1000 ? 'fast' : client.lastLatency < 2000 ? 'medium' : 'slow');
+      }
+      
+      if (client.avgLatency > 0) {
+        document.getElementById('avgLatency').textContent = `${Math.round(client.avgLatency)}ms`;
+      }
+      
+      if (client.firstAudioLatency > 0) {
+        const fastClass = client.firstAudioLatency < 800 ? '' : client.firstAudioLatency < 1500 ? 'warning' : 'error';
+        document.getElementById('firstAudio').textContent = `${client.firstAudioLatency}ms`;
+        document.getElementById('firstAudio').className = 'value ' + fastClass;
+      }
+      
+      document.getElementById('messageCount').textContent = client.messageCount;
+      
+      // Configuration
+      document.getElementById('currentProvider').textContent = client.provider || urlProvider;
+      document.getElementById('currentProvider').className = `value provider-indicator provider-${client.provider || urlProvider}`;
+      
+      document.getElementById('currentLanguage').textContent = client.language || urlLanguage;
+      document.getElementById('ragStatus').textContent = document.getElementById('useRag').checked ? 'Enabled' : 'Disabled';
+      
+      // Errors
+      document.getElementById('errorCount').textContent = client.errors;
+      document.getElementById('errorCount').className = 'value ' + (client.errors > 0 ? 'error' : '');
+      
+      // Recording status
+      document.getElementById('recordingStatus').textContent = client.isRecording ? 'Recording' : 'Stopped';
+      document.getElementById('recordingStatus').className = 'value ' + (client.isRecording ? '' : 'error');
+    }
+  </script>
+</body>
+</html>
+

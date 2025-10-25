@@ -50,7 +50,7 @@ export default function MydoctorsPage() {
       console.error("Error fetching doctors:", err);
       setError(err.message || "Failed to load doctors");
       if (err.message.includes("Session expired")) {
-        router.push("/");
+      router.push("/");
       }
     } finally {
       setLoading(false);
@@ -246,6 +246,6 @@ export default function MydoctorsPage() {
           </div>
         )}
       </div>
-    </main>
+      </main>
   );
 }
