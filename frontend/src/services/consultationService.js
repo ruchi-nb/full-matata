@@ -1,7 +1,7 @@
 // Consultation Service - Handles backend API integration for consultations
 class ConsultationService {
   constructor() {
-    this.baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    this.baseURL = process.env.NEXT_PUBLIC_API_URL;
   }
 
   // Get authentication token

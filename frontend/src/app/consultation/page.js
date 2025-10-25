@@ -293,7 +293,7 @@ export default function ConsultationPage() {
       
       // Try both token keys (access_token for backend template, token for Next.js)
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+      const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
       
       // Use FormData like the backend template does
       const formData = new FormData();
@@ -504,7 +504,7 @@ export default function ConsultationPage() {
           formData.append('session_db_id', sessionDbId);
         }
         
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/conversation/text`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/conversation/text`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`

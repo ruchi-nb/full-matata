@@ -1,8 +1,8 @@
 // File: services/enhancedApiService.js
 class EnhancedApiService {
   constructor() {
-    this.baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    this.wsBaseURL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
+    this.baseURL = process.env.NEXT_PUBLIC_API_URL;
+    this.wsBaseURL = process.env.NEXT_PUBLIC_WS_URL;
     this.maxRetries = 3;
     this.retryDelay = 1000;
     this.requestTimeouts = new Map(); // Track timeouts for cleanup

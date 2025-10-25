@@ -191,6 +191,96 @@ async def get_patient_hospital_specialties(
         raise HTTPException(status_code=500, detail="Failed to fetch specialties") from e
 
 
+@router.get("/patients/my-doctors")
+async def get_patient_consulted_doctors(
+    caller: Dict[str, Any] = Depends(require_permissions(["patient.profile.view"], allow_super_admin=False)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get list of doctors that the patient has consulted with (based on past consultations).
+    Only returns doctors with whom the patient has had at least one consultation.
+    
+    Logic:
+    1. Get user_id (patient_id) from JWT token
+    2. Query consultations table to find all unique doctor_ids for this patient
+    3. Get doctor details and their specialties
+    4. Return list of doctors with consultation count
+    """
+    global_role = caller.get("global_role") or {}
+    role_name = (global_role.get("role_name") or "").strip().lower()
+    if role_name != "patient":
+        raise HTTPException(status_code=403, detail="Only patients may access their consulted doctors")
+
+    user_id = caller.get("user_id")
+    
+    try:
+        logger.info(f"🔍 Fetching consulted doctors for patient user_id={user_id}")
+        
+        from models.models import Consultation, UserDetails
+        from sqlalchemy import func, distinct
+        
+        # Query to get doctors the patient has consulted with and consultation count
+        consulted_doctors_query = (
+            select(
+                Users,
+                UserDetails,
+                func.count(Consultation.consultation_id).label('consultation_count'),
+                func.max(Consultation.consultation_date).label('last_consultation_date')
+            )
+            .join(Consultation, Consultation.doctor_id == Users.user_id)
+            .outerjoin(UserDetails, UserDetails.user_id == Users.user_id)
+            .where(Consultation.patient_id == int(user_id))
+            .group_by(Users.user_id)
+            .order_by(func.max(Consultation.consultation_date).desc())
+        )
+        
+        result = await db.execute(consulted_doctors_query)
+        doctors_data = result.all()
+        
+        logger.info(f"✅ Found {len(doctors_data)} consulted doctors for patient user_id={user_id}")
+        
+        # Format response with doctor specialties
+        doctors_list = []
+        for user, user_details, consultation_count, last_consultation_date in doctors_data:
+            # Get doctor's specialties
+            specialties_query = (
+                select(Specialties)
+                .join(DoctorSpecialties, DoctorSpecialties.specialty_id == Specialties.specialty_id)
+                .where(DoctorSpecialties.user_id == user.user_id)
+            )
+            specialties_result = await db.execute(specialties_query)
+            doctor_specialties = specialties_result.scalars().all()
+            
+            doctor_dict = {
+                "user_id": int(user.user_id),
+                "username": user.username,
+                "email": user.email,
+                "first_name": user_details.first_name if user_details else None,
+                "last_name": user_details.last_name if user_details else None,
+                "phone": user_details.phone if user_details else None,
+                "gender": user_details.gender if user_details else None,
+                "consultation_count": consultation_count,
+                "last_consultation_date": last_consultation_date.isoformat() if last_consultation_date else None,
+                "specialties": [
+                    {
+                        "specialty_id": int(s.specialty_id),
+                        "name": s.name,
+                        "description": s.description
+                    }
+                    for s in doctor_specialties
+                ],
+                # Add primary specialty (first one) for convenience
+                "specialty": doctor_specialties[0].name if doctor_specialties else None
+            }
+            doctors_list.append(doctor_dict)
+        
+        return {"doctors": doctors_list, "count": len(doctors_list)}
+        
+    except Exception as e:
+        logger.error(f"Error fetching consulted doctors for patient user_id={user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch consulted doctors") from e
+
+
 @router.get("/patients/doctors")
 async def get_patient_hospital_doctors(
     specialty_id: Optional[int] = None,

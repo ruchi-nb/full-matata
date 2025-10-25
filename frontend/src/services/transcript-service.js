@@ -3,7 +3,7 @@
  * Handles fetching transcripts with role-based access
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 /**
  * Get transcripts for the current patient

@@ -33,7 +33,7 @@ const DoctorTable = ({ doctors = [], loading = false, onView, onPause, onDelete 
         }
 
         // Soft delete - deactivate user in hospital_user_roles
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
         const accessToken = document.cookie.split('accessToken=')[1]?.split(';')[0];
         
         const response = await fetch(`${backendUrl}/hospital-admin/hospitals/${hospitalId}/users/${doctor.user_id}/deactivate`, {

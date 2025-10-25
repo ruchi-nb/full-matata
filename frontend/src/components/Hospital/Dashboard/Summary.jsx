@@ -34,7 +34,7 @@ const Dashboard = () => {
           return;
         }
 
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
         const response = await fetch(
           `${backendUrl}/hospital-admin/hospitals/${hospitalId}/dashboard-stats`,
           {

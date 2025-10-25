@@ -15,7 +15,7 @@ export default function Specialities() {
         setLoading(true);
         console.log("🔍 Loading specialities...");
         
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
         const accessToken = document.cookie.split('accessToken=')[1]?.split(';')[0];
         
         const response = await fetch(`${backendUrl}/hospitals/specialities`, {

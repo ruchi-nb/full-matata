@@ -1,5 +1,5 @@
 // Enhanced API client with robust error handling and fallback logic
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 console.log("API_BASE:", API_BASE);
 console.log("NEXT_PUBLIC_API_BASE env:", process.env.NEXT_PUBLIC_API_BASE);
 

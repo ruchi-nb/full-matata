@@ -3,7 +3,7 @@ import { getStoredTokens } from '../data/api.js';
 
 class HospitalApiService {
   constructor() {
-    this.baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    this.baseURL = process.env.NEXT_PUBLIC_API_URL;
     this.maxRetries = 3;
     this.retryDelay = 1000;
   }

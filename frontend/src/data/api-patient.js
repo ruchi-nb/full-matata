@@ -74,7 +74,7 @@ export function updatePatientProfile(update) {
   
   console.log("🩺 [PATIENT API] Formatted update data:", formattedUpdate);
   
-  return request("/patients/profile", { 
+  return request("/api/v1/patients/profile", { 
     method: "PUT", 
     body: JSON.stringify(formattedUpdate) 
   });
@@ -195,7 +195,7 @@ export async function createMissingUserDetails(userData) {
  */
 export async function uploadPatientAvatar(file) {
   console.log("🩺 [PATIENT API] Uploading patient avatar file:", file.name, file.type, file.size);
-  const url = `${process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000"}/patients/patients/profile/avatar`;
+  const url = `${process.env.NEXT_PUBLIC_API_BASE}/patients/patients/profile/avatar`;
   const form = new FormData();
   form.append("file", file);
   const headers = {};
