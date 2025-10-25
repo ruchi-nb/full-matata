@@ -26,6 +26,12 @@ const DoctorsListSection = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showConsultation, setShowConsultation] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  
+  // Animation states
+  const [mounted, setMounted] = useState(false);
+  const [headerVisible, setHeaderVisible] = useState(false);
+  const [searchBarVisible, setSearchBarVisible] = useState(false);
+  const [visibleCards, setVisibleCards] = useState([]);
 
   // Fetch specialties on mount
   useEffect(() => {
@@ -79,6 +85,54 @@ const DoctorsListSection = () => {
            doctorSpecialty.includes(search);
   });
 
+  // Scroll-based reveal animation setup
+  useEffect(() => {
+    setMounted(true);
+    
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          // Animate header first
+          setTimeout(() => {
+            setHeaderVisible(true);
+          }, 200);
+          
+          // Animate search bar second
+          setTimeout(() => {
+            setSearchBarVisible(true);
+          }, 400);
+          
+          // Staggered animation for cards
+          setTimeout(() => {
+            filteredDoctors.forEach((_, index) => {
+              setTimeout(() => {
+                setVisibleCards(prev => [...prev, index]);
+              }, index * 100); // 100ms delay between each card
+            });
+          }, 600); // Start cards animation after search bar
+          
+          observer.unobserve(entry.target);
+        }
+      });
+    }, observerOptions);
+
+    const sectionElement = document.getElementById('specialties-section');
+    if (sectionElement) {
+      observer.observe(sectionElement);
+    }
+
+    return () => {
+      if (sectionElement) {
+        observer.unobserve(sectionElement);
+      }
+    };
+  }, [filteredDoctors]);
+
   const handleViewDoctor = (doctor) => {
     setSelectedDoctor(doctor);
     setIsModalOpen(true);
@@ -130,7 +184,11 @@ const DoctorsListSection = () => {
         className="py-16 bg-gradient-to-b from-[#b9d0f5] to-[#3d85c6]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Header */}
-            <div className="text-center mb-12">
+            <div className={`text-center mb-12 transition-all duration-700 ease-out ${
+              headerVisible 
+                ? "opacity-100 translate-y-0" 
+                : "opacity-0 translate-y-8"
+            }`}>
               <h2 className="text-4xl font-bold text-gray-900 mb-4">
                 Available Doctors
               </h2>
@@ -140,7 +198,11 @@ const DoctorsListSection = () => {
             </div>
 
             {/* Search and Filter Bar */}
-            <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
+            <div className={`bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100 transition-all duration-700 ease-out ${
+              searchBarVisible 
+                ? "opacity-100 translate-y-0" 
+                : "opacity-0 translate-y-8"
+            }`}>
               <div className="flex flex-col md:flex-row gap-4">
                 {/* Search Input */}
                 <div className="flex-1 relative">
@@ -241,10 +303,17 @@ const DoctorsListSection = () => {
             ) : (
               /* Doctors Grid */
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredDoctors.map((doctor) => (
+                {filteredDoctors.map((doctor, index) => (
                   <div
                     key={doctor.user_id}
-                    className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group"
+                    className={`bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-500 ease-out overflow-hidden border border-gray-100 group ${
+                      visibleCards.includes(index) 
+                        ? "opacity-100 translate-y-0 scale-100" 
+                        : "opacity-0 translate-y-8 scale-95"
+                    }`}
+                    style={{
+                      transitionDelay: `${index * 50}ms`
+                    }}
                   >
                     {/* Doctor Avatar */}
                     <div className="relative h-48 bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">

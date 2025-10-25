@@ -83,7 +83,69 @@ const DoctorTable = ({ doctors = [], loading = false, onView, onPause, onDelete 
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <div className="overflow-x-auto">
+      {/* Mobile Card View */}
+      <div className="block lg:hidden">
+        <div className="p-4 sm:p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">All Users</h3>
+          <div className="space-y-4">
+            {doctors.map((doctor) => (
+              <div
+                key={doctor.user_id}
+                className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium ${
+                      doctor.roleType === 'Patient' ? 'bg-green-500' :
+                      doctor.roleType === 'Nurse' ? 'bg-purple-500' :
+                      'bg-blue-500'
+                    }`}>
+                      {doctor.username?.charAt(0)?.toUpperCase() || doctor.first_name?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 truncate">
+                        {doctor.first_name && doctor.last_name 
+                          ? `${doctor.first_name} ${doctor.last_name}`
+                          : doctor.username || `User ${doctor.user_id}`
+                        }
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {doctor.roleType || 'User'} • ID: {doctor.user_id}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2 flex-shrink-0">
+                    <button
+                      onClick={() => handleEdit(doctor)}
+                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Edit User"
+                    >
+                      <SquarePen className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(doctor)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Deactivate User"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="space-y-2 text-sm text-gray-600">
+                  <div className="flex items-center space-x-1">
+                    <Mail className="h-3 w-3" />
+                    <span className="truncate">{doctor.email || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden lg:block overflow-x-auto">
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>

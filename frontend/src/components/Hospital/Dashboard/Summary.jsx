@@ -225,14 +225,14 @@ const Dashboard = () => {
   }, [showDropdown]);
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
       {/* Usage Overview - Takes 2/3 of width */}
-      <div className="xl:col-span-2">
-        <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-6 h-full">
-          <div className="flex items-center justify-between mb-6">
+      <div className="lg:col-span-2">
+        <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-4 sm:p-6 h-full">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-4">
             <div>
-              <h3 className="text-lg font-semibold text-slate-900">Usage Overview</h3>
-              <p className="text-sm text-slate-600">Consultations and active doctors {getTimeRangeLabel().toLowerCase()}</p>
+              <h3 className="text-base sm:text-lg font-semibold text-slate-900">Usage Overview</h3>
+              <p className="text-xs sm:text-sm text-slate-600">Consultations and active doctors {getTimeRangeLabel().toLowerCase()}</p>
             </div>
             
             {/* Dropdown for time range */}
@@ -320,8 +320,8 @@ const Dashboard = () => {
       </div>
       
       {/* Doctors List Section - Takes 1/3 of width */}
-      <div className="xl:col-span-1">
-        <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-6 h-full">
+      <div className="lg:col-span-1">
+        <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-4 sm:p-6 h-full">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-slate-900">Hospital Doctors</h3>
             {doctors.length > 0 && (

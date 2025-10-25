@@ -22,13 +22,15 @@ export default function AddDoctorPage() {
     };
 
     return (
+        <>
+        <HosSidebar />
         <div className="flex h-screen bg-[#E6EEF8]">
-            <div className="h-full w-[17rem] flex-shrink-0">
+            <div className="hidden lg:block h-full w-[17rem] flex-shrink-0">
                 <HosSidebar />
             </div>
             <div className="flex-1 flex flex-col overflow-hidden">
                 <main className="flex-1 overflow-x-hidden overflow-y-auto ">
-                    <div className="p-6 max-w-4xl mx-auto">
+                    <div className="p-6 pl-16 lg:pl-6 max-w-4xl mx-auto">
                         <FormHeader />
                         <DoctorForm 
                             context={isSuperAdmin ? 'superadmin' : 'hospital-admin'}
@@ -39,5 +41,6 @@ export default function AddDoctorPage() {
                 </main>
             </div>
         </div>
+        </>
     );
 }

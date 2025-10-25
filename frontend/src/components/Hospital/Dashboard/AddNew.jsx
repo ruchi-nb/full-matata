@@ -6,13 +6,13 @@ import { Plus } from 'lucide-react';
 
 const AddUserCard = () => {
   return (
-    <div className="w-full bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-md border border-blue-200 p-8">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-6">
+    <div className="w-full bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-md border border-blue-200 p-6 sm:p-8">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+        <div className="flex items-center space-x-4 sm:space-x-6">
           {/* Icon */}
-          <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
             <svg 
-              className="w-8 h-8 text-white" 
+              className="w-6 h-6 sm:w-8 sm:h-8 text-white" 
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24"
@@ -27,10 +27,10 @@ const AddUserCard = () => {
           </div>
           
           {/* Text Content */}
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800 mb-2">Add a User</h2>
-            <p className="text-gray-600 text-lg">
-              <span className=" text-[#004dd6]">AI-Powered:</span> Streamline hospital staff management with intelligent onboarding
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl sm:text-3xl font-bold text-gray-800 mb-1 sm:mb-2">Add a User</h2>
+            <p className="text-gray-600 text-sm sm:text-lg">
+              <span className="text-[#004dd6]">AI-Powered:</span> Streamline hospital staff management with intelligent onboarding
             </p>
           </div>
         </div>
@@ -40,9 +40,9 @@ const AddUserCard = () => {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-4 px-8 rounded-xl transition-colors duration-200 text-lg shadow-lg flex items-center gap-3"
+            className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 sm:py-4 px-6 sm:px-8 rounded-xl transition-colors duration-200 text-base sm:text-lg shadow-lg flex items-center justify-center gap-3"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
             Add New User
           </motion.button>
         </Link>

@@ -1,19 +1,41 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import GradientButton from "@/components/common/GradientButton";
-import { LogOut } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 
 const Sidebar = ({ items = [] }) => {
   const router = useRouter();
   const pathname = usePathname();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const isActive = (path) => pathname === path;
   
   const handleTabClick = (path) => {
     router.push(path);
+    // Close mobile menu after navigation
+    setIsMobileMenuOpen(false);
   };
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isMobileMenuOpen && !event.target.closest('.mobile-menu-container')) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMobileMenuOpen]);
 
   // Group items by section
   const groupedItems = items.reduce((acc, item) => {
@@ -26,16 +48,23 @@ const Sidebar = ({ items = [] }) => {
 
   const sections = Object.keys(groupedItems);
 
-  return (
-    <div className="bg-[#02173a] rounded-r-[4rem] text-white h-screen w-[17rem] flex flex-col fixed left-0 top-0 transition-all duration-500 ease-in-out">
+  const SidebarContent = () => (
+    <>
       {/* Header */}
       <div className="flex items-center justify-between h-16 px-4 mt-4">
         <div className="flex items-center space-x-2 mx-8">
           <div className="w-8 h-8 bg-white rounded-2xl flex items-center justify-center ">
-            <span className="text-[#004dd6] text-2xl font-bold">M</span>
+            <span className="text-[#004dd6] text-2xl font-bold">N</span>
           </div>
-          <span className="text-xl font-bold text-white font-poppins">MediCare</span>
+          <span className="text-xl font-bold text-white font-poppins">Neuralbits</span>
         </div>
+        {/* Mobile close button */}
+        <button
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="lg:hidden p-2 rounded-md hover:bg-slate-800 transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Navigation */}
@@ -84,7 +113,40 @@ const Sidebar = ({ items = [] }) => {
             <LogOut className="w-5 h-5" />
         </GradientButton>
       </nav>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setIsMobileMenuOpen(true)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-[#02173a] text-white rounded-lg shadow-lg hover:bg-slate-800 transition-colors"
+      >
+        <Menu className="w-6 h-6" />
+      </button>
+
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:block bg-[#02173a] rounded-r-[4rem] text-white h-screen w-[17rem] flex flex-col fixed left-0 top-0 transition-all duration-500 ease-in-out">
+        <SidebarContent />
+      </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {isMobileMenuOpen && (
+        <div className="lg:hidden fixed inset-0 z-40">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/40"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          
+          {/* Sidebar */}
+          <div className="mobile-menu-container fixed left-0 top-0 h-full w-80 max-w-[85vw] bg-[#02173a] text-white flex flex-col transition-all duration-300 ease-in-out">
+            <SidebarContent />
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

@@ -10,15 +10,15 @@ export default function FormHeader() {
   };
 
   return (
-    <div className="flex items-center space-x-4 mb-8">
+    <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4 mb-6 sm:mb-8">
         <button 
         onClick={handleBack}
-        className="p-2 text-zinc-800 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+        className="p-2 text-zinc-800 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors w-fit">
           <ArrowLeft className="h-5 w-5" />
         </button>
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Add New User</h1>
-        <p className="text-gray-600 mt-2">
+      <div className="flex-1">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Add New User</h1>
+        <p className="text-gray-600 mt-2 text-sm sm:text-base">
           Create a new user and assign role-based details
         </p>
       </div>

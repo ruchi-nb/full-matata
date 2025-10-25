@@ -25,8 +25,10 @@ export default function Page() {
     };
 
     return (
+        <>
+        <HosSidebar />
         <div className="flex h-screen bg-[#E6EEF8]">
-            <div className="h-full w-[17rem] flex-shrink-0">
+            <div className="hidden lg:block h-full w-[17rem] flex-shrink-0">
                 <FadeIn direction="left" duration={0.8} delay={0.2} speed={1}>
                     <ScaleIn direction="left" duration={0.8} delay={0.4} speed={1}>
                         <HosSidebar />
@@ -35,7 +37,7 @@ export default function Page() {
             </div>
             <div className="flex-1 flex flex-col overflow-hidden">
                 <main className="flex-1 overflow-x-hidden overflow-y-auto">
-                    <div className="p-6 max-w-4xl mx-auto">
+                    <div className="p-6 pl-16 lg:pl-6 max-w-4xl mx-auto">
                         <CustomRoleForm 
                             onSuccess={handleSuccess}
                             onCancel={handleCancel}
@@ -44,5 +46,6 @@ export default function Page() {
                 </main>
             </div>
         </div>
+        </>
     );
 }

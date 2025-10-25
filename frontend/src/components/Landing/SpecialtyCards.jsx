@@ -9,6 +9,9 @@ const Specialties = () => {
   const [selected, setSelected] = useState(null);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const modalRef = useRef(null);
+  const [mounted, setMounted] = useState(false);
+  const [headerVisible, setHeaderVisible] = useState(false);
+  const [visibleCards, setVisibleCards] = useState([]);
   
   // Sample data for specialties
   const specialties = [
@@ -86,7 +89,48 @@ const Specialties = () => {
     }
   ];
 
-  // Remove the old intersection observer code as we'll use StaggeredAnimationGroup
+  // Scroll-based reveal animation setup
+  useEffect(() => {
+    setMounted(true);
+    
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          // Animate header first
+          setTimeout(() => {
+            setHeaderVisible(true);
+          }, 200);
+          
+          // Staggered animation for cards
+          setTimeout(() => {
+            specialties.forEach((_, index) => {
+              setTimeout(() => {
+                setVisibleCards(prev => [...prev, index]);
+              }, index * 100); // 100ms delay between each card
+            });
+          }, 500); // Start cards animation after header
+          
+          observer.unobserve(entry.target);
+        }
+      });
+    }, observerOptions);
+
+    const sectionElement = document.getElementById('specialties');
+    if (sectionElement) {
+      observer.observe(sectionElement);
+    }
+
+    return () => {
+      if (sectionElement) {
+        observer.unobserve(sectionElement);
+      }
+    };
+  }, []);
 
   // Handle modal close with animation
   const closeModal = () => {
@@ -113,7 +157,11 @@ const Specialties = () => {
   return (
     <section id="specialties" className="py-8 bg-gradient-to-b from-[#3d85c6] to-[#004dd6]     ">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center mb-16">
+        <div className={`text-center mb-16 transition-all duration-700 ease-out ${
+          headerVisible 
+            ? "opacity-100 translate-y-0" 
+            : "opacity-0 translate-y-8"
+        }`}>
           <div className="inline-flex items-center space-x-2 bg-white/20 backdrop-blur-sm text-white px-4 py-1.5 rounded-full text-sm font-semibold tracking-wide mb-6">
             <Sparkles className="w-4 h-4" />
             <span className="uppercase">Medical Specialties</span>
@@ -132,14 +180,25 @@ const Specialties = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          {specialties.map((s) => (
+          {specialties.map((s, index) => (
             <div
               key={s.id}
-              className="group bg-white rounded-2xl p-6 shadow-md transition-all duration-300 cursor-pointer transform hover:-translate-y-2 hover:shadow-xl flex flex-col items-center text-center"
+              className={`group bg-white rounded-2xl p-6 shadow-md transition-all duration-500 ease-out cursor-pointer transform hover:-translate-y-2 hover:shadow-xl flex flex-col items-center text-center ${
+                visibleCards.includes(index) 
+                  ? "opacity-100 translate-y-0 scale-100" 
+                  : "opacity-0 translate-y-8 scale-95"
+              }`}
+              style={{
+                transitionDelay: `${index * 50}ms`
+              }}
               onClick={() => setSelected(s)}
             >
               {/* Icon Container */}
-              <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mb-6 transition-all duration-300 group-hover:bg-blue-100 group-hover:scale-110">
+              <div className={`w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mb-6 transition-all duration-500 ease-out group-hover:bg-blue-100 group-hover:scale-110 ${
+                visibleCards.includes(index) 
+                  ? "scale-100 rotate-0" 
+                  : "scale-75 rotate-12"
+              }`}>
                 {s.icon}
               </div>
               

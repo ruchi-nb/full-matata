@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Shield, Star, Quote, Sparkles} from "lucide-react";
 import { StaggeredAnimationGroup } from "../common/animations";
 
 const ScrollingSections = () => {
   const hospitalsScrollRef = useRef(null);
   const testimonialsScrollRef = useRef(null);
+  const [mounted, setMounted] = useState(false);
+  const [hospitalsSectionVisible, setHospitalsSectionVisible] = useState(false);
+  const [testimonialsSectionVisible, setTestimonialsSectionVisible] = useState(false);
 
   // Real-life hospital names for more authenticity
   const hospitals = [
@@ -83,6 +86,48 @@ const ScrollingSections = () => {
       specialty: "Orthopedics"
     }
   ];
+
+  // Scroll-based reveal animations
+  useEffect(() => {
+    setMounted(true);
+    
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          if (entry.target.id === 'hospitals-section') {
+            setHospitalsSectionVisible(true);
+          } else if (entry.target.id === 'testimonials-section') {
+            setTestimonialsSectionVisible(true);
+          }
+          observer.unobserve(entry.target);
+        }
+      });
+    }, observerOptions);
+
+    const hospitalsElement = document.getElementById('hospitals-section');
+    const testimonialsElement = document.getElementById('testimonials-section');
+    
+    if (hospitalsElement) {
+      observer.observe(hospitalsElement);
+    }
+    if (testimonialsElement) {
+      observer.observe(testimonialsElement);
+    }
+
+    return () => {
+      if (hospitalsElement) {
+        observer.unobserve(hospitalsElement);
+      }
+      if (testimonialsElement) {
+        observer.unobserve(testimonialsElement);
+      }
+    };
+  }, []);
 
   // Infinite scroll for hospitals
   useEffect(() => {
@@ -173,10 +218,18 @@ const ScrollingSections = () => {
   return (
     <>
       {/* Leading Healthcare Institutions Section */}
-      <section className="py-16 bg-[#004dd6] relative">
+      <section id="hospitals-section" className={`py-16 bg-[#004dd6] relative transition-all duration-1000 ease-out ${
+        hospitalsSectionVisible 
+          ? "opacity-100 translate-y-0" 
+          : "opacity-0 translate-y-12"
+      }`}>
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           {/* Header */}
-          <div className="text-center mb-12">
+          <div className={`text-center mb-12 transition-all duration-800 ease-out ${
+            hospitalsSectionVisible 
+              ? "opacity-100 translate-y-0" 
+              : "opacity-0 translate-y-8"
+          }`}>
           <div className="inline-flex items-center space-x-2 bg-white/20 backdrop-blur-sm text-white px-4 py-1.5 rounded-full text-sm font-semibold tracking-wide mb-6">
             <Sparkles className="w-4 h-4" />
             <span className="uppercase">Trusted Partners</span>
@@ -193,7 +246,11 @@ const ScrollingSections = () => {
           </div>
 
           {/* Infinite Scrolling Hospitals */}
-          <div className="relative overflow-hidden">
+          <div className={`relative overflow-hidden transition-all duration-900 ease-out ${
+            hospitalsSectionVisible 
+              ? "opacity-100 translate-y-0" 
+              : "opacity-0 translate-y-8"
+          }`}>
             <div
               ref={hospitalsScrollRef}
               className="flex space-x-8 py-8 overflow-x-auto hide-scrollbar"
@@ -236,10 +293,18 @@ const ScrollingSections = () => {
       </section>
 
       {/* Customer Testimonials Section */}
-      <section className="py-16 bg-[#004dd6]">
+      <section id="testimonials-section" className={`py-16 bg-[#004dd6] transition-all duration-1000 ease-out ${
+        testimonialsSectionVisible 
+          ? "opacity-100 translate-y-0" 
+          : "opacity-0 translate-y-12"
+      }`}>
         <div className="max-w-7xl mx-auto px-6">
           {/* Header */}
-          <div className="text-center mb-12">
+          <div className={`text-center mb-12 transition-all duration-800 ease-out ${
+            testimonialsSectionVisible 
+              ? "opacity-100 translate-y-0" 
+              : "opacity-0 translate-y-8"
+          }`}>
           <div className="inline-flex items-center space-x-2 bg-white/20 backdrop-blur-sm text-white px-4 py-1.5 rounded-full text-sm font-semibold tracking-wide mb-6">
             <Sparkles className="w-4 h-4" />
             <span className="uppercase">Customer Stories</span>
@@ -256,7 +321,11 @@ const ScrollingSections = () => {
           </div>
 
           {/* Infinite Scrolling Testimonials */}
-          <div className="relative overflow-hidden mb-12">
+          <div className={`relative overflow-hidden mb-12 transition-all duration-900 ease-out ${
+            testimonialsSectionVisible 
+              ? "opacity-100 translate-y-0" 
+              : "opacity-0 translate-y-8"
+          }`}>
             <div
               ref={testimonialsScrollRef}
               className="flex space-x-6 py-4 overflow-x-auto hide-scrollbar"

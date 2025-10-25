@@ -46,7 +46,7 @@ export default function PatientPortalPage() {
           <LifeLine
             color="#b9d0f5"
             size="large"
-            text="Medicare"
+            text="Neuralbits"
             textColor="#b9d0f5"
           />
         </div>

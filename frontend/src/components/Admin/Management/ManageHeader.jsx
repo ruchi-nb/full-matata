@@ -10,22 +10,22 @@ export default function AddHospitalModal() {
   };
 
   return (
-    <div className="mb-8 flex items-center justify-between">
+    <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       {/* Left side - Title & Subtitle */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">
+      <div className="flex-1">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
           Hospital Management
         </h1>
-        <p className="text-slate-600 mt-2">
+        <p className="text-slate-600 mt-2 text-sm sm:text-base">
         Manage hospitals and their information
         </p>
       </div>
 
       {/* Right side - Add Hospital Button */}
-      <div>
+      <div className="flex-shrink-0">
         <button
           onClick={openModal}
-          className="px-4 py-2 rounded-lg bg-teal-600 text-white font-medium shadow-sm hover:bg-teal-700 transition-colors"
+          className="w-full sm:w-auto px-4 py-2 rounded-lg bg-teal-600 text-white font-medium shadow-sm hover:bg-teal-700 transition-colors text-sm sm:text-base"
         >
           + Add Hospital
         </button>

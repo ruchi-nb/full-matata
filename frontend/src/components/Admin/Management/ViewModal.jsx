@@ -83,23 +83,23 @@ export default function ViewModal({ hospital, isOpen, onClose }) {
     if (!isOpen || !hospital) return null;
   
     return (
-      <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/40">
+      <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/40 p-4">
         <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-fadeIn">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b">
-            <h2 className="text-xl font-semibold text-slate-800">Hospital Details</h2>
-            <button onClick={onClose} className="text-slate-500 hover:text-slate-800">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b">
+            <h2 className="text-lg sm:text-xl font-semibold text-slate-800">Hospital Details</h2>
+            <button onClick={onClose} className="text-slate-500 hover:text-slate-800 p-1">
               <X className="w-5 h-5" />
             </button>
           </div>
   
           {/* Body */}
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             {/* Hospital Header */}
-            <div className="flex items-center gap-6 mb-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 mb-6">
               {/* Avatar */}
               <div
-                className="w-16 h-16 flex items-center justify-center text-white font-bold text-xl rounded-full shadow-lg"
+                className="w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center text-white font-bold text-lg sm:text-xl rounded-full shadow-lg flex-shrink-0"
                 style={{ background: "linear-gradient(135deg, #3b82f6, #60a5fa)" }}
               >
                 {hospital.name
@@ -110,11 +110,11 @@ export default function ViewModal({ hospital, isOpen, onClose }) {
               </div>
   
               {/* Info Card */}
-              <div className="flex-1 p-4 rounded-xl bg-slate-50 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-xl font-semibold text-gray-900">{hospital.name}</h2>
+              <div className="flex-1 p-4 rounded-xl bg-slate-50 shadow-sm w-full">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-2">
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{hospital.name}</h2>
                   <span
-                    className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${
+                    className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 w-fit ${
                       hospital.status === "Active"
                         ? "bg-green-100 text-green-700"
                         : "bg-red-100 text-red-700"
@@ -124,30 +124,30 @@ export default function ViewModal({ hospital, isOpen, onClose }) {
                   </span>
                 </div>
   
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3 text-sm text-slate-700">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 text-sm text-slate-700">
                   <div className="flex flex-col">
                     <span className="font-medium text-slate-900">Location</span>
-                    {hospital.location}
+                    <span className="truncate">{hospital.location}</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-slate-900">Email</span>
-                    {hospital.email}
+                    <span className="truncate">{hospital.email}</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-slate-900">Phone</span>
-                    {hospital.phone}
+                    <span className="truncate">{hospital.phone}</span>
                   </div>
                 </div>
               </div>
             </div>
   
             {/* Tabs */}
-            <div className="flex gap-6 border-b mb-6">
+            <div className="flex gap-4 sm:gap-6 border-b mb-6 overflow-x-auto">
               {["doctors", "specialties", "stats"].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`pb-2 text-sm font-medium capitalize ${
+                  className={`pb-2 text-sm font-medium capitalize whitespace-nowrap ${
                     activeTab === tab
                       ? "border-b-2 border-blue-600 text-blue-600"
                       : "text-slate-500 hover:text-slate-700"
@@ -169,40 +169,72 @@ export default function ViewModal({ hospital, isOpen, onClose }) {
                 ) : doctors.length === 0 ? (
                   <div className="text-center py-8 text-slate-500">No doctors found for this hospital</div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-100 text-sm text-slate-600">
-                          <th className="p-2">Doctor Name</th>
-                          <th className="p-2">Email</th>
-                          <th className="p-2">Specialties</th>
-                          <th className="p-2">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {doctors.map((doc) => (
-                          <tr key={doc.user_id} className="border-b text-sm">
-                            <td className="p-2">
-                              <div className="font-medium text-black">
+                  <div className="space-y-4">
+                    {/* Mobile Card View */}
+                    <div className="block lg:hidden space-y-3">
+                      {doctors.map((doc) => (
+                        <div key={doc.user_id} className="bg-slate-50 rounded-lg p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-black text-sm">
                                 {doc.first_name} {doc.last_name}
                               </div>
                               <div className="text-xs text-slate-500">ID: {doc.user_id}</div>
-                            </td>
-                            <td className="p-2 text-black">{doc.email}</td>
-                            <td className="p-2 text-black">
-                              {doc.specialties?.length > 0 
+                            </div>
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600 flex-shrink-0">
+                              ● Active
+                            </span>
+                          </div>
+                          <div className="space-y-1 text-xs text-slate-600">
+                            <div className="truncate">
+                              <span className="font-medium">Email:</span> {doc.email}
+                            </div>
+                            <div>
+                              <span className="font-medium">Specialties:</span> {doc.specialties?.length > 0 
                                 ? doc.specialties.map(s => s.name).join(', ')
                                 : 'Not specified'}
-                            </td>
-                            <td className="p-2">
-                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
-                                ● Active
-                              </span>
-                            </td>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Desktop Table View */}
+                    <div className="hidden lg:block overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100 text-sm text-slate-600">
+                            <th className="p-2">Doctor Name</th>
+                            <th className="p-2">Email</th>
+                            <th className="p-2">Specialties</th>
+                            <th className="p-2">Status</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {doctors.map((doc) => (
+                            <tr key={doc.user_id} className="border-b text-sm">
+                              <td className="p-2">
+                                <div className="font-medium text-black">
+                                  {doc.first_name} {doc.last_name}
+                                </div>
+                                <div className="text-xs text-slate-500">ID: {doc.user_id}</div>
+                              </td>
+                              <td className="p-2 text-black">{doc.email}</td>
+                              <td className="p-2 text-black">
+                                {doc.specialties?.length > 0 
+                                  ? doc.specialties.map(s => s.name).join(', ')
+                                  : 'Not specified'}
+                              </td>
+                              <td className="p-2">
+                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
+                                  ● Active
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
@@ -217,7 +249,7 @@ export default function ViewModal({ hospital, isOpen, onClose }) {
                 ) : doctors.length === 0 ? (
                   <div className="text-center py-8 text-slate-500">No specialties data available</div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {/* Extract unique specialties from doctors */}
                     {Array.from(new Set(
                       doctors.flatMap(doc => doc.specialties || []).map(s => s.name)
@@ -227,8 +259,8 @@ export default function ViewModal({ hospital, isOpen, onClose }) {
                       );
                       return (
                         <div key={idx} className="bg-slate-50 rounded-lg p-4">
-                          <h4 className="text-slate-800 font-medium mb-1">{specName}</h4>
-                          <p className="text-slate-500 text-sm">
+                          <h4 className="text-slate-800 font-medium mb-1 text-sm sm:text-base">{specName}</h4>
+                          <p className="text-slate-500 text-xs sm:text-sm">
                             {specDoctors.length} {specDoctors.length === 1 ? 'doctor' : 'doctors'}
                           </p>
                         </div>
@@ -246,30 +278,30 @@ export default function ViewModal({ hospital, isOpen, onClose }) {
                 {loading ? (
                   <div className="text-center py-8 text-slate-500">Loading statistics...</div>
                 ) : statistics ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="p-6 rounded-xl text-center bg-blue-50">
-                      <div className="text-3xl font-bold text-blue-600">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <div className="p-4 sm:p-6 rounded-xl text-center bg-blue-50">
+                      <div className="text-2xl sm:text-3xl font-bold text-blue-600">
                         {statistics.total_doctors}
                       </div>
-                      <div className="text-slate-600 text-sm mt-2">Total Doctors</div>
+                      <div className="text-slate-600 text-xs sm:text-sm mt-2">Total Doctors</div>
                     </div>
-                    <div className="p-6 rounded-xl text-center bg-green-50">
-                      <div className="text-3xl font-bold text-green-600">
+                    <div className="p-4 sm:p-6 rounded-xl text-center bg-green-50">
+                      <div className="text-2xl sm:text-3xl font-bold text-green-600">
                         {statistics.total_consultations}
                       </div>
-                      <div className="text-slate-600 text-sm mt-2">Total Consultations</div>
+                      <div className="text-slate-600 text-xs sm:text-sm mt-2">Total Consultations</div>
                     </div>
-                    <div className="p-6 rounded-xl text-center bg-amber-50">
-                      <div className="text-3xl font-bold text-amber-600">
+                    <div className="p-4 sm:p-6 rounded-xl text-center bg-amber-50">
+                      <div className="text-2xl sm:text-3xl font-bold text-amber-600">
                         {statistics.active_consultations}
                       </div>
-                      <div className="text-slate-600 text-sm mt-2">Active Consultations</div>
+                      <div className="text-slate-600 text-xs sm:text-sm mt-2">Active Consultations</div>
                     </div>
-                    <div className="p-6 rounded-xl text-center bg-purple-50">
-                      <div className="text-3xl font-bold text-purple-600">
+                    <div className="p-4 sm:p-6 rounded-xl text-center bg-purple-50">
+                      <div className="text-2xl sm:text-3xl font-bold text-purple-600">
                         {statistics.active_avatars}
                       </div>
-                      <div className="text-slate-600 text-sm mt-2">Active Avatars</div>
+                      <div className="text-slate-600 text-xs sm:text-sm mt-2">Active Avatars</div>
                     </div>
                   </div>
                 ) : (

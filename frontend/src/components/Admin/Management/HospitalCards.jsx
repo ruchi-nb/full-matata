@@ -210,7 +210,7 @@ export default function HospitalCards() {
             </div>
 
             {/* Controls */}
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
               {/* Page Size Dropdown */}
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium text-gray-700">Show:</label>
@@ -233,11 +233,11 @@ export default function HospitalCards() {
 
       {/* Hospitals Grid */}
       {!loading && !error && (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {paginatedHospitals.map((hospital) => (
           <div
             key={hospital.id}
-            className="relative bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-6"
+            className="relative bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-4 sm:p-6"
           >
             {/* Status */}
             <div
@@ -251,9 +251,9 @@ export default function HospitalCards() {
             </div>
 
             {/* Header */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
               <div
-                className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg ${hospital.color}`}
+                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-white font-semibold text-base sm:text-lg ${hospital.color}`}
               >
                 {hospital.name
                   .split(" ")
@@ -261,51 +261,51 @@ export default function HospitalCards() {
                   .join("")
                   .slice(0, 2)}
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">{hospital.name}</h3>
-                <p className="text-sm text-slate-500">{hospital.specialty}</p>
-                <p className="text-xs text-slate-400">{hospital.email}</p>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate">{hospital.name}</h3>
+                <p className="text-xs sm:text-sm text-slate-500 truncate">{hospital.specialty}</p>
+                <p className="text-xs text-slate-400 truncate">{hospital.email}</p>
               </div>
             </div>
 
             {/* Location */}
-            <p className="mt-3 text-sm text-slate-600">📍 {hospital.location}</p>
+            <p className="mt-3 text-xs sm:text-sm text-slate-600 truncate">📍 {hospital.location}</p>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mt-4 text-center">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-4 text-center">
               <div>
-                <p className="text-sm text-slate-500">Doctors</p>
-                <p className="text-base font-semibold text-slate-800">{hospital.doctors}</p>
+                <p className="text-xs sm:text-sm text-slate-500">Doctors</p>
+                <p className="text-sm sm:text-base font-semibold text-slate-800">{hospital.doctors}</p>
               </div>
               <div>
-                <p className="text-sm text-slate-500">Consultations</p>
-                <p className="text-base font-semibold text-slate-800">{hospital.consultations}</p>
+                <p className="text-xs sm:text-sm text-slate-500">Consultations</p>
+                <p className="text-sm sm:text-base font-semibold text-slate-800">{hospital.consultations}</p>
               </div>
               <div>
-                <p className="text-sm text-slate-500">Phone</p>
-                <p className="text-xs font-medium text-slate-700">{hospital.phone}</p>
+                <p className="text-xs sm:text-sm text-slate-500">Phone</p>
+                <p className="text-xs font-medium text-slate-700 truncate">{hospital.phone}</p>
               </div>
             </div>
 
             {/* Actions */}
-            <div className="flex justify-between mt-6">
+            <div className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-0 mt-4 sm:mt-6">
               <button
                 onClick={() => handleView(hospital)}
-                className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                className="flex items-center justify-center gap-1 text-blue-600 hover:text-blue-800 text-xs sm:text-sm font-medium py-2 px-3 rounded-md hover:bg-blue-50"
               >
-                <Eye className="w-4 h-4" /> View
+                <Eye className="w-3 h-3 sm:w-4 sm:h-4" /> View
               </button>
               <button
                 onClick={() => handleEdit(hospital)}
-                className="flex items-center gap-1 text-amber-500 hover:text-amber-700 text-sm font-medium"
+                className="flex items-center justify-center gap-1 text-amber-500 hover:text-amber-700 text-xs sm:text-sm font-medium py-2 px-3 rounded-md hover:bg-amber-50"
               >
-                <Pencil className="w-4 h-4" /> Edit
+                <Pencil className="w-3 h-3 sm:w-4 sm:h-4" /> Edit
               </button>
               <button
                 onClick={() => handleDelete(hospital.id)}
-                className="flex items-center gap-1 text-red-500 hover:text-red-700 text-sm font-medium"
+                className="flex items-center justify-center gap-1 text-red-500 hover:text-red-700 text-xs sm:text-sm font-medium py-2 px-3 rounded-md hover:bg-red-50"
               >
-                <Trash2 className="w-4 h-4" /> Delete
+                <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" /> Delete
               </button>
             </div>
           </div>
@@ -343,9 +343,9 @@ export default function HospitalCards() {
 
       {/* Pagination Controls */}
       {!loading && !error && totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-between">
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Pagination Info */}
-          <div className="text-sm text-gray-700">
+          <div className="text-sm text-gray-700 text-center sm:text-left">
             Page {currentPage} of {totalPages} ({totalItems} total hospitals)
           </div>
 
@@ -358,7 +358,7 @@ export default function HospitalCards() {
               className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-gray-500"
             >
               <ChevronLeft className="w-4 h-4" />
-              Previous
+              <span className="hidden sm:inline">Previous</span>
             </button>
 
             {/* Page Numbers */}
@@ -428,7 +428,7 @@ export default function HospitalCards() {
               disabled={currentPage === totalPages}
               className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-gray-500"
             >
-              Next
+              <span className="hidden sm:inline">Next</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>

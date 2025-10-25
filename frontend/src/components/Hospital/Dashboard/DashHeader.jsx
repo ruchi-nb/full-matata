@@ -56,16 +56,16 @@ export default function DashboardHeader() {
   }
 
   return (
-    <div className="mb-8 flex justify-between items-start">
+    <div className="mb-6 sm:mb-8">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
           {hospital?.hospital_name ? `${hospital.hospital_name} Dashboard` : "Dashboard Overview"}
         </h1>
-        <p className="text-slate-600 mt-2">
+        <p className="text-slate-600 mt-2 text-sm sm:text-base">
           Welcome back! Here's what's happening with your AI doctor platform today.
         </p>
         {hospital?.hospital_email && (
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
             {hospital.hospital_email}
           </p>
         )}

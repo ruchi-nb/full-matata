@@ -114,37 +114,42 @@ export default function CustomRoleManagementPage() {
 
   if (loading) {
     return (
+      <>
+      <HosSidebar />
       <div className="flex h-screen bg-[#E6EEF8]">
-        <div className="h-full w-[17rem] flex-shrink-0">
+        <div className="hidden lg:block h-full w-[17rem] flex-shrink-0">
           <HosSidebar />
         </div>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-gray-600">Loading custom roles...</div>
         </div>
       </div>
+      </>
     );
   }
 
   // Show empty state if no custom roles
   if (customRoles.length === 0) {
     return (
+      <>
+      <HosSidebar />
       <div className="flex h-screen bg-[#E6EEF8]">
-        <div className="h-full w-[17rem] flex-shrink-0">
+        <div className="hidden lg:block h-full w-[17rem] flex-shrink-0">
           <HosSidebar />
         </div>
         <div className="flex-1 flex flex-col overflow-hidden">
           <main className="flex-1 overflow-x-hidden overflow-y-auto">
-            <div className="p-6 max-w-7xl mx-auto">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Custom Role Management</h1>
-                  <p className="text-gray-600 mt-2">
+            <div className="p-6 pl-16 lg:pl-6 max-w-7xl mx-auto">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4">
+                <div className="flex-1">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Custom Role Management</h1>
+                  <p className="text-gray-600 mt-2 text-sm sm:text-base">
                     Create and manage custom roles for your hospital
                   </p>
                 </div>
                 <button
                   onClick={() => router.push("/Hospital/createRole")}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center space-x-2"
+                  className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2 text-sm sm:text-base"
                 >
                   <Plus className="h-4 w-4" />
                   <span>Create Custom Role</span>
@@ -152,17 +157,17 @@ export default function CustomRoleManagementPage() {
               </div>
 
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="p-12 text-center">
-                  <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Shield className="h-12 w-12 text-blue-600" />
+                <div className="p-8 sm:p-12 text-center">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                    <Shield className="h-10 w-10 sm:h-12 sm:w-12 text-blue-600" />
                   </div>
-                  <h3 className="text-2xl font-semibold text-gray-900 mb-4">No Custom Roles Yet</h3>
-                  <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                  <h3 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-3 sm:mb-4">No Custom Roles Yet</h3>
+                  <p className="text-gray-600 mb-6 sm:mb-8 max-w-md mx-auto text-sm sm:text-base">
                     Create your first custom role to start managing hospital-specific user types like nurses, lab technicians, or receptionists.
                   </p>
                   <button
                     onClick={() => router.push("/Hospital/createRole")}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium inline-flex items-center space-x-2"
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium inline-flex items-center space-x-2 text-sm sm:text-base"
                   >
                     <Plus className="h-5 w-5" />
                     <span>Create Your First Role</span>
@@ -173,28 +178,31 @@ export default function CustomRoleManagementPage() {
           </main>
         </div>
       </div>
+      </>
     );
   }
 
   return (
+    <>
+    <HosSidebar />
     <div className="flex h-screen bg-[#E6EEF8]">
-      <div className="h-full w-[17rem] flex-shrink-0">
+      <div className="hidden lg:block h-full w-[17rem] flex-shrink-0">
         <HosSidebar />
       </div>
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-x-hidden overflow-y-auto">
-          <div className="p-6 max-w-7xl mx-auto">
+          <div className="p-6 pl-16 lg:pl-6 max-w-7xl mx-auto">
             {/* Header */}
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Custom Role Management</h1>
-                <p className="text-gray-600 mt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4">
+              <div className="flex-1">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Custom Role Management</h1>
+                <p className="text-gray-600 mt-2 text-sm sm:text-base">
                   Manage users with custom roles - {customRoles.length} custom role{customRoles.length !== 1 ? 's' : ''} available
                 </p>
               </div>
               <button
                 onClick={() => router.push("/Hospital/createRole")}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center space-x-2"
+                className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2 text-sm sm:text-base"
               >
                 <Plus className="h-4 w-4" />
                 <span>Create New Role</span>
@@ -202,24 +210,24 @@ export default function CustomRoleManagementPage() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
               {customRoles.map((role, index) => (
-                <div key={role.role_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div key={role.role_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
                   <div className="flex items-center space-x-3">
                     <div className={`p-2 ${
                       index % 4 === 0 ? 'bg-blue-50' :
                       index % 4 === 1 ? 'bg-purple-50' :
                       index % 4 === 2 ? 'bg-green-50' : 'bg-orange-50'
-                    } rounded-lg`}>
-                      <Users className={`h-6 w-6 ${
+                    } rounded-lg flex-shrink-0`}>
+                      <Users className={`h-5 w-5 sm:h-6 sm:w-6 ${
                         index % 4 === 0 ? 'text-blue-600' :
                         index % 4 === 1 ? 'text-purple-600' :
                         index % 4 === 2 ? 'text-green-600' : 'text-orange-600'
                       }`} />
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-600">{role.role_name}</p>
-                      <p className="text-2xl font-bold text-gray-900">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm text-gray-600 truncate">{role.role_name}</p>
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900">
                         {selectedRole === role.role_name ? roleUsers.length : '-'}
                       </p>
                     </div>
@@ -229,14 +237,14 @@ export default function CustomRoleManagementPage() {
             </div>
 
             {/* Role Selector */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select Role to View Users
               </label>
               <select
                 value={selectedRole || ''}
                 onChange={(e) => setSelectedRole(e.target.value)}
-                className="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
               >
                 {customRoles.map((role) => (
                   <option key={role.role_id} value={role.role_name}>
@@ -248,16 +256,16 @@ export default function CustomRoleManagementPage() {
 
             {/* Users Table */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">
+              <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900">
                   Users with "{selectedRole}" Role
                 </h2>
               </div>
               
               {loadingUsers ? (
-                <div className="p-8 text-center text-gray-600">Loading users...</div>
+                <div className="p-6 sm:p-8 text-center text-gray-600 text-sm sm:text-base">Loading users...</div>
               ) : roleUsers.length === 0 ? (
-                <div className="p-8 text-center text-gray-500">
+                <div className="p-6 sm:p-8 text-center text-gray-500 text-sm sm:text-base">
                   No users with this role yet.
                 </div>
               ) : (
@@ -265,46 +273,46 @@ export default function CustomRoleManagementPage() {
                   <table className="w-full">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
-                        <th className="text-left py-4 px-6 font-medium text-gray-900">User</th>
-                        <th className="text-left py-4 px-6 font-medium text-gray-900">Email</th>
-                        <th className="text-left py-4 px-6 font-medium text-gray-900">User ID</th>
-                        <th className="text-left py-4 px-6 font-medium text-gray-900">Actions</th>
+                        <th className="text-left py-3 sm:py-4 px-4 sm:px-6 font-medium text-gray-900 text-sm sm:text-base">User</th>
+                        <th className="text-left py-3 sm:py-4 px-4 sm:px-6 font-medium text-gray-900 text-sm sm:text-base">Email</th>
+                        <th className="text-left py-3 sm:py-4 px-4 sm:px-6 font-medium text-gray-900 text-sm sm:text-base">User ID</th>
+                        <th className="text-left py-3 sm:py-4 px-4 sm:px-6 font-medium text-gray-900 text-sm sm:text-base">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {roleUsers.map((user) => (
                         <tr key={user.user_id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-4 px-6">
+                          <td className="py-3 sm:py-4 px-4 sm:px-6">
                             <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-medium">
+                              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-medium text-sm sm:text-base">
                                 {user.username?.charAt(0)?.toUpperCase() || 'U'}
                               </div>
-                              <div>
-                                <div className="font-medium text-gray-900">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-gray-900 text-sm sm:text-base truncate">
                                   {user.first_name && user.last_name
                                     ? `${user.first_name} ${user.last_name}`
                                     : user.username || `User ${user.user_id}`}
                                 </div>
-                                <div className="text-sm text-gray-500">
+                                <div className="text-xs sm:text-sm text-gray-500">
                                   {selectedRole} • ID: {user.user_id}
                                 </div>
                               </div>
                             </div>
                           </td>
-                          <td className="py-4 px-6 text-gray-900">{user.email}</td>
-                          <td className="py-4 px-6 text-gray-900">{user.user_id}</td>
-                          <td className="py-4 px-6">
+                          <td className="py-3 sm:py-4 px-4 sm:px-6 text-gray-900 text-sm sm:text-base truncate">{user.email}</td>
+                          <td className="py-3 sm:py-4 px-4 sm:px-6 text-gray-900 text-sm sm:text-base">{user.user_id}</td>
+                          <td className="py-3 sm:py-4 px-4 sm:px-6">
                             <div className="flex items-center space-x-2">
                               <button
                                 onClick={() => handleEditUser(user.user_id)}
-                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="p-1 sm:p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                 title="Edit User"
                               >
                                 <Edit className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => handleDeleteUser(user.user_id)}
-                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                className="p-1 sm:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                 title="Deactivate User"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -322,6 +330,7 @@ export default function CustomRoleManagementPage() {
         </main>
       </div>
     </div>
+    </>
   );
 }
 

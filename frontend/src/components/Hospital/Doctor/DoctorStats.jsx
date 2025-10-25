@@ -6,14 +6,14 @@ import { listHospitalDoctors, listHospitalPatients } from "@/data/api-hospital-a
 import { useUser } from "@/data/UserContext";
 
 const StatsCard = ({ icon: Icon, bgColor, iconColor, label, value }) => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
     <div className="flex items-center space-x-3">
-      <div className={`p-2 ${bgColor} rounded-lg`}>
-        <Icon className={`h-6 w-6 ${iconColor}`} aria-hidden="true" />
+      <div className={`p-2 ${bgColor} rounded-lg flex-shrink-0`}>
+        <Icon className={`h-5 w-5 sm:h-6 sm:w-6 ${iconColor}`} aria-hidden="true" />
       </div>
-      <div>
-        <p className="text-sm text-gray-600">{label}</p>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs sm:text-sm text-gray-600">{label}</p>
+        <p className="text-xl sm:text-2xl font-bold text-gray-900">{value}</p>
       </div>
     </div>
   </div>
@@ -98,7 +98,7 @@ const DoctorStats = () => {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
       {statsData.map((stat, index) => (
         <StatsCard
           key={index}

@@ -62,17 +62,17 @@ const DoctorFilters = ({
   }, []);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-        <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
-          <div className="relative">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
+      <div className="flex flex-col space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Search users..."
-              className="pl-10 pr-4 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full md:w-80"
+              className="pl-10 pr-4 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full"
             />
           </div>
           
@@ -80,7 +80,7 @@ const DoctorFilters = ({
           <select
             value={role}
             onChange={(e) => onRoleChange(e.target.value)}
-            className="px-4 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="px-4 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-auto"
           >
             <option value="all">All Roles</option>
             <option value="doctor">Doctors</option>
@@ -89,25 +89,25 @@ const DoctorFilters = ({
             <option value="lab_technician">Lab Technicians</option>
           </select>
 
-            <select
-              value={specialty}
-              onChange={(e) => onSpecialtyChange(e.target.value)}
-              disabled={loadingSpecialties}
-              className="px-4 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
-            >
-              <option value="all">
-                {loadingSpecialties ? "Loading specialties..." : "All Specialties"}
-              </option>
-              {specialties.length > 0 ? (
-                specialties.map((s) => (
-                  <option key={s.specialty_id} value={s.name}>
-                    {s.name}
-                  </option>
-                ))
-              ) : (
-                !loadingSpecialties && <option value="" disabled>No specialties available</option>
-              )}
-            </select>
+          <select
+            value={specialty}
+            onChange={(e) => onSpecialtyChange(e.target.value)}
+            disabled={loadingSpecialties}
+            className="px-4 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 w-full sm:w-auto"
+          >
+            <option value="all">
+              {loadingSpecialties ? "Loading specialties..." : "All Specialties"}
+            </option>
+            {specialties.length > 0 ? (
+              specialties.map((s) => (
+                <option key={s.specialty_id} value={s.name}>
+                  {s.name}
+                </option>
+              ))
+            ) : (
+              !loadingSpecialties && <option value="" disabled>No specialties available</option>
+            )}
+          </select>
         </div>
         
         <div className="flex items-center space-x-2">

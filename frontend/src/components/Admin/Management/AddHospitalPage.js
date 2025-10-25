@@ -223,14 +223,14 @@ export default function AddHospitalPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-8">
+    <div className="max-w-4xl mx-auto py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
       {/* Header with back button */}
-      <div className="flex items-center justify-between mb-8">
-        <div >
-          <h1 className="text-3xl font-bold text-slate-900">
+      <div className="mb-6 sm:mb-8">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
             Add New Hospital
           </h1>
-          <p className="text-slate-600 mt-2">
+          <p className="text-slate-600 mt-2 text-sm sm:text-base">
             Fill in the hospital and admin details to add a new hospital to the system. Username is auto-filled from email and password can be generated automatically.
           </p>
         </div>
@@ -250,12 +250,12 @@ export default function AddHospitalPage() {
       )}
 
       {/* Form */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           {/* Hospital Information */}
-          <div className="border-b border-gray-200 pb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Hospital Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="border-b border-gray-200 pb-4 sm:pb-6">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Hospital Information</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Hospital Name *
@@ -291,9 +291,9 @@ export default function AddHospitalPage() {
           </div>
 
           {/* Admin Personal Information */}
-          <div className="border-b border-gray-200 pb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Admin Personal Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="border-b border-gray-200 pb-4 sm:pb-6">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Admin Personal Information</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Admin Email *
@@ -353,9 +353,9 @@ export default function AddHospitalPage() {
           </div>
 
           {/* Login Credentials */}
-          <div className="border-b border-gray-200 pb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Login Credentials</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="border-b border-gray-200 pb-4 sm:pb-6">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Login Credentials</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
               <div className="md:col-span-1">
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Username
@@ -385,11 +385,11 @@ export default function AddHospitalPage() {
                   <p className="mt-1 text-sm text-red-600">{validationErrors.admin_password}</p>
                 )}
               </div>
-              <div className="md:col-span-3">
+              <div className="sm:col-span-2 lg:col-span-3">
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Generation Mode
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   <select
                     value={form.genMode}
                     onChange={handleChange('genMode')}
@@ -403,7 +403,7 @@ export default function AddHospitalPage() {
                     type="button"
                     onClick={generatePassword}
                     disabled={loading}
-                    className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors font-medium disabled:bg-gray-400 disabled:cursor-not-allowed whitespace-nowrap"
                   >
                     Generate Password
                   </button>
@@ -413,17 +413,17 @@ export default function AddHospitalPage() {
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-6 border-t">
+          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 sm:pt-6 border-t">
             <Link
               href="/admin/management" 
-              className="px-6 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors"
+              className="w-full sm:w-auto px-6 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors text-center"
             >
               Cancel
             </Link>
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 rounded-lg bg-teal-600 text-white font-medium hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto px-6 py-2 rounded-lg bg-teal-600 text-white font-medium hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Creating..." : "Add Hospital"}
             </button>

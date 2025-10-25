@@ -53,9 +53,55 @@ export default function WhyChoose() {
   const [mounted, setMounted] = useState(false);
   const [hoveredCard, setHoveredCard] = useState(null);
   const [hoverTimers, setHoverTimers] = useState({});
+  const [visibleCards, setVisibleCards] = useState([]);
+  const [headerVisible, setHeaderVisible] = useState(false);
+  const [illustrationVisible, setIllustrationVisible] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          // Animate illustration first
+          setTimeout(() => {
+            setIllustrationVisible(true);
+          }, 200);
+          
+          // Animate header second
+          setTimeout(() => {
+            setHeaderVisible(true);
+          }, 400);
+          
+          // Staggered animation for cards
+          setTimeout(() => {
+            benefitsData.forEach((_, index) => {
+              setTimeout(() => {
+                setVisibleCards(prev => [...prev, index]);
+              }, index * 150); // 150ms delay between each card
+            });
+          }, 600); // Start cards animation after header
+          
+          observer.unobserve(entry.target);
+        }
+      });
+    }, observerOptions);
+
+    const sectionElement = document.getElementById('benefits');
+    if (sectionElement) {
+      observer.observe(sectionElement);
+    }
+
+    return () => {
+      if (sectionElement) {
+        observer.unobserve(sectionElement);
+      }
+    };
   }, []);
 
   const handleMouseEnter = (index) => {
@@ -89,12 +135,20 @@ export default function WhyChoose() {
         <div className="flex flex-col lg:flex-row gap-5">
           {/* Left side - Bubble animation/image */}
           <div className="lg:w-2/5 flex items-center justify-center">
-            <div className="relative w-full h-64 lg:h-96">
+            <div className={`relative w-full h-64 lg:h-96 transition-all duration-700 ease-out ${
+              illustrationVisible 
+                ? "opacity-100 translate-y-0 scale-100" 
+                : "opacity-0 translate-y-8 scale-95"
+            }`}>
               <FloatingBubbles />
               
               {/* Central illustration/icon */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-40 h-40 lg:w-56 lg:h-56 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-xl">
+                <div className={`w-40 h-40 lg:w-56 lg:h-56 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-xl transition-all duration-700 ease-out ${
+                  illustrationVisible 
+                    ? "scale-100 rotate-0" 
+                    : "scale-75 rotate-12"
+                }`}>
                   <svg className="w-20 h-20 lg:w-28 lg:h-28 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                   </svg>
@@ -105,7 +159,11 @@ export default function WhyChoose() {
 
           {/* Right side - Content */}
           <div className="lg:w-3/5">
-            <div className="text-center lg:text-left mb-12">
+            <div className={`text-center lg:text-left mb-12 transition-all duration-700 ease-out ${
+              headerVisible 
+                ? "opacity-100 translate-y-0" 
+                : "opacity-0 translate-y-8"
+            }`}>
               <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 px-4 py-1.5 rounded-full text-sm font-semibold tracking-wide mb-6">
                 <Sparkles className="w-4 h-4" />
                 <span className="uppercase">Why Choose Us</span>
@@ -127,9 +185,14 @@ export default function WhyChoose() {
                   key={idx}
                   onMouseEnter={() => handleMouseEnter(idx)}
                   onMouseLeave={() => handleMouseLeave(idx)}
-                  className={`group relative bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 sm:p-5 border border-gray-100 transition-all duration-500 overflow-hidden ${
-                    mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
-                  } hover:-translate-y-1 hover:scale-102 cursor-pointer min-h-[180px]`}
+                  className={`group relative bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 sm:p-5 border border-gray-100 transition-all duration-700 ease-out overflow-hidden hover:-translate-y-1 hover:scale-102 cursor-pointer min-h-[180px] ${
+                    visibleCards.includes(idx) 
+                      ? "opacity-100 translate-y-0 scale-100" 
+                      : "opacity-0 translate-y-8 scale-95"
+                  }`}
+                  style={{
+                    transitionDelay: `${idx * 50}ms`
+                  }}
                 >
                   {/* Background Image that appears on hover */}
                   <div className={`absolute inset-0 transition-all duration-500 ease-in-out ${
