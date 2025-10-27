@@ -121,13 +121,13 @@ const Sidebar = ({ items = [] }) => {
       {/* Mobile Menu Button */}
       <button
         onClick={() => setIsMobileMenuOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-[#02173a] text-white rounded-lg shadow-lg hover:bg-slate-800 transition-colors"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-[#111827] text-white rounded-lg shadow-lg hover:bg-slate-800 transition-colors"
       >
         <Menu className="w-6 h-6" />
       </button>
 
       {/* Desktop Sidebar */}
-      <div className="hidden lg:block bg-[#02173a] rounded-r-[4rem] text-white h-screen w-[17rem] flex flex-col fixed left-0 top-0 transition-all duration-500 ease-in-out">
+      <div className="hidden lg:block bg-[#111827] rounded-r-[4rem] text-white h-screen w-[17rem] flex flex-col fixed left-0 top-0 transition-all duration-500 ease-in-out">
         <SidebarContent />
       </div>
 

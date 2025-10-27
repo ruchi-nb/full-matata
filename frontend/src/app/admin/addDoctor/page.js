@@ -245,10 +245,10 @@ export default function SuperAdminAddDoctorPage() {
             <div className="h-full w-64 bg-[#fafaf9] shadow-xl flex-shrink-0">
                 <Sidebar />
             </div>
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-6xl mx-auto p-6">
+        <div className="min-h-screen bg-[#fafaf9] flex-1 flex">
+            <div className="w-full max-w-7xl mx-auto mt-8 py-6 px-4 sm:px-6 lg:px-8 xl:pl-56 xl:pr-16">
                 {/* Header */}
-                <div className="p-6 mb-6">
+                <div className="mb-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900">Create User (Superadmin)</h1>
@@ -258,7 +258,7 @@ export default function SuperAdminAddDoctorPage() {
                 </div>
 
                 {/* Hospital Selection */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 w-full">
                     <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                         <Building2 className="h-5 w-5 mr-2 text-blue-600" />
                         Select Hospital
@@ -272,7 +272,7 @@ export default function SuperAdminAddDoctorPage() {
 
                     {/* Hospital Search and Selection */}
                     <div className="relative">
-                        <div className="flex items-center space-x-2 mb-4">
+                        <div className="flex items-center space-x-4 mb-4">
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 <input
@@ -284,13 +284,13 @@ export default function SuperAdminAddDoctorPage() {
                                         setShowHospitalList(true);
                                     }}
                                     onFocus={() => setShowHospitalList(true)}
-                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                                 />
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setShowHospitalList(!showHospitalList)}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                             >
                                 {showHospitalList ? 'Hide' : 'Show'} List
                             </button>
@@ -322,12 +322,12 @@ export default function SuperAdminAddDoctorPage() {
                         {showHospitalList && (
                             <div className="border border-gray-200 rounded-lg max-h-96 overflow-y-auto">
                                 {loadingHospitals ? (
-                                    <div className="p-4 text-center text-gray-500">
+                                    <div className="p-6 text-center text-gray-500">
                                         <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
                                         Loading hospitals...
                                     </div>
                                 ) : filteredHospitals.length === 0 ? (
-                                    <div className="p-4 text-center text-gray-500">
+                                    <div className="p-6 text-center text-gray-500">
                                         No hospitals found matching your search.
                                     </div>
                                 ) : (
@@ -336,17 +336,17 @@ export default function SuperAdminAddDoctorPage() {
                                             <button
                                                 key={hospital.hospital_id}
                                                 onClick={() => handleHospitalSelect(hospital)}
-                                                className="w-full p-4 text-left hover:bg-gray-50 transition-colors"
+                                                className="w-full p-6 text-left hover:bg-gray-50 transition-colors"
                                             >
                                                 <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <h3 className="font-medium text-gray-900">{hospital.hospital_name}</h3>
-                                                        <p className="text-sm text-gray-500">ID: {hospital.hospital_id}</p>
+                                                    <div className="flex-1">
+                                                        <h3 className="font-medium text-gray-900 text-lg">{hospital.hospital_name}</h3>
+                                                        <p className="text-sm text-gray-500 mt-1">ID: {hospital.hospital_id}</p>
                                                         {hospital.hospital_email && (
                                                             <p className="text-sm text-gray-500">{hospital.hospital_email}</p>
                                                         )}
                                                     </div>
-                                                    <div className="text-sm text-gray-400">
+                                                    <div className="text-sm text-gray-400 font-mono">
                                                         {hospital.hospital_id}
                                                     </div>
                                                 </div>
@@ -361,7 +361,7 @@ export default function SuperAdminAddDoctorPage() {
 
                 {/* User Creation Form */}
                 {selectedHospital ? (
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 w-full">
                         <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
                             <User className="h-5 w-5 mr-2 text-blue-600" />
                             Create User for {selectedHospital.hospital_name}
@@ -381,7 +381,7 @@ export default function SuperAdminAddDoctorPage() {
 
                         <form onSubmit={handleSubmit} className="space-y-6">
                             {/* Personal Information */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         First Name *
@@ -391,7 +391,7 @@ export default function SuperAdminAddDoctorPage() {
                                         required
                                         value={formData.firstName}
                                         onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                                         placeholder="Enter first name"
                                     />
                                 </div>
@@ -403,14 +403,14 @@ export default function SuperAdminAddDoctorPage() {
                                         type="text"
                                         value={formData.lastName}
                                         onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                                         placeholder="Enter last name"
                                     />
                                 </div>
                             </div>
 
                             {/* Contact Information */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         <Mail className="inline h-4 w-4 mr-1" />
@@ -433,7 +433,7 @@ export default function SuperAdminAddDoctorPage() {
                                                 username
                                             }));
                                         }}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                                         placeholder="Enter email address"
                                     />
                                 </div>
@@ -446,7 +446,7 @@ export default function SuperAdminAddDoctorPage() {
                                         type="tel"
                                         value={formData.phone}
                                         onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                                         placeholder="+91 1234567890"
                                     />
                                 </div>
@@ -462,7 +462,7 @@ export default function SuperAdminAddDoctorPage() {
                                     required
                                     value={formData.role}
                                     onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                                 >
                                     <option value="">Select role</option>
                                     <option value="doctor">Doctor</option>
@@ -471,7 +471,7 @@ export default function SuperAdminAddDoctorPage() {
                             </div>
 
                             {/* Login Credentials */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Username *
@@ -543,7 +543,7 @@ export default function SuperAdminAddDoctorPage() {
                                             Professional Details
                                         </h3>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Specialty *
@@ -552,7 +552,7 @@ export default function SuperAdminAddDoctorPage() {
                                                 required
                                                 value={formData.specialty_id}
                                                 onChange={(e) => setFormData(prev => ({ ...prev, specialty_id: e.target.value }))}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                                                 disabled={loadingSpecialties}
                                             >
                                                 <option value="">
@@ -571,11 +571,11 @@ export default function SuperAdminAddDoctorPage() {
                                             )}
                                         </div>
 
-                                        <div className="md:col-span-2">
+                                        <div className="lg:col-span-2 xl:col-span-3">
                                             <label className="block text-sm font-medium text-gray-700 mb-3">
                                                 Languages (Select any)
                                             </label>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                                                 {INDIAN_LANGUAGES.map((lang) => (
                                                     <label key={lang} className="flex items-center space-x-2">
                                                         <input
@@ -623,7 +623,7 @@ export default function SuperAdminAddDoctorPage() {
                         </form>
                     </div>
                 ) : (
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center w-full">
                         <div className="text-gray-500">
                             <Building2 className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                             <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Hospital</h3>

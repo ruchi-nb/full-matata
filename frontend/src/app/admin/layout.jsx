@@ -21,7 +21,7 @@ export default function AdminLayout({ children }) {
   if (userLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50">
-        <LifeLine color="#00bba7" size="large" text="Loading admin panel..." textColor="#374151" />
+        <LifeLine  size="large" text="Loading admin panel..." textColor="#004dd6" />
       </div>
     );
   }

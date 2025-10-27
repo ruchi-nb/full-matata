@@ -6,6 +6,7 @@ import TranscriptList from '@/components/Transcripts/TranscriptList';
 import TranscriptViewer from '@/components/Transcripts/TranscriptViewer';
 import { getDoctorTranscripts, getTranscriptSummary } from '@/services/transcript-service';
 import { getStoredTokens } from '@/data/api';
+import OutlineButton from '@/components/common/OutlineButton';
 
 export default function DoctorTranscriptsPage() {
   const router = useRouter();
@@ -93,34 +94,35 @@ export default function DoctorTranscriptsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white py-8">
+    <div className="min-h-screen mt-[5rem] bg-[#fafaf9] py-8">
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Header */}
         <div className="mb-8">
+        <div className=" mb-8 bg-gradient-to-r from-[#3d85c6] to-[#004dd6] p-4 rounded-2xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="bg-green-600 p-3 rounded-lg">
-                <FileText size={32} className="text-white" />
-              </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Patient Transcripts</h1>
-                <p className="text-gray-600">View consultation history for your patients</p>
+                <h1 className="text-3xl font-bold text-white">Patient Transcripts</h1>
+                <p className="text-gray-900">View consultation history for your patients</p>
               </div>
             </div>
-            <button
+            <OutlineButton
               onClick={handleRefresh}
               disabled={loading}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition disabled:opacity-50"
+              color="yellow"
+              size="medium"
+              className="flex items-center gap-2"
+              icon={<RefreshCw size={18} className={loading ? 'animate-spin' : ''} />}
             >
-              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
               Refresh
-            </button>
+            </OutlineButton>
+          </div>
           </div>
 
           {/* Summary Stats */}
           {summary && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-green-500">
+              <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
                 <p className="text-sm text-gray-600 mb-1">Total Consultations</p>
                 <p className="text-2xl font-bold text-gray-900">{summary.total_transcripts}</p>
               </div>
@@ -128,11 +130,11 @@ export default function DoctorTranscriptsPage() {
                 <p className="text-sm text-gray-600 mb-1">Total Messages</p>
                 <p className="text-2xl font-bold text-gray-900">{summary.total_messages}</p>
               </div>
-              <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-purple-500">
+              <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
                 <p className="text-sm text-gray-600 mb-1">Sessions</p>
                 <p className="text-2xl font-bold text-gray-900">{summary.total_sessions}</p>
               </div>
-              <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-orange-500">
+              <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
                 <p className="text-sm text-gray-600 mb-1">Avg. Messages</p>
                 <p className="text-2xl font-bold text-gray-900">{summary.avg_messages_per_transcript}</p>
               </div>
@@ -148,7 +150,7 @@ export default function DoctorTranscriptsPage() {
                 placeholder="Search by patient name, consultation ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-4 py-3 pl-12 border border-gray-600 rounded-lg focus:border-transparent"
               />
               <Search size={20} className="absolute left-4 top-3.5 text-gray-400" />
             </div>
@@ -158,7 +160,7 @@ export default function DoctorTranscriptsPage() {
               <select
                 value={selectedPatient || ''}
                 onChange={(e) => setSelectedPatient(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent appearance-none bg-white"
+                className="w-full px-4 py-3 pl-12 border border-gray-600 rounded-lg focus:border-transparent appearance-none bg-white"
               >
                 <option value="">All Patients</option>
                 {patients.map(patient => (

@@ -17,7 +17,7 @@ export default function HospitalCards() {
   // Search and pagination state
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(6); // Default to 6 items per page
+  const [pageSize, setPageSize] = useState(4); // Default to 4 items per page
 
   // Load hospitals on component mount
   useEffect(() => {
@@ -152,6 +152,60 @@ export default function HospitalCards() {
     setCurrentPage(prev => Math.min(totalPages, prev + 1));
   };
 
+  // Generate page numbers without repetition
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      // Show all pages if total pages is less than max visible
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+      
+      // Calculate start and end of page range
+      let start = Math.max(2, currentPage - 1);
+      let end = Math.min(totalPages - 1, currentPage + 1);
+      
+      // Adjust if we're at the beginning
+      if (currentPage <= 3) {
+        end = 4;
+      }
+      
+      // Adjust if we're at the end
+      if (currentPage >= totalPages - 2) {
+        start = totalPages - 3;
+      }
+      
+      // Add ellipsis after first page if needed
+      if (start > 2) {
+        pages.push('...');
+      }
+      
+      // Add middle pages
+      for (let i = start; i <= end; i++) {
+        if (i > 1 && i < totalPages) {
+          pages.push(i);
+        }
+      }
+      
+      // Add ellipsis before last page if needed
+      if (end < totalPages - 1) {
+        pages.push('...');
+      }
+      
+      // Always show last page
+      if (totalPages > 1) {
+        pages.push(totalPages);
+      }
+    }
+    
+    return pages;
+  };
+
   return (
     <>
       {/* Loading State */}
@@ -219,10 +273,10 @@ export default function HospitalCards() {
                   onChange={handlePageSizeChange}
                   className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value={3}>3 per page</option>
-                  <option value={6}>6 per page</option>
-                  <option value={9}>9 per page</option>
+                  <option value={4}>4 per page</option>
+                  <option value={8}>8 per page</option>
                   <option value={12}>12 per page</option>
+                  <option value={16}>16 per page</option>
                   <option value={totalItems}>All</option>
                 </select>
               </div>
@@ -341,7 +395,7 @@ export default function HospitalCards() {
         </div>
       )}
 
-      {/* Pagination Controls */}
+      {/* Pagination Controls - FIXED VERSION */}
       {!loading && !error && totalPages > 1 && (
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Pagination Info */}
@@ -361,65 +415,27 @@ export default function HospitalCards() {
               <span className="hidden sm:inline">Previous</span>
             </button>
 
-            {/* Page Numbers */}
+            {/* Page Numbers - Fixed to prevent repetition */}
             <div className="flex items-center gap-1">
-              {/* Show first page */}
-              {currentPage > 3 && (
-                <>
+              {getPageNumbers().map((page, index) => (
+                page === '...' ? (
+                  <span key={`ellipsis-${index}`} className="px-3 py-2 text-sm text-gray-500">
+                    ...
+                  </span>
+                ) : (
                   <button
-                    onClick={() => goToPage(1)}
-                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-700"
-                  >
-                    1
-                  </button>
-                  {currentPage > 4 && (
-                    <span className="px-2 text-gray-500">...</span>
-                  )}
-                </>
-              )}
-
-              {/* Show pages around current page */}
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => goToPage(pageNum)}
+                    key={page}
+                    onClick={() => goToPage(page)}
                     className={`px-3 py-2 text-sm font-medium rounded-md ${
-                      currentPage === pageNum
+                      currentPage === page
                         ? 'text-blue-600 bg-blue-50 border border-blue-300'
                         : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-700'
                     }`}
                   >
-                    {pageNum}
+                    {page}
                   </button>
-                );
-              })}
-
-              {/* Show last page */}
-              {currentPage < totalPages - 2 && (
-                <>
-                  {currentPage < totalPages - 3 && (
-                    <span className="px-2 text-gray-500">...</span>
-                  )}
-                  <button
-                    onClick={() => goToPage(totalPages)}
-                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-700"
-                  >
-                    {totalPages}
-                  </button>
-                </>
-              )}
+                )
+              ))}
             </div>
 
             {/* Next Button */}

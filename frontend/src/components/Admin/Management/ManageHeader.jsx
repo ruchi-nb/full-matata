@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import OutlineButton from "@/components/common/OutlineButton";
 
 export default function AddHospitalModal() {
   const router = useRouter();
@@ -23,12 +24,14 @@ export default function AddHospitalModal() {
 
       {/* Right side - Add Hospital Button */}
       <div className="flex-shrink-0">
-        <button
+        <OutlineButton
           onClick={openModal}
-          className="w-full sm:w-auto px-4 py-2 rounded-lg bg-teal-600 text-white font-medium shadow-sm hover:bg-teal-700 transition-colors text-sm sm:text-base"
+          color="blue"
+          size="medium"
+          className="flex items-center gap-2"
         >
-          + Add Hospital
-        </button>
+          +   Add Hospital
+        </OutlineButton>
       </div>
     </div>
   );

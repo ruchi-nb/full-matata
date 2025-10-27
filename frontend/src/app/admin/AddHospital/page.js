@@ -7,12 +7,9 @@ export default function Page2() {
         <>
         <AdminSidebar />
         <div className="flex h-screen bg-[#fafaf9]">
-        <div className="hidden lg:block h-full w-64 flex-shrink-0">
-            <AdminSidebar />
-        </div>
         <div className="flex-1 flex flex-col overflow-hidden">
             <main className="flex-1 overflow-x-hidden overflow-y-auto ">
-                <div className="p-6 pl-16 lg:pl-6 max-w-4xl mx-auto">
+                <div className="w-full max-w-7xl mx-auto mt-4 py-6 px-4 sm:px-6 lg:px-8 xl:pl-56 xl:pr-16">
                     <AddHospitalPage />
                 </div>
             </main>

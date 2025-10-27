@@ -216,7 +216,7 @@ const ScrollingSections = () => {
   }, []);
 
   return (
-    <>
+    <div className="bg-[#004dd6]">
       {/* Leading Healthcare Institutions Section */}
       <section id="hospitals-section" className={`py-16 bg-[#004dd6] relative transition-all duration-1000 ease-out ${
         hospitalsSectionVisible 
@@ -264,6 +264,9 @@ const ScrollingSections = () => {
                   key={`first-${index}`}
                   className="flex-shrink-0 flex items-center space-x-3 bg-white rounded-xl px-6 py-4 shadow-md hover:shadow-lg transition-all duration-300 min-w-[280px]"
                 >
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                  <p className="text-white">FAKE</p>
+                </div>
                   <div>
                     <h3 className="font-semibold text-gray-900 text-lg">{hospital}</h3>
                     <p className="text-sm text-gray-500">Healthcare Partner</p>
@@ -278,7 +281,7 @@ const ScrollingSections = () => {
                   className="flex-shrink-0 flex items-center space-x-3 bg-white rounded-xl px-6 py-4 shadow-md hover:shadow-lg transition-all duration-300 min-w-[280px]"
                 >
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                    <Shield className="w-6 h-6 text-white" />
+                    <p className="text-white">FAKE</p>
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900 text-lg">{hospital}</h3>
@@ -429,7 +432,7 @@ const ScrollingSections = () => {
           </div>
         </div>
       </section>
-    </>
+    </div>
   );
 };
 

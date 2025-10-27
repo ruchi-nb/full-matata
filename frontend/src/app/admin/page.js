@@ -11,12 +11,9 @@ export default function adminDashPage(){
         <AdminLayout>
             <Sidebar />
             <div className="flex h-screen bg-stone-50">
-                <div className="hidden lg:block h-full w-64 flex-shrink-0">
-                    <Sidebar />
-                </div>
                 <div className="flex-1 flex flex-col overflow-hidden">
                     <main className="flex-1 overflow-x-hidden overflow-y-auto ">
-                        <div className="p-6 pl-16 lg:pl-6 max-w-7xl mx-auto">
+                        <div className="w-full max-w-7xl mx-auto mt-8 py-6 px-4 sm:px-6 lg:px-8 xl:pl-56 xl:pr-16">
                             <DashboardHeader />
                             <Overview />
                             <HospitalList />

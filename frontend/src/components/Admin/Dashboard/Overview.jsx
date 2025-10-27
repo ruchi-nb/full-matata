@@ -107,7 +107,7 @@ const Overview = () => {
               <p className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1 sm:mb-2">{stats.totalHospitals}</p>
               <p className="text-xs sm:text-sm font-medium text-slate-600 truncate"># hospitals onboarded</p>
             </div>
-            <div className="p-2 sm:p-3 rounded-lg bg-teal-50 text-teal-600 flex-shrink-0">
+            <div className="p-2 sm:p-3 rounded-lg bg-sky-50 text-sky-600 flex-shrink-0">
               <Building2 className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
             </div>
           </div>
@@ -121,7 +121,7 @@ const Overview = () => {
               <p className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1 sm:mb-2">{stats.activeHospitals}</p>
               <p className="text-xs sm:text-sm font-medium text-slate-600 truncate"># hospitals active</p>
             </div>
-            <div className="p-2 sm:p-3 rounded-lg bg-green-50 text-green-600 flex-shrink-0">
+            <div className="p-2 sm:p-3 rounded-lg bg-sky-50 text-sky-600 flex-shrink-0">
               <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
             </div>
           </div>
@@ -149,7 +149,7 @@ const Overview = () => {
               <p className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1 sm:mb-2">{stats.activeAvatars}</p>
               <p className="text-xs sm:text-sm font-medium text-slate-600 truncate"># avatars live</p>
             </div>
-            <div className="p-2 sm:p-3 rounded-lg bg-purple-50 text-purple-600 flex-shrink-0">
+            <div className="p-2 sm:p-3 rounded-lg bg-sky-50 text-sky-600 flex-shrink-0">
               <Bot className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
             </div>
           </div>
