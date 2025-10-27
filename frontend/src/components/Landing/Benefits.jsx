@@ -17,7 +17,7 @@ const benefitsData = [
     description:
       "Regulations compliant platform with end-to-end encryption. Your health data is always protected.",
     icon: (<Shield className="w-12 h-12 text-[var(--color-secondary)]" />),
-    badge: "Bank-level Security",
+    badge: "Patient-Centric Privacy",
   },
   {
     title: "Smooth Care",
