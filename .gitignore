@@ -283,6 +283,7 @@ Thumbs.db
 uploads/
 temp/
 cache/
+docs/
 
 .venvT
 .venvT/
