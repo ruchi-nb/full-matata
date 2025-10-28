@@ -87,21 +87,32 @@ class VectorStore:
         self, 
         query_embeddings: List[List[float]], 
         n_results: int = 5,
-        where: Optional[Dict[str, Any]] = None
+        where: Optional[Dict[str, Any]] = None,
+        specialty: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Query the collection for similar documents with optimized settings
+        Query the collection for similar documents with specialty filtering
         
         Args:
             query_embeddings: Query embeddings
             n_results: Number of results to return
             where: Metadata filters (optional)
+            specialty: Filter by medical specialty (e.g., "cardiology")
         
         Returns:
             Query results with documents, metadatas, and distances
         """
         try:
-            # Optimize query for speed - limit results and use fast settings
+            # Build where filter with specialty
+            if specialty:
+                specialty_filter = {"specialty": specialty.lower().strip()}
+                if where:
+                    # Combine filters (AND logic)
+                    where = {"$and": [where, specialty_filter]}
+                else:
+                    where = specialty_filter
+            
+            # Ultra-fast query for low latency
             optimized_n_results = min(n_results, 3)  # Max 3 results for speed
             
             result = self.collection.query(

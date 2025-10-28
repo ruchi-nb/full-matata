@@ -1,9 +1,10 @@
 """
-RAG Service - Production Grade
-Optimized Retrieval-Augmented Generation with Redis caching and fast context building
+RAG Service - Production Grade with Specialty Support
+Optimized Retrieval-Augmented Generation with specialty filtering, citations, and query history
+Ultra-low latency design for real-time medical consultations
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import time
 import logging
 import json
@@ -25,7 +26,7 @@ except Exception as e:
 
 
 class RAGService:
-    """Production-grade RAG service with optimized retrieval and context building"""
+    """Production-grade RAG service with specialty filtering and enhanced features"""
     
     def __init__(self):
         self.client = OpenAI(
@@ -36,36 +37,45 @@ class RAGService:
         )
         self.retriever = RAGRetriever()
         
-        # Track last retrieval for analytics logging
+        # Query history (in-memory, consider moving to Redis for persistence)
+        self._query_history: List[Dict[str, Any]] = []
+        self._max_history_size = 100
+        
+        # Track last retrieval for analytics
         self.last_retrieval_time = 0.0
         self.last_chunks_count = 0
         
-        # ULTRA-FAST: Performance tuning optimized for real-time conversations
-        self._default_k = 2  # Only 2 chunks for speed (was 3)
-        self._default_max_chars = 600  # Reduced for faster processing (was 800)
-        self._min_relevance_score = 0.5  # Higher threshold for better quality
+        # ULTRA-FAST: Performance tuning for real-time conversations
+        self._default_k = 3  # 3 chunks for good context
+        self._default_max_chars = 1500  # More context for better answers
+        self._min_relevance_score = 0.3  # Higher threshold for quality
         
-        # REDIS CACHE: Use Redis for persistent caching across restarts
-        self._cache_ttl = getattr(settings, 'RAG_CACHE_TTL', 300)  # 5 minutes cache TTL
-        self._redis_prefix = "rag:query:"  # Redis key prefix
+        # REDIS CACHE: Persistent caching across restarts
+        self._cache_ttl = getattr(settings, 'RAG_CACHE_TTL', 300)  # 5 minutes
+        self._redis_prefix = "rag:context:"
         self._use_redis = REDIS_AVAILABLE and redis_client is not None
         
-        # Fallback in-memory cache if Redis unavailable
-        self._memory_cache = {}  # {query_hash: (context, timestamp)}
-        self._max_cache_size = 100  # Limit in-memory cache size
+        # Fallback in-memory cache
+        self._memory_cache = {}
+        self._max_cache_size = 100
         
-        if self._use_redis:
-            logger.info("RAG Service initialized with REDIS caching + ULTRA-FAST retrieval")
-        else:
-            logger.warning("RAG Service initialized with IN-MEMORY caching (Redis unavailable)")
+        logger.info(
+            f"RAG Service initialized: "
+            f"{'REDIS caching' if self._use_redis else 'Memory caching'}, "
+            f"k={self._default_k}, max_chars={self._default_max_chars}, "
+            f"min_relevance={self._min_relevance_score}"
+        )
 
-    def _get_cache_key(self, query: str) -> str:
-        """Generate cache key from query"""
-        return str(hash(query.lower().strip()))
+    def _get_cache_key(self, query: str, specialty: Optional[str] = None) -> str:
+        """Generate cache key from query and specialty"""
+        key = query.lower().strip()
+        if specialty:
+            key = f"{specialty.lower()}:{key}"
+        return str(hash(key))
     
-    def _get_cached_context(self, query: str) -> Optional[str]:
-        """Get cached RAG context from Redis (or memory fallback) if available"""
-        cache_key = self._get_cache_key(query)
+    def _get_cached_context(self, query: str, specialty: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Get cached RAG context from Redis (or memory fallback)"""
+        cache_key = self._get_cache_key(query, specialty)
         
         # Try Redis first
         if self._use_redis:
@@ -73,32 +83,32 @@ class RAGService:
                 redis_key = f"{self._redis_prefix}{cache_key}"
                 cached_data = redis_client.get(redis_key)
                 if cached_data:
-                    context = cached_data.decode('utf-8') if isinstance(cached_data, bytes) else cached_data
+                    data = json.loads(cached_data.decode('utf-8') if isinstance(cached_data, bytes) else cached_data)
                     logger.info(f"⚡ REDIS RAG CACHE HIT - Instant retrieval!")
-                    return context
+                    return data
             except Exception as e:
                 logger.warning(f"Redis cache read failed, trying memory: {e}")
         
         # Fallback to in-memory cache
         if cache_key in self._memory_cache:
-            context, timestamp = self._memory_cache[cache_key]
+            data, timestamp = self._memory_cache[cache_key]
             if time.time() - timestamp < self._cache_ttl:
                 logger.info(f"⚡ MEMORY RAG CACHE HIT - Saved retrieval time!")
-                return context
+                return data
             else:
                 del self._memory_cache[cache_key]
         
         return None
     
-    def _cache_context(self, query: str, context: str):
-        """Cache RAG context in Redis (or memory fallback) for future use"""
-        cache_key = self._get_cache_key(query)
+    def _cache_context(self, query: str, context_data: Dict[str, Any], specialty: Optional[str] = None):
+        """Cache RAG context in Redis (or memory fallback)"""
+        cache_key = self._get_cache_key(query, specialty)
         
         # Try Redis first
         if self._use_redis:
             try:
                 redis_key = f"{self._redis_prefix}{cache_key}"
-                redis_client.setex(redis_key, self._cache_ttl, context)
+                redis_client.setex(redis_key, self._cache_ttl, json.dumps(context_data))
                 logger.debug(f"RAG context cached in Redis (TTL: {self._cache_ttl}s)")
                 return
             except Exception as e:
@@ -110,40 +120,44 @@ class RAGService:
                            key=lambda k: self._memory_cache[k][1])
             del self._memory_cache[oldest_key]
         
-        self._memory_cache[cache_key] = (context, time.time())
+        self._memory_cache[cache_key] = (context_data, time.time())
         logger.debug(f"RAG context cached in memory")
 
     def build_context(
         self, 
-        query: str, 
+        query: str,
+        specialty: Optional[str] = None,
         k: int = None, 
         max_chars: int = None,
-        min_relevance: float = None
-    ) -> str:
+        min_relevance: float = None,
+        include_sources: bool = False
+    ) -> Dict[str, Any]:
         """
-        Build RAG context from retrieved chunks with ULTRA-FAST optimizations
+        Build RAG context from retrieved chunks with specialty filtering
         
         Args:
             query: User query
-            k: Number of chunks to retrieve (default: 2)
-            max_chars: Maximum context characters (default: 600)
-            min_relevance: Minimum relevance score 0-1 (default: 0.5)
+            specialty: Medical specialty to filter by (e.g., "cardiology")
+            k: Number of chunks to retrieve (default: 3)
+            max_chars: Maximum context characters (default: 1500)
+            min_relevance: Minimum relevance score 0-1 (default: 0.3)
+            include_sources: Include source citations in response
         
         Returns:
-            Formatted context string
+            Dict with context, sources, and metadata
         """
         # Fast path for simple queries
-        simple_queries = ["hello", "hi", "ok", "thanks", "thank you", "yes", "no", "okay"]
+        simple_queries = {"hello", "hi", "ok", "thanks", "thank you", "yes", "no", "okay"}
         if query.lower().strip() in simple_queries:
-            logger.debug(f"RAG Fast path: Skipping RAG for simple query")
-            return ""
+            logger.debug(f"RAG Fast path: Skipping for simple query")
+            return {"context": "", "sources": [], "chunks_used": 0}
         
-        # CHECK CACHE FIRST (ultra-fast path)
-        cached = self._get_cached_context(query)
+        # CHECK CACHE FIRST
+        cached = self._get_cached_context(query, specialty)
         if cached is not None:
             return cached
         
-        # Optimized parameters for low latency
+        # Optimized parameters
         k = k or self._default_k
         max_chars = max_chars or self._default_max_chars
         min_relevance = min_relevance if min_relevance is not None else self._min_relevance_score
@@ -151,112 +165,144 @@ class RAGService:
         # Validate input
         if not query or not query.strip():
             logger.warning("RAG: Empty query provided")
-            return ""
+            return {"context": "", "sources": [], "chunks_used": 0}
         
-        # Track retrieval time (no timeout - always use RAG)
+        # Track retrieval time
         start_time = time.time()
         
         try:
-            # Always use RAG regardless of latency - no timeout
-            chunks = self.retriever.retrieve(query, k)
+            # Retrieve with specialty filter and sources
+            result = self.retriever.retrieve_with_sources(
+                query=query,
+                k=k,
+                specialty=specialty,
+                min_relevance=min_relevance
+            )
+            
+            chunks = result.get("chunks", [])
+            sources = result.get("sources", [])
+            confidence = result.get("confidence", 0.0)
+            
             self.last_retrieval_time = time.time() - start_time
-            self.last_chunks_count = len(chunks) if chunks else 0
+            self.last_chunks_count = len(chunks)
             
-            # Always use RAG context regardless of latency - no timeout
-            logger.info(f"RAG: Retrieved {len(chunks)} chunks in {self.last_retrieval_time*1000:.0f}ms (no latency limits)")
-            
-            if not chunks:
-                logger.info(f"RAG: No chunks found for query: {query[:50]}...")
-                return ""
-            
-            # Filter by relevance if specified (distance metric: lower is better, 0-2 range)
-            if min_relevance is not None:
-                # Convert min_relevance (0-1, higher is better) to max_distance (0-2, lower is better)
-                max_distance = 2 * (1 - min_relevance)
-                filtered_chunks = [ch for ch in chunks if ch.get('distance', 0) <= max_distance]
-                if len(filtered_chunks) < len(chunks):
-                    logger.info(f"RAG: Filtered {len(chunks) - len(filtered_chunks)} low-relevance chunks")
-                chunks = filtered_chunks
+            logger.info(
+                f"RAG: Retrieved {len(chunks)} chunks in {self.last_retrieval_time*1000:.0f}ms "
+                f"(confidence: {confidence:.2%}{f', specialty: {specialty}' if specialty else ''})"
+            )
             
             if not chunks:
-                logger.info(f"RAG: No relevant chunks after filtering")
-                return ""
+                logger.info(f"RAG: No relevant chunks found")
+                return {"context": "", "sources": [], "chunks_used": 0, "specialty": specialty}
             
-            # ULTRA-FAST: Build context with minimal processing
-            parts: List[str] = []
+            # Build context with smart truncation
+            context_parts: List[str] = []
             total_chars = 0
+            chunks_used = 0
             
-            # SPEED OPTIMIZED: Only use top 2 chunks
-            max_chunks = 2
-            
-            for i, ch in enumerate(chunks[:max_chunks]):
-                text = ch.get('text', '')
-                
-                # Skip empty chunks
-                if not text.strip():
+            for chunk in chunks:
+                text = chunk.get('text', '').strip()
+                if not text:
                     continue
                 
-                # If we already have some chunks and this would exceed limit, stop
-                if parts and total_chars + len(text) > max_chars:
+                # If adding this chunk would exceed limit, check if we should truncate or skip
+                if total_chars + len(text) > max_chars:
+                    if chunks_used == 0:
+                        # First chunk, truncate it
+                        text = text[:max_chars]
+                        context_parts.append(text)
+                        chunks_used += 1
                     break
                 
-                # If this is the first chunk and it's too large, truncate it
-                if not parts and len(text) > max_chars:
-                    text = text[:max_chars]
-                
-                # ULTRA-SIMPLIFIED format for speed (no page numbers in real-time)
-                parts.append(text)
+                context_parts.append(text)
                 total_chars += len(text)
+                chunks_used += 1
             
-            if not parts:
-                logger.debug(f"RAG: No valid chunks after processing")
-                return ""
+            context = "\n\n".join(context_parts)
             
-            ctx = "\n\n".join(parts)
+            # Build response
+            context_data = {
+                "context": context,
+                "chunks_used": chunks_used,
+                "total_chars": len(context),
+                "confidence": confidence,
+                "specialty": specialty,
+                "retrieval_time_ms": int(self.last_retrieval_time * 1000)
+            }
             
-            # CACHE THE RESULT for future identical queries
-            self._cache_context(query, ctx)
+            if include_sources:
+                context_data["sources"] = sources
             
-            avg_relevance = sum((1 - ch.get('distance', 0) / 2) * 100 for ch in chunks[:len(parts)]) / len(parts)
+            # CACHE THE RESULT
+            self._cache_context(query, context_data, specialty)
+            
             logger.info(
-                f"⚡ RAG: {len(parts)} chunks, {len(ctx)} chars, "
-                f"{avg_relevance:.0f}% relevance ({self.last_retrieval_time*1000:.0f}ms)"
+                f"⚡ RAG Context built: {chunks_used} chunks, {len(context)} chars, "
+                f"{confidence:.1%} confidence ({self.last_retrieval_time*1000:.0f}ms)"
             )
-            return ctx
+            
+            return context_data
             
         except Exception as e:
             logger.error(f"RAG context building error: {e}", exc_info=True)
-            return ""
+            return {"context": "", "sources": [], "chunks_used": 0, "error": str(e)}
 
     def answer(
         self, 
-        query: str, 
+        query: str,
+        specialty: Optional[str] = None,
         max_tokens: int = None, 
         temperature: float = None,
+        include_sources: bool = True,
         use_streaming: bool = False
-    ) -> str:
+    ) -> Dict[str, Any]:
         """
-        Generate answer using RAG context (standalone method, not used in main flow)
+        Generate answer using RAG context with specialty filtering
         
         Args:
             query: User query
+            specialty: Medical specialty to filter by
             max_tokens: Max tokens in response
             temperature: Sampling temperature
+            include_sources: Include source citations
             use_streaming: Use streaming API
         
         Returns:
-            Generated answer
+            Dict with answer, sources, and metadata
         """
-        max_tokens = max_tokens or settings.RAG_MAX_TOKENS
-        temperature = temperature or settings.RAG_TEMPERATURE
+        start_time = time.time()
+        max_tokens = max_tokens or getattr(settings, 'RAG_MAX_TOKENS', 500)
+        temperature = temperature or getattr(settings, 'RAG_TEMPERATURE', 0.3)
         
         try:
-            ctx = self.build_context(query)
-            system_prompt = VIRTUAL_DOCTOR_SYSTEM_PROMPT
-            user_prompt = f"Context from book:\n{ctx or '[no relevant context found]'}\n\nPatient question: {query}"
+            # Build context with sources
+            context_result = self.build_context(
+                query, 
+                specialty=specialty,
+                include_sources=include_sources
+            )
             
+            context = context_result.get("context", "")
+            sources = context_result.get("sources", [])
+            confidence = context_result.get("confidence", 0.0)
+            
+            # Build prompt
+            system_prompt = VIRTUAL_DOCTOR_SYSTEM_PROMPT
+            
+            if context:
+                user_prompt = f"""Reference Material from Medical Textbook:
+{context}
+
+Patient Question: {query}
+
+Please provide a clear, accurate answer based on the reference material above."""
+            else:
+                user_prompt = f"""Patient Question: {query}
+
+Note: No specific reference material available for this query. Please provide a general medical response based on your training."""
+            
+            # Generate response
             if use_streaming:
-                # Use streaming for better performance
                 full_response = ""
                 stream = self.client.chat.completions.create(
                     model=settings.OPENAI_MODEL,
@@ -271,9 +317,8 @@ class RAGService:
                 for chunk in stream:
                     if chunk.choices[0].delta.content:
                         full_response += chunk.choices[0].delta.content
-                return full_response
+                answer = full_response
             else:
-                # Non-streaming mode
                 resp = self.client.chat.completions.create(
                     model=settings.OPENAI_MODEL,
                     messages=[
@@ -283,17 +328,83 @@ class RAGService:
                     max_tokens=max_tokens,
                     temperature=temperature,
                 )
-                return resp.choices[0].message.content or ""
+                answer = resp.choices[0].message.content or ""
+            
+            # Build citations if sources available
+            citations = []
+            if include_sources and sources:
+                for idx, source in enumerate(sources, 1):
+                    pages = ", ".join(source.get("pages", []))
+                    citation = f"[{idx}] {source.get('source', 'Unknown')} (pages: {pages}, similarity: {source.get('max_similarity', 0):.1%})"
+                    citations.append(citation)
+            
+            total_time = time.time() - start_time
+            
+            # Store in query history
+            history_entry = {
+                "query": query,
+                "answer": answer,
+                "specialty": specialty,
+                "sources": sources[:3] if sources else [],  # Store top 3 sources
+                "confidence": confidence,
+                "timestamp": time.time(),
+                "total_time_ms": int(total_time * 1000)
+            }
+            
+            self._add_to_history(history_entry)
+            
+            logger.info(
+                f"RAG Answer generated: {len(answer)} chars in {total_time*1000:.0f}ms "
+                f"(confidence: {confidence:.1%}, sources: {len(sources)})"
+            )
+            
+            return {
+                "answer": answer,
+                "citations": citations,
+                "sources": sources if include_sources else [],
+                "confidence": confidence,
+                "specialty": specialty,
+                "metrics": {
+                    "total_time_ms": int(total_time * 1000),
+                    "chunks_used": context_result.get("chunks_used", 0),
+                    "context_chars": len(context)
+                }
+            }
                 
         except Exception as e:
             logger.error(f"RAG answer generation error: {e}", exc_info=True)
-            return "I'm sorry, I couldn't generate an answer right now."
+            return {
+                "answer": "I'm sorry, I couldn't generate an answer right now.",
+                "citations": [],
+                "sources": [],
+                "error": str(e)
+            }
+    
+    def _add_to_history(self, entry: Dict[str, Any]):
+        """Add query to history with size limit"""
+        self._query_history.append(entry)
+        if len(self._query_history) > self._max_history_size:
+            self._query_history.pop(0)
+    
+    def get_history(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get recent query history"""
+        return self._query_history[-limit:]
+    
+    def clear_history(self):
+        """Clear query history"""
+        self._query_history.clear()
+        logger.info("Query history cleared")
     
     def get_stats(self) -> dict:
         """Get RAG service statistics"""
+        retriever_stats = self.retriever.get_cache_stats()
+        
         return {
             "last_retrieval_time_ms": int(self.last_retrieval_time * 1000),
             "last_chunks_count": self.last_chunks_count,
-            "cache_size": len(self.retriever._embedding_cache),
-            "cache_hit_rate": self.retriever.get_cache_stats().get("hit_rate", 0)
+            "query_history_size": len(self._query_history),
+            "embedding_cache_size": retriever_stats.get("cache_size", 0),
+            "embedding_cache_hit_rate": retriever_stats.get("hit_rate", 0),
+            "context_cache_type": "redis" if self._use_redis else "memory",
+            "context_cache_size": len(self._memory_cache) if not self._use_redis else "N/A"
         }

@@ -255,19 +255,21 @@ class OpenAIChatService:
                     return cached
             
             # Build RAG context if available and enabled
-            rag_context = ""
+            rag_context_text = ""
             if use_rag and self.rag_service:
                 try:
-                    rag_context = self.rag_service.build_context(prompt)
-                    if rag_context:
-                        logger.info(f" RAG context: {len(rag_context)} chars")
+                    rag_result = self.rag_service.build_context(prompt)
+                    # Extract the actual context text from the dictionary
+                    rag_context_text = rag_result.get("context", "") if isinstance(rag_result, dict) else str(rag_result)
+                    if rag_context_text:
+                        logger.info(f" RAG context: {len(rag_context_text)} chars")
                 except Exception as e:
                     logger.warning(f" RAG retrieval failed: {e}")
             
             # Enhance user prompt with RAG context if available
             enhanced_prompt = prompt
-            if rag_context:
-                enhanced_prompt = f"Relevant medical book context:\n{rag_context}\n\nPatient question: {prompt}"
+            if rag_context_text:
+                enhanced_prompt = f"Relevant medical book context:\n{rag_context_text}\n\nPatient question: {prompt}"
             
             if session_id:
                 session_manager = SessionManager()
@@ -329,21 +331,23 @@ class OpenAIChatService:
             base_system_prompt = system_prompt or VIRTUAL_DOCTOR_SYSTEM_PROMPT
             
             # Build RAG context if available and enabled
-            rag_context = ""
+            rag_context_text = ""
             if use_rag and self.rag_service:
                 try:
                     rag_start = time.time()
-                    rag_context = self.rag_service.build_context(prompt)
+                    rag_result = self.rag_service.build_context(prompt)
                     rag_time = int((time.time() - rag_start) * 1000)
-                    if rag_context:
-                        logger.info(f" RAG context: {len(rag_context)} chars ({rag_time}ms)")
+                    # Extract the actual context text from the dictionary
+                    rag_context_text = rag_result.get("context", "") if isinstance(rag_result, dict) else str(rag_result)
+                    if rag_context_text:
+                        logger.info(f" RAG context: {len(rag_context_text)} chars ({rag_time}ms)")
                 except Exception as e:
                     logger.warning(f" RAG retrieval failed: {e}")
             
             # Enhance user prompt with RAG context if available
             enhanced_prompt = prompt
-            if rag_context:
-                enhanced_prompt = f"Relevant medical book context:\n{rag_context}\n\nPatient question: {prompt}"
+            if rag_context_text:
+                enhanced_prompt = f"Relevant medical book context:\n{rag_context_text}\n\nPatient question: {prompt}"
             
             if session_id:
                 session_manager = SessionManager()
